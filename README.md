@@ -1,0 +1,1 @@
+# AI Detail Page Generator
