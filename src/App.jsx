@@ -319,18 +319,31 @@ export default function App() {
     const { revisionRequest = '', previousCopy = null } = options;
     setError('');
 
+    // 🔍 디버그: 생성 시작 로그 (문제 파악용)
+    console.log(`[handleGenerate] ${pageNumber} 시작`, {
+      hasApiKey: !!apiKey.trim(),
+      imageCount: images.length,
+      productName: brief.productName,
+      revisionRequest: revisionRequest || '(없음)',
+    });
+
+    // API 키 먼저 체크 (빠른 실패)
+    if (!apiKey.trim()) {
+      setError('⚠️ 섹션 1에서 OpenAI API 키를 입력해주세요.');
+      console.warn('[handleGenerate] API 키 없음');
+      return;
+    }
+
     // 공통 필수 체크 — blocking만 생성 차단, warnings는 무시 (AI가 채움)
     const common = validateCommonBrief(brief, images);
     if (!common.ok) {
-      setError(`다음 필수 정보가 부족합니다: ${(common.blocking || common.missing).join(', ')}`);
+      const missing = (common.blocking || common.missing).join(', ');
+      setError(`⚠️ 다음 필수 정보가 부족합니다: ${missing}\n→ 섹션 3(제품명) / 섹션 4(제품 사진 1장 이상)를 먼저 입력해주세요.`);
+      console.warn('[handleGenerate] 필수 정보 부족:', missing);
       return;
     }
     // 페이지별 체크는 경고만 — AI가 자동으로 채움
     validatePageRequirements(pageNumber, brief);
-    if (!apiKey.trim()) {
-      setError('OpenAI API 키를 입력해주세요.');
-      return;
-    }
 
     if (revisionRequest) setIsRevising(true); else setIsLoading(true);
     try {
@@ -340,6 +353,7 @@ export default function App() {
         .map((p) => `${p}: ${pages[p]?.pagePurpose || ''}`)
         .join('\n');
 
+      console.log(`[handleGenerate] ${pageNumber} API 호출 시작 (model=${model})`);
       const result = await generateCoupangPage({
         apiKey: apiKey.trim(),
         model,
@@ -351,6 +365,17 @@ export default function App() {
         previousCopy,
         revisionHistory: revisionHistory[pageNumber] || [], // 누적 수정 히스토리
       });
+      console.log(`[handleGenerate] ${pageNumber} 응답 수신`, {
+        hasCopy: !!result?.copy,
+        needsMoreInfo: result?.needsMoreInfo,
+        missingItems: result?.missingItems,
+      });
+
+      // AI가 needsMoreInfo: true로 답하면 에러로 표시
+      if (result?.needsMoreInfo) {
+        const items = (result.missingItems || []).join(', ');
+        setError(`🤖 AI가 정보 부족으로 생성을 거부했습니다: ${items || '상세 정보 필요'}\n→ 섹션 3~5에서 더 구체적으로 입력하거나 '빈 칸 채우기'를 먼저 눌러주세요.`);
+      }
 
       setPages((prev) => ({ ...prev, [pageNumber]: result }));
       setCurrentPage(pageNumber);
@@ -375,7 +400,8 @@ export default function App() {
         }));
       }
     } catch (err) {
-      setError(err.message || '알 수 없는 오류가 발생했습니다.');
+      console.error(`[handleGenerate] ${pageNumber} 실패`, err);
+      setError(`❌ ${pageNumber} 생성 실패: ${err.message || err}\n→ 브라우저 콘솔(F12)에서 자세한 에러를 확인할 수 있습니다.`);
     } finally {
       setIsLoading(false);
       setIsRevising(false);
@@ -963,8 +989,17 @@ export default function App() {
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg border mb-3 text-sm" style={{ backgroundColor: '#fef2f2', borderColor: '#fecaca', color: '#991b1b' }}>
-                ⚠️ {error}
+              <div
+                className="p-4 rounded-lg border-2 mb-3 text-sm font-semibold"
+                style={{
+                  backgroundColor: '#fef2f2',
+                  borderColor: '#ef4444',
+                  color: '#991b1b',
+                  whiteSpace: 'pre-line',  // \n 줄바꿈 표시
+                  lineHeight: 1.5,
+                }}
+              >
+                {error}
               </div>
             )}
 
