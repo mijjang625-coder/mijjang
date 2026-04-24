@@ -1,0 +1,23 @@
+@import url('https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f0ebe4;
+  color: #2F2A26;
+}
+
+.coupang-page, .coupang-page * {
+  font-family: 'NanumSquare', '나눔스퀘어', 'NanumSquareOTF', 'Pretendard', system-ui, sans-serif !important;
+}
