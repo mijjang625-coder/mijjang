@@ -65,6 +65,16 @@ const DEFAULT_BRIEF = {
   ],
   hasGeneralProductPhoto: false,
   extraNotes: '',
+  // 필수표기사항 (쿠팡 상품 상세페이지 하단에 표시)
+  compliance: {
+    modelName: '',        // 품명 및 모델명
+    sizeWeight: '',       // 크기/무게
+    color: '',            // 색상
+    material: '',         // 재질
+    manufacturer: '',     // 제조자/수입자
+    origin: '',           // 제조국
+    asContact: '',        // A/S 책임자 및 연락처
+  },
   // 톤앤매너
   themeId: 'warmBeige',
 };
@@ -783,6 +793,79 @@ export default function App() {
             <Field label="보유 사진 종류" required>
               <input value={brief.photoTypes} onChange={(e) => updateBrief({ photoTypes: e.target.value })} placeholder="예) 제품 단독컷, 디테일컷, 사용 장면컷, 라이프스타일컷" className="input" />
             </Field>
+
+            {/* ─────────── 필수표기사항 (쿠팡 하단 필수 정보) ─────────── */}
+            <div
+              className="mt-4 p-3 rounded-lg border"
+              style={{ backgroundColor: '#FFF8F0', borderColor: '#FDBA74' }}
+            >
+              <div className="text-sm font-extrabold mb-1" style={{ color: '#C2410C' }}>
+                📋 상품 필수표기사항 (P10 하단에 자동 삽입)
+              </div>
+              <div className="text-[11px] mb-3" style={{ color: '#9A3412' }}>
+                전자상거래법에 따른 필수 표기 정보입니다. 비우면 AI가 일반적인 값으로 자동 채웁니다.
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="품명 및 모델명">
+                  <input
+                    value={brief.compliance?.modelName || ''}
+                    onChange={(e) => updateBrief({ compliance: { ...brief.compliance, modelName: e.target.value } })}
+                    placeholder="예) 주방선반 SK-100"
+                    className="input"
+                  />
+                </Field>
+                <Field label="크기/무게">
+                  <input
+                    value={brief.compliance?.sizeWeight || ''}
+                    onChange={(e) => updateBrief({ compliance: { ...brief.compliance, sizeWeight: e.target.value } })}
+                    placeholder="예) 40×60×15cm / 1.2kg"
+                    className="input"
+                  />
+                </Field>
+                <Field label="색상">
+                  <input
+                    value={brief.compliance?.color || ''}
+                    onChange={(e) => updateBrief({ compliance: { ...brief.compliance, color: e.target.value } })}
+                    placeholder="예) 실버, 화이트, 블랙"
+                    className="input"
+                  />
+                </Field>
+                <Field label="재질">
+                  <input
+                    value={brief.compliance?.material || ''}
+                    onChange={(e) => updateBrief({ compliance: { ...brief.compliance, material: e.target.value } })}
+                    placeholder="예) 스테인리스 304"
+                    className="input"
+                  />
+                </Field>
+                <Field label="제조자/수입자">
+                  <input
+                    value={brief.compliance?.manufacturer || ''}
+                    onChange={(e) => updateBrief({ compliance: { ...brief.compliance, manufacturer: e.target.value } })}
+                    placeholder="예) (주)○○기업"
+                    className="input"
+                  />
+                </Field>
+                <Field label="제조국">
+                  <input
+                    value={brief.compliance?.origin || ''}
+                    onChange={(e) => updateBrief({ compliance: { ...brief.compliance, origin: e.target.value } })}
+                    placeholder="예) 대한민국 / 중국"
+                    className="input"
+                  />
+                </Field>
+                <div className="col-span-2">
+                  <Field label="A/S 책임자 및 연락처">
+                    <input
+                      value={brief.compliance?.asContact || ''}
+                      onChange={(e) => updateBrief({ compliance: { ...brief.compliance, asContact: e.target.value } })}
+                      placeholder="예) 고객센터 1588-0000 (평일 10:00-17:00)"
+                      className="input"
+                    />
+                  </Field>
+                </div>
+              </div>
+            </div>
           </Section>
 
           <Section title="4. 제품 사진 업로드" emoji="📸" required>

@@ -25,6 +25,7 @@ function serializeUserBrief(brief, imageCount) {
     faqs = [],
     hasGeneralProductPhoto,
     extraNotes,
+    compliance,
   } = brief || {};
 
   const lines = [];
@@ -69,6 +70,18 @@ function serializeUserBrief(brief, imageCount) {
 
   lines.push(`[비교용 일반 제품 사진] ${hasGeneralProductPhoto ? '있음' : '없음 — 중립 아이콘/실루엣으로 대체'}`);
 
+  // 필수표기사항 (P10 하단 섹션용)
+  if (compliance) {
+    lines.push(`[필수표기사항 (P10 하단 자동 삽입)]`);
+    lines.push(`  - 품명 및 모델명: ${compliance.modelName || '(미입력 — 제품명으로 자동)'}`);
+    lines.push(`  - 크기/무게: ${compliance.sizeWeight || '(미입력 — 사이즈/스펙 참조)'}`);
+    lines.push(`  - 색상: ${compliance.color || '(미입력 — 사진에서 유추)'}`);
+    lines.push(`  - 재질: ${compliance.material || '(미입력 — 소재 필드 참조)'}`);
+    lines.push(`  - 제조자/수입자: ${compliance.manufacturer || '(미입력 — "상세페이지 참조"로 표기)'}`);
+    lines.push(`  - 제조국: ${compliance.origin || '(미입력 — "상세페이지 참조"로 표기)'}`);
+    lines.push(`  - A/S 책임자 및 연락처: ${compliance.asContact || '(미입력 — "구매처 고객센터"로 표기)'}`);
+  }
+
   if (extraNotes) lines.push(`[추가 메모] ${extraNotes}`);
 
   return lines.join('\n');
@@ -99,6 +112,10 @@ export async function autoFillBrief({ apiKey, model = 'gpt-4o-mini', brief, imag
     usageSteps: brief.usageSteps || ['', '', ''],
     faqs: brief.faqs || [],
     extraNotes: brief.extraNotes || '',
+    compliance: brief.compliance || {
+      modelName: '', sizeWeight: '', color: '', material: '',
+      manufacturer: '', origin: '', asContact: '',
+    },
   };
 
   const systemPrompt = `당신은 쿠팡 생활용품 상세페이지 기획자입니다.
@@ -138,7 +155,16 @@ ${JSON.stringify(currentBrief, null, 2)}
   "usages": ["...", ...4개],
   "usageSteps": ["...", "...", "..."],
   "faqs": [{"q": "...", "a": "..."}, ...5개],
-  "extraNotes": "..."
+  "extraNotes": "...",
+  "compliance": {
+    "modelName": "품명 및 모델명 (제품명 기반, 미입력 시 제품명 그대로)",
+    "sizeWeight": "크기/무게 (sizeSpec 참조)",
+    "color": "색상 (제품명/사진에서 유추, 불명확하면 '상세페이지 참조')",
+    "material": "재질 (material 필드 그대로)",
+    "manufacturer": "제조자/수입자 (유저 입력 없으면 '상세페이지 참조')",
+    "origin": "제조국 (유저 입력 없으면 '상세페이지 참조')",
+    "asContact": "A/S 책임자 및 연락처 (유저 입력 없으면 '구매처 고객센터')"
+  }
 }`;
 
   const response = await fetch(OPENAI_URL, {
@@ -221,6 +247,19 @@ ${JSON.stringify(currentBrief, null, 2)}
   };
   mergeObjArr('reviews', 4, (r) => !r?.nickname?.trim() && !r?.body?.trim());
   mergeObjArr('faqs', 5, (f) => !f?.q?.trim() && !f?.a?.trim());
+
+  // compliance(필수표기사항): 객체 내 빈 필드만 채움
+  const existingCompliance = merged.compliance || {};
+  const filledCompliance = filled.compliance || {};
+  const complianceKeys = ['modelName', 'sizeWeight', 'color', 'material', 'manufacturer', 'origin', 'asContact'];
+  const mergedCompliance = {};
+  complianceKeys.forEach((k) => {
+    const cur = existingCompliance[k];
+    mergedCompliance[k] = (typeof cur === 'string' && cur.trim())
+      ? cur
+      : (filledCompliance[k] || '');
+  });
+  merged.compliance = mergedCompliance;
 
   return merged;
 }

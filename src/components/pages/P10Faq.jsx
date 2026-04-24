@@ -65,8 +65,8 @@ function InfoPanel({ sectionTitle, items, bg }) {
   );
 }
 
-// P10: 구성품 안내 + 배송/A.S. + FAQ 5개
-// 분량 확장 — 구성품 강조 + 배송/A.S. 안내 + FAQ
+// P10: 구성품 안내 + 배송/A.S. + FAQ 5개 + 필수표기사항
+// 분량 확장 — 구성품 강조 + 배송/A.S. 안내 + FAQ + 전자상거래법 필수표기
 export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
   const {
     components = { title: '구성품 안내', bullets: [] },
@@ -76,7 +76,24 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
     shippingInfo = [],
     csInfo = [],
     careInfo = [],
+    // 필수표기사항 — 전자상거래법 기준 7개 항목
+    compliance = {},
   } = copy;
+
+  // 필수표기사항 항목 정의 (표시 순서 + 라벨)
+  const complianceRows = [
+    { label: '품명 및 모델명',      value: compliance.modelName },
+    { label: '크기 / 무게',          value: compliance.sizeWeight },
+    { label: '색상',                  value: compliance.color },
+    { label: '재질',                  value: compliance.material },
+    { label: '제조자 / 수입자',      value: compliance.manufacturer },
+    { label: '제조국',                value: compliance.origin },
+    { label: 'A/S 책임자 및 연락처', value: compliance.asContact },
+  ].map((r) => ({
+    ...r,
+    // 빈 값은 '상세페이지 참조'로 대체 (안전한 기본값)
+    value: r.value?.trim() ? r.value : '상세페이지 참조',
+  }));
 
   // 기본값 — AI가 주지 않았을 때 쓰이는 안전한 범용 문구
   const defaultShipping = [
@@ -103,7 +120,7 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
   const cs = csRaw.length > 0 ? csRaw : defaultCs;
 
   return (
-    <PageFrame height={2100} bg={BRAND.colors.white}>
+    <PageFrame height={2600} bg={BRAND.colors.white}>
       {/* ─────────── 1. 구성품 안내 (강조) ─────────── */}
       <div style={{ padding: '50px 40px 30px' }}>
         <div style={{ textAlign: 'center' }}>
@@ -252,10 +269,85 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
         </div>
       </div>
 
-      {/* ─────────── 4. 마감 CTA 영역 ─────────── */}
+      <div style={{ padding: '10px 40px' }}>
+        <Divider color={BRAND.colors.main} dashed />
+      </div>
+
+      {/* ─────────── 4. 상품 필수표기사항 (전자상거래법) ─────────── */}
+      <div style={{ padding: '30px 40px 20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 22 }}>
+          <SectionTitle size={32}>상품 필수표기사항</SectionTitle>
+          <div
+            style={{
+              marginTop: 8,
+              color: BRAND.colors.neutralText,
+              fontSize: 16,
+              fontWeight: 500,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            전자상거래 등에서의 상품정보제공 고시 기준
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: `1.5px solid ${BRAND.colors.neutral}`,
+            borderRadius: 12,
+            overflow: 'hidden',
+            backgroundColor: '#fff',
+          }}
+        >
+          {complianceRows.map((row, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '200px 1fr',
+                borderBottom:
+                  i === complianceRows.length - 1
+                    ? 'none'
+                    : `1px solid ${BRAND.colors.neutral}`,
+              }}
+            >
+              <div
+                style={{
+                  padding: '14px 16px',
+                  backgroundColor: BRAND.colors.sub,
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: BRAND.colors.text,
+                  letterSpacing: '-0.02em',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {row.label}
+              </div>
+              <div
+                style={{
+                  padding: '14px 18px',
+                  fontSize: 16,
+                  fontWeight: 500,
+                  color: BRAND.colors.text,
+                  lineHeight: 1.45,
+                  letterSpacing: '-0.02em',
+                  wordBreak: 'keep-all',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {row.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─────────── 5. 마감 CTA 영역 ─────────── */}
       <div
         style={{
-          margin: '0 40px 50px',
+          margin: '20px 40px 50px',
           backgroundColor: BRAND.colors.main,
           borderRadius: 18,
           padding: '30px 28px',
