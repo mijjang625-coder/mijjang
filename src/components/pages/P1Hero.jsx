@@ -1,8 +1,17 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, SectionTitle, CheckIcon, Body } from './Shared.jsx';
+import { PageFrame, Img, CheckIcon } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // P1: 메인 히어로 + 강점 카드 3개
-export default function P1Hero({ copy = {}, image, variant = 0 }) {
+// editMode / overrides / onOverrideChange: 인라인 편집 지원
+export default function P1Hero({
+  copy = {},
+  image,
+  variant = 0,
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
   const {
     mainHeadline = '제품의 핵심을 한 줄로',
     subHeadline = '',
@@ -13,14 +22,50 @@ export default function P1Hero({ copy = {}, image, variant = 0 }) {
   // variant에 따라 체크 아이콘 모양 변경 (다시 생성할 때마다 다른 모양)
   const checkVariant = variant;
 
+  // EditableText용 공통 props 헬퍼
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
+
   return (
     <PageFrame height={1200} bg={BRAND.colors.white}>
       {/* 상단 70% — 메인 타이틀 120% 확대 */}
       <div style={{ padding: '60px 50px 30px', textAlign: 'center' }}>
-        <SectionTitle size={48}>{mainHeadline}</SectionTitle>
-        {subHeadline && (
+        <EditableText
+          {...editPropsFor('P1.mainHeadline')}
+          as="h2"
+          defaultStyle={{
+            fontSize: 48,
+            fontWeight: 900,
+            color: BRAND.colors.text,
+            textAlign: 'center',
+            letterSpacing: '-0.04em',
+            margin: 0,
+            lineHeight: 1.25,
+          }}
+        >
+          {mainHeadline}
+        </EditableText>
+        {(subHeadline || editMode) && (
           <div style={{ marginTop: 20 }}>
-            <Body size={24} align="center">{subHeadline}</Body>
+            <EditableText
+              {...editPropsFor('P1.subHeadline')}
+              as="p"
+              defaultStyle={{
+                fontSize: 24,
+                fontWeight: 500,
+                color: BRAND.colors.text,
+                textAlign: 'center',
+                margin: 0,
+                lineHeight: 1.5,
+              }}
+              placeholder={editMode ? '(서브 헤드라인)' : ''}
+            >
+              {subHeadline}
+            </EditableText>
           </div>
         )}
         <div style={{ marginTop: 36 }}>
@@ -57,8 +102,10 @@ export default function P1Hero({ copy = {}, image, variant = 0 }) {
               <CheckIcon size={28} variant={checkVariant + i} />
 
               {/* 타이틀 — 1줄 고정 */}
-              <div
-                style={{
+              <EditableText
+                {...editPropsFor(`P1.strengthCards.${i}.title`)}
+                as="div"
+                defaultStyle={{
                   width: '100%',
                   fontSize: 20,
                   fontWeight: 900,
@@ -66,20 +113,22 @@ export default function P1Hero({ copy = {}, image, variant = 0 }) {
                   lineHeight: 1.2,
                   letterSpacing: '-0.04em',
                   wordBreak: 'keep-all',
-                  whiteSpace: 'nowrap',
+                  whiteSpace: editMode ? 'normal' : 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  height: 26,
+                  minHeight: 26,
                   padding: '0 4px',
+                  textAlign: 'center',
                 }}
-                title={c.title}
               >
                 {c.title}
-              </div>
+              </EditableText>
 
               {/* 설명 — 서브글씨 150% 확대 (15 → 22.5pt), 3줄까지 허용 */}
-              <div
-                style={{
+              <EditableText
+                {...editPropsFor(`P1.strengthCards.${i}.desc`)}
+                as="div"
+                defaultStyle={{
                   width: '100%',
                   fontSize: 22,                 // 요청: 기존 15pt → 150% (≈22pt)
                   fontWeight: 500,
@@ -88,33 +137,39 @@ export default function P1Hero({ copy = {}, image, variant = 0 }) {
                   letterSpacing: '-0.03em',
                   wordBreak: 'keep-all',
                   whiteSpace: 'pre-line',
-                  display: '-webkit-box',
+                  display: editMode ? 'block' : '-webkit-box',
                   WebkitLineClamp: 3,           // 3줄 허용
                   WebkitBoxOrient: 'vertical',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   // 22 × 1.35 × 3 ≈ 89px
-                  height: 90,
+                  minHeight: 90,
                   padding: '0 2px',
+                  textAlign: 'center',
                 }}
               >
                 {c.desc}
-              </div>
+              </EditableText>
             </div>
           ))}
         </div>
-        {trustLine && (
+        {(trustLine || editMode) && (
           <div style={{ marginTop: 28, textAlign: 'center' }}>
-            <span
-              style={{
+            <EditableText
+              {...editPropsFor('P1.trustLine')}
+              as="span"
+              defaultStyle={{
+                display: 'inline-block',
                 fontSize: 22,
                 fontWeight: 700,
                 color: BRAND.colors.text,
                 letterSpacing: '-0.02em',
+                textAlign: 'center',
               }}
+              placeholder={editMode ? '(신뢰 한 줄)' : ''}
             >
               {trustLine}
-            </span>
+            </EditableText>
           </div>
         )}
       </div>

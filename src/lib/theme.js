@@ -3,7 +3,55 @@
 // 사용자가 톤앤매너를 선택하면 BRAND.colors가 해당 테마로 스왑됩니다.
 
 export const FONT_FAMILY =
-  "'NanumSquare','나눔스퀘어','NanumSquareOTF','Pretendard',system-ui,-apple-system,sans-serif";
+  "'Pretendard Variable','Pretendard','NanumSquare','나눔스퀘어','NanumSquareOTF',system-ui,-apple-system,sans-serif";
+
+// ─────────── 폰트 프리셋 5종 (무료 상업용 한글 폰트) ───────────
+// 사용자가 섹션 1에서 선택하면 전체 P1~P10에 일괄 적용됨.
+// 모두 CDN(Google Fonts / jsdelivr)에서 로드되며 상업적 사용이 가능합니다.
+export const FONT_PRESETS = {
+  pretendard: {
+    id: 'pretendard',
+    name: 'Pretendard (기본)',
+    description: '모던하고 깔끔한 전방위 고딕 · 가독성 최고',
+    family: "'Pretendard Variable','Pretendard',system-ui,-apple-system,sans-serif",
+    sample: '프리텐다드 AaBb 123',
+  },
+  nanumGothic: {
+    id: 'nanumGothic',
+    name: '나눔고딕',
+    description: '전통적이고 친숙한 한국 대표 고딕',
+    family: "'Nanum Gothic','나눔고딕',sans-serif",
+    sample: '나눔고딕 AaBb 123',
+  },
+  notoSansKR: {
+    id: 'notoSansKR',
+    name: 'Noto Sans KR',
+    description: '구글 공식 · 다양한 굵기 지원 · 안정적',
+    family: "'Noto Sans KR',sans-serif",
+    sample: '노토 산스 AaBb 123',
+  },
+  jua: {
+    id: 'jua',
+    name: '배달의민족 주아',
+    description: '둥글고 귀여운 느낌 · 유쾌한 생활용품',
+    family: "'Jua',sans-serif",
+    sample: '주아 AaBb 123',
+  },
+  gaegu: {
+    id: 'gaegu',
+    name: '개구쟁이',
+    description: '손글씨 느낌 · 감성 · 수공예 · 선물',
+    family: "'Gaegu',cursive",
+    sample: '개구쟁이 AaBb 123',
+  },
+  gowunDodum: {
+    id: 'gowunDodum',
+    name: '고운 도둠',
+    description: '세련되고 도톰한 모던 세리프',
+    family: "'Gowun Dodum',serif",
+    sample: '고운 도둠 AaBb 123',
+  },
+};
 
 // 톤앤매너 프리셋 — 생활/인테리어/감성 상품에 자주 쓰이는 조합
 export const THEME_PRESETS = {
@@ -109,5 +157,12 @@ export const BRAND = {
 export function applyTheme(themeId) {
   const preset = THEME_PRESETS[themeId] || THEME_PRESETS.warmBeige;
   BRAND.colors = preset.colors;
+  return preset;
+}
+
+// 선택된 폰트로 BRAND.fontFamily 스왑 (전체 페이지 일괄 변경)
+export function applyFont(fontId) {
+  const preset = FONT_PRESETS[fontId] || FONT_PRESETS.pretendard;
+  BRAND.fontFamily = preset.family;
   return preset;
 }

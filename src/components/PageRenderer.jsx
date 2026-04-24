@@ -36,9 +36,21 @@ const PAGE_IMAGE_MAP = {
 };
 
 const PageRenderer = forwardRef(function PageRenderer(
-  { pageNumber, copy, images = [], version = 'text', variant = 0 },
+  {
+    pageNumber,
+    copy,
+    images = [],
+    version = 'text',
+    variant = 0,
+    editMode = false,
+    overrides = {},
+    onOverrideChange = () => {},
+  },
   ref,
 ) {
+  // 공통 편집 props — 각 페이지 컴포넌트가 EditableText를 지원하면 사용
+  const editProps = { editMode, overrides, onOverrideChange };
+
   // 순환 접근 — 사진이 부족하면 % 로 돌려 재사용
   const pick = (idx) => {
     if (!images || images.length === 0) return undefined;
@@ -58,7 +70,7 @@ const PageRenderer = forwardRef(function PageRenderer(
 
   switch (pageNumber) {
     case 'P1':
-      return <div ref={ref}><P1Hero copy={copy} image={pick(PAGE_IMAGE_MAP.P1.start)} variant={variant} /></div>;
+      return <div ref={ref}><P1Hero copy={copy} image={pick(PAGE_IMAGE_MAP.P1.start)} variant={variant} {...editProps} /></div>;
 
     case 'P2':
       return <div ref={ref}><P2Benefits copy={copy} images={imagesFor('P2')} /></div>;

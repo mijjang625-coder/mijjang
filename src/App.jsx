@@ -9,7 +9,7 @@ import {
   autoFillBrief,
 } from './lib/openai.js';
 import { downloadAsImage, downloadAsHtml } from './lib/exporters.js';
-import { THEME_PRESETS, applyTheme } from './lib/theme.js';
+import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 
 const PAGE_LIST = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10'];
 
@@ -77,6 +77,8 @@ const DEFAULT_BRIEF = {
   },
   // 톤앤매너
   themeId: 'warmBeige',
+  // 전역 폰트 (모든 페이지에 일괄 적용)
+  fontId: 'pretendard',
 };
 
 export default function App() {
@@ -118,12 +120,48 @@ export default function App() {
   // { P1: 0, P2: 0, ... } (초기 생성은 0, 다시 생성마다 +1)
   const [pageVariants, setPageVariants] = useState({});
 
+  // 인라인 편집 모드 — 미리보기 위에서 더블클릭으로 텍스트 직접 수정
+  const [editMode, setEditMode] = useState(false);
+  // 페이지별 텍스트 오버라이드
+  // { P1: { "mainHeadline": { text, style, offset }, "subHeadline": {...}, ... } }
+  const [textOverrides, setTextOverrides] = useState({});
+
+  // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
+  const updateTextOverride = (pageNum, textId, partial) => {
+    setTextOverrides((prev) => {
+      const pagePrev = prev[pageNum] || {};
+      const itemPrev = pagePrev[textId] || {};
+      return {
+        ...prev,
+        [pageNum]: {
+          ...pagePrev,
+          [textId]: { ...itemPrev, ...partial },
+        },
+      };
+    });
+  };
+
+  // 현재 페이지 오버라이드 전체 리셋
+  const resetPageOverrides = (pageNum) => {
+    setTextOverrides((prev) => {
+      const next = { ...prev };
+      delete next[pageNum];
+      return next;
+    });
+  };
+
   // 테마 적용 — themeId 바뀔 때마다 BRAND.colors 스왑
   useEffect(() => {
     applyTheme(brief.themeId || 'warmBeige');
     // 강제 리렌더 트리거 (hacky but effective)
     setPages((prev) => ({ ...prev }));
   }, [brief.themeId]);
+
+  // 전역 폰트 적용 — fontId 바뀔 때마다 BRAND.fontFamily 스왑
+  useEffect(() => {
+    applyFont(brief.fontId || 'pretendard');
+    setPages((prev) => ({ ...prev }));
+  }, [brief.fontId]);
 
   const pageRefs = {
     P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),
@@ -560,6 +598,46 @@ export default function App() {
                     </div>
                     <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
                       {t.description}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* ─────────── 폰트 선택 (전체 페이지 일괄 적용) ─────────── */}
+          <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤">
+            <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+              선택한 폰트가 P1~P10 모든 페이지에 즉시 적용됩니다.
+              <br />5종 무료 상업용 한글 폰트 제공.
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.values(FONT_PRESETS).map((f) => {
+                const active = brief.fontId === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => updateBrief({ fontId: f.id })}
+                    className="p-2 rounded-lg border-2 text-left transition-all"
+                    style={{
+                      borderColor: active ? '#C8B6A6' : '#e2ddd4',
+                      backgroundColor: active ? '#F7F3EE' : '#fff',
+                      boxShadow: active ? `0 0 0 2px rgba(200,182,166,0.3)` : 'none',
+                      fontFamily: f.family,
+                    }}
+                  >
+                    <div
+                      className="text-[15px] font-bold mb-1"
+                      style={{ color: '#2F2A26', fontFamily: f.family }}
+                    >
+                      {f.sample}
+                    </div>
+                    <div className="text-[11px] font-bold" style={{ color: '#2F2A26' }}>
+                      {f.name}
+                    </div>
+                    <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                      {f.description}
                     </div>
                   </button>
                 );
@@ -1235,14 +1313,54 @@ export default function App() {
           <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: '#e2ddd4' }}>
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="text-sm font-bold" style={{ color: '#2F2A26' }}>{currentPage} 미리보기</div>
-              <div
-                className="text-[11px] font-bold px-2 py-0.5 rounded"
-                style={{ backgroundColor: '#F7F3EE', color: '#6b635c' }}
-                title="쿠팡 상세페이지 업로드 규격"
-              >
-                📐 가로 780px (쿠팡 규격)
+              <div className="flex items-center gap-2">
+                {currentResult?.copy && (
+                  <>
+                    <button
+                      onClick={() => setEditMode((v) => !v)}
+                      className="text-[11px] font-bold px-2.5 py-1 rounded border-2 transition-all"
+                      style={{
+                        backgroundColor: editMode ? '#E87A2B' : '#fff',
+                        borderColor: editMode ? '#E87A2B' : '#C8B6A6',
+                        color: editMode ? '#fff' : '#2F2A26',
+                      }}
+                      title="더블클릭으로 텍스트 직접 수정 · 드래그로 위치 이동 · 툴바로 스타일 변경"
+                    >
+                      {editMode ? '✓ 편집 중 (끄기)' : '✏️ 인라인 편집'}
+                    </button>
+                    {Object.keys(textOverrides[currentPage] || {}).length > 0 && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`${currentPage}의 인라인 편집 내용을 모두 되돌릴까요?`)) {
+                            resetPageOverrides(currentPage);
+                          }
+                        }}
+                        className="text-[10px] font-bold px-2 py-1 rounded border"
+                        style={{ borderColor: '#e2ddd4', color: '#6b635c' }}
+                        title="이 페이지의 인라인 편집 전부 초기화"
+                      >
+                        ↺ 편집 초기화
+                      </button>
+                    )}
+                  </>
+                )}
+                <div
+                  className="text-[11px] font-bold px-2 py-0.5 rounded"
+                  style={{ backgroundColor: '#F7F3EE', color: '#6b635c' }}
+                  title="쿠팡 상세페이지 업로드 규격"
+                >
+                  📐 가로 780px (쿠팡 규격)
+                </div>
               </div>
             </div>
+            {editMode && (
+              <div
+                className="text-[11px] mb-2 px-3 py-2 rounded-lg border"
+                style={{ backgroundColor: '#FFF8F0', borderColor: '#FDBA74', color: '#9A3412' }}
+              >
+                ✏️ <b>편집 모드</b> — <b>더블클릭</b>으로 텍스트 직접 수정 · <b>드래그</b>로 위치 이동 · 클릭 시 <b>툴바</b>에서 폰트/크기/색상/굵기 변경 (ESC로 편집 종료)
+              </div>
+            )}
             <div className="rounded-xl overflow-auto flex justify-center py-4" style={{ backgroundColor: '#f0ebe4', maxHeight: 'calc(100vh - 260px)' }}>
               {currentResult?.copy && !currentResult.needsMoreInfo ? (
                 <PageRenderer
@@ -1252,6 +1370,9 @@ export default function App() {
                   images={images}
                   version={p5Version}
                   variant={pageVariants[currentPage] || 0}
+                  editMode={editMode}
+                  overrides={textOverrides[currentPage] || {}}
+                  onOverrideChange={(textId, partial) => updateTextOverride(currentPage, textId, partial)}
                 />
               ) : (
                 <div className="text-xs text-slate-400 py-20 text-center">
