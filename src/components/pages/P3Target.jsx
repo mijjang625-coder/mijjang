@@ -1,9 +1,23 @@
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame, SectionTitle, CheckIcon, PillBadge } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // P3: 이런 분들께 추천드려요 (체크리스트형)
 // 레이아웃: 타이틀(상) → 이미지(중, 확대) → 체크리스트(하) — 모두 flex로 여백 없이 채움
-export default function P3Target({ copy = {}, image, variant = 0 }) {
+export default function P3Target({
+  copy = {},
+  image,
+  variant = 0,
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
   const {
     badge = '',
     mainTitle = '이런 분들께 추천드려요!',
@@ -30,7 +44,21 @@ export default function P3Target({ copy = {}, image, variant = 0 }) {
                 <PillBadge>{badge}</PillBadge>
               </div>
             )}
-            <SectionTitle size={42}>{mainTitle}</SectionTitle>
+            <EditableText
+              {...editPropsFor('P3.mainTitle')}
+              as="h2"
+              defaultStyle={{
+                fontSize: 42,
+                fontWeight: 800,
+                color: BRAND.colors.text,
+                margin: 0,
+                textAlign: 'center',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.3,
+              }}
+            >
+              {mainTitle}
+            </EditableText>
           </div>
         </div>
 
@@ -88,7 +116,13 @@ export default function P3Target({ copy = {}, image, variant = 0 }) {
                   zIndex: 2,
                 }}
               >
-                {badgePoint}
+                <EditableText
+                  {...editPropsFor('P3.badgePoint')}
+                  as="span"
+                  defaultStyle={{ color: '#fff', fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em' }}
+                >
+                  {badgePoint}
+                </EditableText>
               </div>
             )}
           </div>
@@ -117,8 +151,10 @@ export default function P3Target({ copy = {}, image, variant = 0 }) {
                 }}
               >
                 <CheckIcon size={24} variant={variant + i} />
-                <div
-                  style={{
+                <EditableText
+                  {...editPropsFor(`P3.checklist.${i}`)}
+                  as="div"
+                  defaultStyle={{
                     fontSize: 22,
                     fontWeight: 600,
                     color: BRAND.colors.text,
@@ -129,7 +165,7 @@ export default function P3Target({ copy = {}, image, variant = 0 }) {
                   }}
                 >
                   {item}
-                </div>
+                </EditableText>
               </div>
             ))}
           </div>

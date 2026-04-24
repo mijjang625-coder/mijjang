@@ -73,13 +73,13 @@ const PageRenderer = forwardRef(function PageRenderer(
       return <div ref={ref}><P1Hero copy={copy} image={pick(PAGE_IMAGE_MAP.P1.start)} variant={variant} {...editProps} /></div>;
 
     case 'P2':
-      return <div ref={ref}><P2Benefits copy={copy} images={imagesFor('P2')} /></div>;
+      return <div ref={ref}><P2Benefits copy={copy} images={imagesFor('P2')} {...editProps} /></div>;
 
     case 'P3':
-      return <div ref={ref}><P3Target copy={copy} image={pick(PAGE_IMAGE_MAP.P3.start)} variant={variant} /></div>;
+      return <div ref={ref}><P3Target copy={copy} image={pick(PAGE_IMAGE_MAP.P3.start)} variant={variant} {...editProps} /></div>;
 
     case 'P4':
-      return <div ref={ref}><P4Reviews copy={copy} images={imagesFor('P4')} /></div>;
+      return <div ref={ref}><P4Reviews copy={copy} images={imagesFor('P4')} {...editProps} /></div>;
 
     case 'P5':
       return (
@@ -89,26 +89,27 @@ const PageRenderer = forwardRef(function PageRenderer(
             ourImage={pick(PAGE_IMAGE_MAP.P5.start)}
             generalImage={null}
             version={version}
+            {...editProps}
           />
         </div>
       );
 
     case 'P6': {
       const [materialImg, sizeImg] = imagesFor('P6');
-      return <div ref={ref}><P6Material copy={copy} materialImage={materialImg} sizeImage={sizeImg} /></div>;
+      return <div ref={ref}><P6Material copy={copy} materialImage={materialImg} sizeImage={sizeImg} {...editProps} /></div>;
     }
 
     case 'P7':
-      return <div ref={ref}><P7Lifestyle copy={copy} images={imagesFor('P7')} /></div>;
+      return <div ref={ref}><P7Lifestyle copy={copy} images={imagesFor('P7')} {...editProps} /></div>;
 
     case 'P8':
-      return <div ref={ref}><P8Usages copy={copy} images={imagesFor('P8')} /></div>;
+      return <div ref={ref}><P8Usages copy={copy} images={imagesFor('P8')} {...editProps} /></div>;
 
     case 'P9':
-      return <div ref={ref}><P9HowTo copy={copy} images={imagesFor('P9')} /></div>;
+      return <div ref={ref}><P9HowTo copy={copy} images={imagesFor('P9')} {...editProps} /></div>;
 
     case 'P10':
-      return <div ref={ref}><P10Faq copy={copy} componentImage={pick(PAGE_IMAGE_MAP.P10.start)} variant={variant} /></div>;
+      return <div ref={ref}><P10Faq copy={copy} componentImage={pick(PAGE_IMAGE_MAP.P10.start)} variant={variant} {...editProps} /></div>;
 
     default:
       return null;

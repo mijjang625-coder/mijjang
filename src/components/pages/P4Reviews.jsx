@@ -1,9 +1,22 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, SectionTitle } from './Shared.jsx';
+import { PageFrame } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // P4: 리뷰 4개 — 왼쪽 텍스트 / 오른쪽 사진 정확히 절반
-export default function P4Reviews({ copy = {}, images = [] }) {
+export default function P4Reviews({
+  copy = {},
+  images = [],
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
   const { reviews = [] } = copy;
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
 
   // 별 150% 확대 + 주황색 (BRAND.colors.accent)
   const Star = () => (
@@ -23,7 +36,21 @@ export default function P4Reviews({ copy = {}, images = [] }) {
   return (
     <PageFrame height={1700} bg={BRAND.colors.sub}>
       <div style={{ padding: '50px 40px 20px', textAlign: 'center' }}>
-        <SectionTitle size={38}>고객님들의 생생한 후기</SectionTitle>
+        <EditableText
+          {...editPropsFor('P4.sectionTitle')}
+          as="h2"
+          defaultStyle={{
+            fontSize: 38,
+            fontWeight: 800,
+            color: BRAND.colors.text,
+            margin: 0,
+            textAlign: 'center',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.3,
+          }}
+        >
+          고객님들의 생생한 후기
+        </EditableText>
       </div>
 
       <div style={{ padding: '0 30px 50px', display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -44,8 +71,10 @@ export default function P4Reviews({ copy = {}, images = [] }) {
             <div style={{ padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14 }}>
               <div>
                 <Star />
-                <div
-                  style={{
+                <EditableText
+                  {...editPropsFor(`P4.reviews.${i}.body`)}
+                  as="div"
+                  defaultStyle={{
                     marginTop: 14,
                     // 리뷰 본문 글씨 확대 — 23 → 26 (60자 가독성 확보)
                     fontSize: 26,
@@ -57,17 +86,19 @@ export default function P4Reviews({ copy = {}, images = [] }) {
                   }}
                 >
                   {r.body}
-                </div>
+                </EditableText>
               </div>
-              <div
-                style={{
+              <EditableText
+                {...editPropsFor(`P4.reviews.${i}.meta`)}
+                as="div"
+                defaultStyle={{
                   fontSize: 20,
                   color: BRAND.colors.neutralText,
                   fontWeight: 600,
                 }}
               >
                 {r.nickname} · {r.date}
-              </div>
+              </EditableText>
             </div>
 
             {/* 오른쪽 사진 — 정확히 절반 */}

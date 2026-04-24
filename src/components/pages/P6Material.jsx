@@ -1,8 +1,22 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, SectionTitle, SubTitle, Body, CheckIcon, Divider } from './Shared.jsx';
+import { PageFrame, Img, CheckIcon, Divider } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // P6: 소재 & 사이즈 실증
-export default function P6Material({ copy = {}, materialImage, sizeImage }) {
+export default function P6Material({
+  copy = {},
+  materialImage,
+  sizeImage,
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
   const {
     material = { title: '', desc: '', safetyPoints: [], certifications: [] },
     size = { title: '', provingMessage: '', specs: [] },
@@ -12,14 +26,30 @@ export default function P6Material({ copy = {}, materialImage, sizeImage }) {
     <PageFrame height={1150} bg={BRAND.colors.white}>
       {/* 상단 — 소재 */}
       <div style={{ padding: '50px 40px 30px' }}>
-        <SectionTitle size={38}>{material.title || '믿을 수 있는 소재'}</SectionTitle>
+        <EditableText
+          {...editPropsFor('P6.material.title')}
+          as="h2"
+          defaultStyle={{
+            fontSize: 38,
+            fontWeight: 800,
+            color: BRAND.colors.text,
+            margin: 0,
+            textAlign: 'center',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.3,
+          }}
+        >
+          {material.title || '믿을 수 있는 소재'}
+        </EditableText>
         <div style={{ marginTop: 24 }}>
           <Img src={materialImage} aspect="16 / 10" radius={14} />
         </div>
         {/* 소재 상세설명 — 정확히 2줄 고정, 폰트 80% 축소 (24 → 19pt) */}
         <div style={{ marginTop: 20 }}>
-          <div
-            style={{
+          <EditableText
+            {...editPropsFor('P6.material.desc')}
+            as="div"
+            defaultStyle={{
               fontSize: 19,
               fontWeight: 500,
               color: BRAND.colors.text,
@@ -27,16 +57,16 @@ export default function P6Material({ copy = {}, materialImage, sizeImage }) {
               letterSpacing: '-0.015em',
               wordBreak: 'keep-all',
               whiteSpace: 'pre-line',
-              display: '-webkit-box',
+              display: editMode ? 'block' : '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              maxHeight: 60,
+              maxHeight: editMode ? 'none' : 60,
             }}
           >
             {material.desc}
-          </div>
+          </EditableText>
         </div>
 
         <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -86,7 +116,21 @@ export default function P6Material({ copy = {}, materialImage, sizeImage }) {
 
       {/* 하단 — 사이즈 */}
       <div style={{ padding: '30px 40px 50px' }}>
-        <SectionTitle size={36}>{size.title || '실제 크기 확인'}</SectionTitle>
+        <EditableText
+          {...editPropsFor('P6.size.title')}
+          as="h2"
+          defaultStyle={{
+            fontSize: 36,
+            fontWeight: 800,
+            color: BRAND.colors.text,
+            margin: 0,
+            textAlign: 'center',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.3,
+          }}
+        >
+          {size.title || '실제 크기 확인'}
+        </EditableText>
         <div style={{ marginTop: 22 }}>
           <Img src={sizeImage} aspect="16 / 10" radius={14} />
         </div>
@@ -102,7 +146,13 @@ export default function P6Material({ copy = {}, materialImage, sizeImage }) {
               borderRadius: 999,
             }}
           >
-            {size.provingMessage}
+            <EditableText
+              {...editPropsFor('P6.size.provingMessage')}
+              as="span"
+              defaultStyle={{ color: '#fff', fontSize: 24, fontWeight: 800 }}
+            >
+              {size.provingMessage}
+            </EditableText>
           </span>
         </div>
 

@@ -1,5 +1,6 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, SectionTitle, Body } from './Shared.jsx';
+import { PageFrame } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // 일반 제품용 자동 생성 실루엣 이미지 (무채색 + 블러 효과, 텍스트 없음)
 // SVG data URL — 외부 네트워크 없이 항상 렌더링됨
@@ -25,7 +26,21 @@ const GENERIC_PRODUCT_SILHOUETTE =
 
 // P5: 2지선다 비교표 — 글 버전 + 사진 버전
 // version: 'text' | 'photo'
-export default function P5Compare({ copy = {}, ourImage, generalImage, version = 'text' }) {
+export default function P5Compare({
+  copy = {},
+  ourImage,
+  generalImage,
+  version = 'text',
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
   const {
     headline = '왜 이 제품을 선택해야 할까요?',
     sub = '',
@@ -133,15 +148,40 @@ export default function P5Compare({ copy = {}, ourImage, generalImage, version =
   return (
     <PageFrame height={900} bg={BRAND.colors.white}>
       <div style={{ padding: '50px 40px 24px', textAlign: 'center' }}>
-        <SectionTitle size={38}>{headline}</SectionTitle>
-        {sub && (
+        <EditableText
+          {...editPropsFor('P5.headline')}
+          as="h2"
+          defaultStyle={{
+            fontSize: 38,
+            fontWeight: 800,
+            color: BRAND.colors.text,
+            margin: 0,
+            textAlign: 'center',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.3,
+          }}
+        >
+          {headline}
+        </EditableText>
+        {(sub || editMode) && (
           <div style={{ marginTop: 14 }}>
-            <Body size={24} align="center">
+            <EditableText
+              {...editPropsFor('P5.sub')}
+              as="p"
+              defaultStyle={{
+                fontSize: 24,
+                fontWeight: 500,
+                color: BRAND.colors.text,
+                margin: 0,
+                textAlign: 'center',
+                lineHeight: 1.6,
+              }}
+              placeholder={editMode ? '(서브 카피)' : ''}
+            >
               {sub}
-            </Body>
+            </EditableText>
           </div>
         )}
-        {/* 요청사항: TEXT VERSION / PHOTO VERSION 라벨 삭제 */}
       </div>
 
       <div style={{ padding: '10px 30px 50px' }}>

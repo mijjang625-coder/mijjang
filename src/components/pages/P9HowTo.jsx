@@ -1,24 +1,63 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, SectionTitle, Body } from './Shared.jsx';
+import { PageFrame, Img } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // P9: 사용법 — STEP 1~3 + 활용 TIP
-export default function P9HowTo({ copy = {}, images = [] }) {
+export default function P9HowTo({
+  copy = {},
+  images = [],
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
   const {
     title = '사용법이 이렇게 간단합니다',
     subTitle = '',
     steps = [],
     tips = [],
   } = copy;
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
 
   return (
     <PageFrame height={1900} bg={BRAND.colors.white}>
       <div style={{ padding: '50px 40px 20px', textAlign: 'center' }}>
-        <SectionTitle size={38}>{title}</SectionTitle>
-        {subTitle && (
+        <EditableText
+          {...editPropsFor('P9.title')}
+          as="h2"
+          defaultStyle={{
+            fontSize: 38,
+            fontWeight: 800,
+            color: BRAND.colors.text,
+            margin: 0,
+            textAlign: 'center',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.3,
+          }}
+        >
+          {title}
+        </EditableText>
+        {(subTitle || editMode) && (
           <div style={{ marginTop: 12 }}>
-            <Body size={24} align="center">
+            <EditableText
+              {...editPropsFor('P9.subTitle')}
+              as="p"
+              defaultStyle={{
+                fontSize: 24,
+                fontWeight: 500,
+                color: BRAND.colors.text,
+                margin: 0,
+                textAlign: 'center',
+                lineHeight: 1.6,
+              }}
+              placeholder={editMode ? '(서브 카피)' : ''}
+            >
               {subTitle}
-            </Body>
+            </EditableText>
           </div>
         )}
       </div>
@@ -51,9 +90,13 @@ export default function P9HowTo({ copy = {}, images = [] }) {
                 >
                   STEP<br />{s.stepNo || i + 1}
                 </div>
-                <div style={{ fontSize: 25, fontWeight: 700, color: BRAND.colors.text, lineHeight: 1.4 }}>
+                <EditableText
+                  {...editPropsFor(`P9.steps.${i}.desc`)}
+                  as="div"
+                  defaultStyle={{ fontSize: 25, fontWeight: 700, color: BRAND.colors.text, lineHeight: 1.4 }}
+                >
                   {s.desc}
-                </div>
+                </EditableText>
               </div>
               <Img src={images[i]} aspect="4 / 3" radius={12} />
             </div>
@@ -97,9 +140,11 @@ export default function P9HowTo({ copy = {}, images = [] }) {
               TIP
             </div>
             {tips.map((t, i) => (
-              <div
+              <EditableText
                 key={i}
-                style={{
+                {...editPropsFor(`P9.tips.${i}`)}
+                as="div"
+                defaultStyle={{
                   fontSize: 22,
                   fontWeight: 500,
                   color: BRAND.colors.text,
@@ -108,7 +153,7 @@ export default function P9HowTo({ copy = {}, images = [] }) {
                 }}
               >
                 · {t}
-              </div>
+              </EditableText>
             ))}
           </div>
         </div>

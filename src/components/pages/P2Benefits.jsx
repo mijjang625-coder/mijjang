@@ -1,9 +1,22 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, SectionTitle, SubTitle, Body } from './Shared.jsx';
+import { PageFrame, Img } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // P2: 베네핏 심화 설명 (세로 3섹션, 사진 중심)
-export default function P2Benefits({ copy = {}, images = [] }) {
+export default function P2Benefits({
+  copy = {},
+  images = [],
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
   const { sections = [] } = copy;
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
 
   return (
     <PageFrame height={1700} bg={BRAND.colors.white}>
@@ -33,9 +46,35 @@ export default function P2Benefits({ copy = {}, images = [] }) {
               >
                 POINT {String(i + 1).padStart(2, '0')}
               </div>
-              <SubTitle size={32}>{s.title}</SubTitle>
+              <EditableText
+                {...editPropsFor(`P2.sections.${i}.title`)}
+                as="h3"
+                defaultStyle={{
+                  fontSize: 32,
+                  fontWeight: 800,
+                  color: BRAND.colors.text,
+                  margin: 0,
+                  lineHeight: 1.3,
+                  letterSpacing: '-0.03em',
+                }}
+              >
+                {s.title}
+              </EditableText>
               <div style={{ marginTop: 10 }}>
-                <Body size={24}>{s.desc}</Body>
+                <EditableText
+                  {...editPropsFor(`P2.sections.${i}.desc`)}
+                  as="p"
+                  defaultStyle={{
+                    fontSize: 24,
+                    fontWeight: 500,
+                    color: BRAND.colors.text,
+                    margin: 0,
+                    lineHeight: 1.6,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  {s.desc}
+                </EditableText>
               </div>
             </div>
             <Img src={images[i]} aspect="4 / 3" radius={16} />

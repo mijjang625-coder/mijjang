@@ -1,5 +1,6 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, SectionTitle, Body, Divider, CheckIcon } from './Shared.jsx';
+import { PageFrame, Img, SectionTitle, Divider, CheckIcon } from './Shared.jsx';
+import EditableText from '../EditableText.jsx';
 
 // 배송/A.S. 카드 패널 — 중복 제거용 헬퍼
 function InfoPanel({ sectionTitle, items, bg }) {
@@ -67,7 +68,20 @@ function InfoPanel({ sectionTitle, items, bg }) {
 
 // P10: 구성품 안내 + 배송/A.S. + FAQ 5개 + 필수표기사항
 // 분량 확장 — 구성품 강조 + 배송/A.S. 안내 + FAQ + 전자상거래법 필수표기
-export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
+export default function P10Faq({
+  copy = {},
+  componentImage,
+  variant = 0,
+  editMode = false,
+  overrides = {},
+  onOverrideChange = () => {},
+}) {
+  const editPropsFor = (id) => ({
+    id,
+    editMode,
+    override: overrides[id] || {},
+    onChange: (partial) => onOverrideChange(id, partial),
+  });
   const {
     components = { title: '구성품 안내', bullets: [] },
     faq = [],
@@ -124,10 +138,34 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
       {/* ─────────── 1. 구성품 안내 (강조) ─────────── */}
       <div style={{ padding: '50px 40px 30px' }}>
         <div style={{ textAlign: 'center' }}>
-          <SectionTitle size={40}>{components.title || '구성품 안내'}</SectionTitle>
-          <div style={{ marginTop: 12, color: BRAND.colors.neutralText, fontSize: 20, fontWeight: 600 }}>
+          <EditableText
+            {...editPropsFor('P10.components.title')}
+            as="h2"
+            defaultStyle={{
+              fontSize: 40,
+              fontWeight: 800,
+              color: BRAND.colors.text,
+              margin: 0,
+              textAlign: 'center',
+              letterSpacing: '-0.03em',
+              lineHeight: 1.3,
+            }}
+          >
+            {components.title || '구성품 안내'}
+          </EditableText>
+          <EditableText
+            {...editPropsFor('P10.components.subText')}
+            as="div"
+            defaultStyle={{
+              marginTop: 12,
+              color: BRAND.colors.neutralText,
+              fontSize: 20,
+              fontWeight: 600,
+              textAlign: 'center',
+            }}
+          >
             박스 안에 이렇게 들어있어요
-          </div>
+          </EditableText>
         </div>
 
         <div style={{ marginTop: 26 }}>
@@ -158,8 +196,10 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
               }}
             >
               <CheckIcon size={26} variant={variant + i} />
-              <span
-                style={{
+              <EditableText
+                {...editPropsFor(`P10.components.bullets.${i}`)}
+                as="span"
+                defaultStyle={{
                   fontSize: 23,
                   fontWeight: 700,
                   color: BRAND.colors.text,
@@ -168,7 +208,7 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
                 }}
               >
                 {b}
-              </span>
+              </EditableText>
             </div>
           ))}
         </div>
@@ -240,8 +280,10 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
                 >
                   Q.
                 </span>
-                <span
-                  style={{
+                <EditableText
+                  {...editPropsFor(`P10.faq.${i}.q`)}
+                  as="span"
+                  defaultStyle={{
                     fontSize: 25,
                     fontWeight: 800,
                     color: BRAND.colors.text,
@@ -249,7 +291,7 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
                   }}
                 >
                   {f.q}
-                </span>
+                </EditableText>
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <span
@@ -262,7 +304,19 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
                 >
                   A.
                 </span>
-                <Body size={23}>{f.a}</Body>
+                <EditableText
+                  {...editPropsFor(`P10.faq.${i}.a`)}
+                  as="p"
+                  defaultStyle={{
+                    fontSize: 23,
+                    fontWeight: 500,
+                    color: BRAND.colors.text,
+                    margin: 0,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {f.a}
+                </EditableText>
               </div>
             </div>
           ))}
@@ -355,16 +409,20 @@ export default function P10Faq({ copy = {}, componentImage, variant = 0 }) {
           color: '#fff',
         }}
       >
-        <div
-          style={{
+        <EditableText
+          {...editPropsFor('P10.ctaTitle')}
+          as="div"
+          defaultStyle={{
             fontSize: 28,
             fontWeight: 900,
             letterSpacing: '-0.03em',
             marginBottom: 8,
+            color: '#fff',
+            textAlign: 'center',
           }}
         >
           지금 장바구니에 담아보세요
-        </div>
+        </EditableText>
         <div
           style={{
             fontSize: 18,
