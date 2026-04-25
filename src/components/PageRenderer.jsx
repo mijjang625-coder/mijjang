@@ -52,7 +52,12 @@ const PageRenderer = forwardRef(function PageRenderer(
     onUpdateFreeImage = () => {},
     onDeleteFreeImage = () => {},
     onChangeLayer = () => {},
+    onChangeLayerKind = () => {},
     onReorderLayers = () => {},
+    layerNames = {},
+    onSetLayerName = () => {},
+    activeLayerId = null,
+    onSetActiveLayer = () => {},
   },
   ref,
 ) {
@@ -68,7 +73,12 @@ const PageRenderer = forwardRef(function PageRenderer(
     onUpdateFreeImage,
     onDeleteFreeImage,
     onChangeLayer,
+    onChangeLayerKind,
     onReorderLayers,
+    layerNames,
+    onSetLayerName,
+    activeLayerId,
+    onSetActiveLayer,
   };
 
   // 순환 접근 — 사진이 부족하면 % 로 돌려 재사용

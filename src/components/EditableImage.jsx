@@ -80,6 +80,7 @@ export default function EditableImage({
   onChange = () => {},
   availableImages = [],
   alt = '',
+  onLayerAction = null, // (action) => void; 지정 시 정규화 레이어 시스템에 위임
 }) {
   const wrapperRef = useRef(null);
   const frameRef = useRef(null);
@@ -101,21 +102,20 @@ export default function EditableImage({
   const customZ = override?.zIndex;
   const CONTENT_Z = 500;
 
-  // 메인사진 레이어 변경 (자유이미지와 동일 정책)
+  // 메인사진 레이어 변경
+  // onLayerAction이 지정되어 있으면 부모(P1Hero)의 정규화 시스템에 위임,
+  // 아니면 단순 ±1 fallback (구버전 호환)
   const changeMainLayer = (action) => {
-    const cur = customZ ?? CONTENT_Z;
-    let newZ = cur;
-    if (action === 'front') newZ = 999;
-    else if (action === 'back') newZ = 1;
-    else if (action === 'forward') {
-      newZ = cur + 1;
-      if (newZ === CONTENT_Z) newZ = CONTENT_Z + 1;
-      if (newZ > 999) newZ = 999;
-    } else if (action === 'backward') {
-      newZ = cur - 1;
-      if (newZ === CONTENT_Z) newZ = CONTENT_Z - 1;
-      if (newZ < 1) newZ = 1;
+    if (typeof onLayerAction === 'function') {
+      onLayerAction(action);
+      return;
     }
+    const cur = customZ ?? 1;
+    let newZ = cur;
+    if (action === 'forward') newZ = cur + 1;
+    else if (action === 'backward') newZ = Math.max(1, cur - 1);
+    else if (action === 'front') newZ = cur + 10;
+    else if (action === 'back') newZ = 1;
     onChange({ zIndex: newZ });
   };
 
@@ -425,7 +425,7 @@ export default function EditableImage({
           width: '100%',
           aspectRatio: hasFrame ? undefined : aspect,
           minHeight: hasFrame ? frame.height + Math.max(0, frame.y) + 20 : undefined,
-          zIndex: customZ ?? 500,
+          zIndex: customZ ?? 1,
         }}
       >
         <div
@@ -485,7 +485,7 @@ export default function EditableImage({
         width: '100%',
         aspectRatio: hasFrame ? undefined : aspect,
         minHeight: wrapperMinHeight,
-        zIndex: customZ ?? 500,
+        zIndex: customZ ?? 1,
       }}
     >
       {/* 프레임 박스 */}
@@ -638,7 +638,7 @@ export default function EditableImage({
             backgroundColor: '#fbbf24', color: '#1e293b',
             padding: '2px 6px', borderRadius: 4,
             fontSize: 10, fontWeight: 900,
-          }}>z{customZ ?? 500}</span>
+          }}>z{customZ ?? 1}</span>
           {(hasFrame || crop || override?.src || customZ !== undefined) && (
             <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
           )}

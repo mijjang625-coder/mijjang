@@ -214,6 +214,7 @@ export async function saveProject(state) {
     textOverrides: state.textOverrides || {},
     imageOverrides: state.imageOverrides || {},
     freeImages: state.freeImages || {},
+    layerNames: state.layerNames || {},
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
     savedAt: Date.now(),
@@ -302,6 +303,7 @@ export function exportProjectToJSON(state) {
     textOverrides: state.textOverrides || {},
     imageOverrides: state.imageOverrides || {},
     freeImages: state.freeImages || {},
+    layerNames: state.layerNames || {},
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
   };

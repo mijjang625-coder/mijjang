@@ -48,6 +48,8 @@ export default function FreeImage({
   onDelete = () => {},
   onChangeLayer = () => {},
   canvasWidth = 780,
+  isActive = false,
+  onActivate = () => {},
 }) {
   const wrapRef = useRef(null);
   const [hovering, setHovering] = useState(false);
@@ -303,7 +305,11 @@ export default function FreeImage({
       ref={wrapRef}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      onMouseDown={handlePosDragStart}
+      onMouseDown={(e) => {
+        // 활성 레이어로 등록 (레이어 패널과 연동)
+        if (editMode) onActivate();
+        handlePosDragStart(e);
+      }}
       onDoubleClick={handleDoubleClick}
       style={{
         position: 'absolute',
@@ -319,7 +325,7 @@ export default function FreeImage({
           : 'default',
         zIndex,
         userSelect: 'none',
-        boxShadow: editMode && selected ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
+        boxShadow: editMode && (selected || isActive) ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
       }}
     >
       {/* 내부 클리핑 컨테이너 (사진 자르기 + 둥근 모서리) */}

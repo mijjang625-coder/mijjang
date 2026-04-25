@@ -142,6 +142,25 @@ export default function App() {
   // { P1: [{ id, src, x, y, w, h, crop, zIndex }, ...] }
   const [freeImages, setFreeImages] = useState({});
 
+  // 페이지별 레이어 사용자 지정 이름  { P1: { 'free_xxx': '메인꽃병', 'P1.heroImage': '메인사진' } }
+  const [layerNames, setLayerNames] = useState({});
+
+  // 페이지별 활성 레이어 ID — 클릭 관통 제어를 위해 한 번에 한 레이어만 인터랙티브
+  // null = 비활성 (편집모드 OFF 또는 아무것도 선택 안 됨)
+  const [activeLayerId, setActiveLayerId] = useState(null);
+
+  // 편집 모드가 꺼지거나 페이지 전환 시 활성 레이어 해제
+  useEffect(() => {
+    setActiveLayerId(null);
+  }, [editMode, currentPage]);
+
+  const setLayerName = (pageNum, layerId, name) => {
+    setLayerNames((prev) => ({
+      ...prev,
+      [pageNum]: { ...(prev[pageNum] || {}), [layerId]: name },
+    }));
+  };
+
   // 자유 이미지 추가
   const addFreeImage = (pageNum, src) => {
     setFreeImages((prev) => {
@@ -187,88 +206,85 @@ export default function App() {
     });
   };
 
-  // 레이어 관리 헬퍼: zIndex 변경
-  // 레이어 정책 (P1Hero 기준):
-  //   1~499 = 콘텐츠 뒤 (자유이미지가 메인사진/카드 뒤로)
-  //   500   = 기존 콘텐츠 고정
-  //   501~999 = 콘텐츠 앞 (자유이미지가 메인사진/카드 위로)
-  const CONTENT_Z = 500;
-  const changeLayer = (pageNum, id, action) => {
-    // action: 'front' | 'back' | 'forward' | 'backward'
-    setFreeImages((prev) => {
-      const list = (prev[pageNum] || []).slice();
-      if (list.length === 0) return prev;
-      const target = list.find((it) => it.id === id);
-      if (!target) return prev;
-      const curZ = target.zIndex ?? 501;
-      const others = list.filter((it) => it.id !== id).map((it) => it.zIndex ?? 501);
-      const maxZ = others.length ? Math.max(...others, curZ) : curZ;
-      const minZ = others.length ? Math.min(...others, curZ) : curZ;
+  // 레이어 관리 정책 (정규화):
+  //   모든 레이어(메인사진 + 자유이미지)는 1..N 의 연속된 정수 z-index 사용
+  //   N = 전체 레이어 수, 큰 숫자 = 앞쪽
+  //   레이어 패널의 맨 위 항목 = 가장 큰 z, 맨 아래 항목 = z=1
+  //
+  // 페이지의 전체 레이어 순서를 받아서(앞→뒤), z-index를 1..N으로 재할당
+  // orderedFromTop: [{ kind: 'main'|'free', id }, ...]  맨 앞 → 맨 뒤
+  const applyNormalizedZ = (pageNum, orderedFromTop) => {
+    if (!Array.isArray(orderedFromTop) || orderedFromTop.length === 0) return;
+    const N = orderedFromTop.length;
+    // 위에서부터: index 0 → z=N, index 1 → z=N-1, ..., 마지막 → z=1
+    const zMap = {};
+    orderedFromTop.forEach((l, i) => {
+      zMap[`${l.kind}:${l.id}`] = N - i;
+    });
 
-      let newZ = curZ;
-      if (action === 'front') {
-        // 콘텐츠보다 무조건 위로 (501 이상이고 모든 다른 자유이미지보다 위)
-        newZ = Math.max(maxZ + 1, 501);
-      } else if (action === 'back') {
-        // 콘텐츠 뒤로 (499 이하이고 모든 다른 자유이미지보다 뒤)
-        newZ = Math.min(minZ - 1, 499);
-        if (newZ < 1) newZ = 1;
-      } else if (action === 'forward') {
-        // 한 단계 앞으로: 콘텐츠 경계(500) 넘을 수 있음
-        newZ = curZ + 1;
-        if (newZ === CONTENT_Z) newZ = CONTENT_Z + 1; // 500은 건너뛰기
-      } else if (action === 'backward') {
-        // 한 단계 뒤로
-        newZ = curZ - 1;
-        if (newZ === CONTENT_Z) newZ = CONTENT_Z - 1; // 500은 건너뛰기
-        if (newZ < 1) newZ = 1;
+    // 자유이미지 z-index 일괄 적용
+    setFreeImages((prev) => {
+      const list = (prev[pageNum] || []).map((it) => {
+        const z = zMap[`free:${it.id}`];
+        return z !== undefined ? { ...it, zIndex: z } : it;
+      });
+      return { ...prev, [pageNum]: list };
+    });
+    // 메인 사진들 z-index는 imageOverrides 에 기록
+    orderedFromTop.forEach((l) => {
+      if (l.kind === 'main') {
+        const z = zMap[`main:${l.id}`];
+        if (z !== undefined) updateImageOverride(pageNum, l.id, { zIndex: z });
       }
-      return {
-        ...prev,
-        [pageNum]: list.map((it) => (it.id === id ? { ...it, zIndex: newZ } : it)),
-      };
     });
   };
 
-  // 레이어 순서 일괄 재정렬 (드래그앤드롭 결과 적용)
-  // newOrder: [{ kind: 'main'|'free', id: string }, ...]  -> 위에서부터 아래 순서
-  // 정책:
-  //   - 메인 사진은 항상 z=500 (CONTENT_Z) 고정
-  //   - 메인보다 위에 있는 자유 이미지: 위에서부터 차례로 큰 z 부여 (메인+1 ~ 메인+N)
-  //   - 메인보다 아래에 있는 자유 이미지: 아래에서부터 작은 z 부여 (메인-1 ~ 메인-M)
-  //   - 메인 사진의 zIndex override도 명시적으로 500으로 설정
+  // 페이지의 현재 모든 레이어를 z-index 내림차순(앞→뒤) 으로 반환
+  // mainLayers: [{ id, zIndex }, ...] - P1의 경우 'P1.heroImage'
+  // 호출 측에서 어떤 메인 이미지들이 있는지 알려줘야 함 (P1Hero에서 전달)
+  const getOrderedLayers = (pageNum, mainLayers = []) => {
+    const free = (freeImages[pageNum] || []).map((it) => ({
+      kind: 'free',
+      id: it.id,
+      zIndex: it.zIndex ?? 1,
+    }));
+    const mains = mainLayers.map((m) => ({
+      kind: 'main',
+      id: m.id,
+      zIndex: imageOverrides[pageNum]?.[m.id]?.zIndex ?? m.defaultZ ?? 1,
+    }));
+    return [...mains, ...free].sort((a, b) => b.zIndex - a.zIndex);
+  };
+
+  // 단건 레이어 액션: front/back/forward/backward
+  // mainLayers를 받아서 전체 정규화 후 1..N 으로 재할당
+  const changeLayerNormalized = (pageNum, kind, id, action, mainLayers = []) => {
+    const ordered = getOrderedLayers(pageNum, mainLayers);
+    const idx = ordered.findIndex((l) => l.kind === kind && l.id === id);
+    if (idx < 0) return;
+    const next = ordered.slice();
+    const [target] = next.splice(idx, 1);
+    let newIdx = idx;
+    if (action === 'front') newIdx = 0;
+    else if (action === 'back') newIdx = next.length;
+    else if (action === 'forward') newIdx = Math.max(0, idx - 1);
+    else if (action === 'backward') newIdx = Math.min(next.length, idx + 1);
+    next.splice(newIdx, 0, target);
+    applyNormalizedZ(pageNum, next);
+  };
+
+  // 하위 호환을 위해 기존 시그니처도 유지 (자유이미지만 처리)
+  const changeLayer = (pageNum, id, action) => {
+    // mainLayers 정보 없으면 P1.heroImage 만 가정
+    const guessMain = pageNum === 'P1' ? [{ id: 'P1.heroImage' }] : [];
+    changeLayerNormalized(pageNum, 'free', id, action, guessMain);
+  };
+
+  // 드래그앤드롭 결과 적용 — newOrder는 위(앞)→아래(뒤) 순서
+  // newOrder: [{ kind, id }, ...]
   const reorderLayers = (pageNum, newOrder) => {
     if (!Array.isArray(newOrder) || newOrder.length === 0) return;
-    const mainIdx = newOrder.findIndex((l) => l.kind === 'main');
-    // 메인 위쪽(앞쪽)에 있는 자유 이미지들 — 위에서 아래 순서대로 (z는 큰→작은)
-    const aboveFree = mainIdx >= 0 ? newOrder.slice(0, mainIdx).filter((l) => l.kind === 'free') : [];
-    // 메인 아래쪽(뒤쪽)에 있는 자유 이미지들 — 위에서 아래 순서대로 (z는 큰→작은)
-    const belowFree = mainIdx >= 0
-      ? newOrder.slice(mainIdx + 1).filter((l) => l.kind === 'free')
-      : newOrder.filter((l) => l.kind === 'free'); // 메인 없으면 전부 위쪽으로 간주
-
-    // 자유 이미지 id → 새 z-index 매핑
-    const zMap = {};
-    // above: 첫 번째가 가장 앞 = 가장 큰 z = CONTENT_Z + aboveFree.length
-    aboveFree.forEach((l, i) => {
-      zMap[l.id] = CONTENT_Z + (aboveFree.length - i); // 501, 502, ...
-    });
-    // below: 첫 번째(메인 바로 아래)가 z = CONTENT_Z - 1, 마지막(맨 아래)가 가장 작은 z
-    belowFree.forEach((l, i) => {
-      zMap[l.id] = CONTENT_Z - 1 - i; // 499, 498, ...
-    });
-
-    setFreeImages((prev) => {
-      const list = (prev[pageNum] || []).map((it) =>
-        zMap[it.id] !== undefined ? { ...it, zIndex: zMap[it.id] } : it
-      );
-      return { ...prev, [pageNum]: list };
-    });
-    // 메인 사진 zIndex override를 500으로 명시
-    if (mainIdx >= 0) {
-      const mainLayer = newOrder[mainIdx];
-      updateImageOverride(pageNum, mainLayer.id, { zIndex: CONTENT_Z });
-    }
+    applyNormalizedZ(pageNum, newOrder);
   };
 
   // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
@@ -364,6 +380,7 @@ export default function App() {
           if (saved.textOverrides) setTextOverrides(saved.textOverrides);
           if (saved.imageOverrides) setImageOverrides(saved.imageOverrides);
           if (saved.freeImages) setFreeImages(saved.freeImages);
+          if (saved.layerNames) setLayerNames(saved.layerNames);
           if (saved.p5Version) setP5Version(saved.p5Version);
           if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
           setLastSavedAt(getLastSaved());
@@ -400,10 +417,10 @@ export default function App() {
     if (!hydrated) return; // 첫 hydration 전에는 저장하지 않음 (덮어쓰기 방지)
     debouncedSaveRef.current({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory,
     });
   }, [hydrated, brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, p5Version, revisionHistory]);
+      textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory]);
 
   // 수동 내보내기 (JSON 파일로 다운로드)
   const handleExportProject = useCallback(() => {
@@ -412,9 +429,9 @@ export default function App() {
     const filename = `coupang-${productName}-${stamp}.json`;
     downloadProjectJSON({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory,
     }, filename);
-  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, p5Version, revisionHistory]);
+  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory]);
 
   // 수동 불러오기 (JSON 파일 입력)
   const fileInputRef = useRef(null);
@@ -431,6 +448,7 @@ export default function App() {
       setTextOverrides(data.textOverrides || {});
       setImageOverrides(data.imageOverrides || {});
       setFreeImages(data.freeImages || {});
+      setLayerNames(data.layerNames || {});
       setP5Version(data.p5Version || 'text');
       setRevisionHistory(data.revisionHistory || {});
       alert('✅ 프로젝트를 불러왔습니다.');
@@ -455,6 +473,7 @@ export default function App() {
     setTextOverrides({});
     setImageOverrides({});
     setFreeImages({});
+    setLayerNames({});
     setP5Version('text');
     setRevisionHistory({});
     setExtractResult(null);
@@ -1733,7 +1752,14 @@ export default function App() {
                   onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
                   onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
                   onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
+                  onChangeLayerKind={(kind, id, action, mainLayers) =>
+                    changeLayerNormalized(currentPage, kind, id, action, mainLayers)
+                  }
                   onReorderLayers={(newOrder) => reorderLayers(currentPage, newOrder)}
+                  layerNames={layerNames[currentPage] || {}}
+                  onSetLayerName={(layerId, name) => setLayerName(currentPage, layerId, name)}
+                  activeLayerId={activeLayerId}
+                  onSetActiveLayer={setActiveLayerId}
                 />
               ) : (
                 <div className="text-xs text-slate-400 py-20 text-center">

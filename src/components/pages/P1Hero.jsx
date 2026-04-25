@@ -22,7 +22,12 @@ export default function P1Hero({
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
   onChangeLayer = () => {},
+  onChangeLayerKind = null, // (kind, id, action, mainLayers) => void
   onReorderLayers = () => {},
+  layerNames = {},
+  onSetLayerName = () => {},
+  activeLayerId = null,
+  onSetActiveLayer = () => {},
 }) {
   const {
     mainHeadline = '제품의 핵심을 한 줄로',
@@ -49,51 +54,54 @@ export default function P1Hero({
   // 드래그앤드롭 상태 (레이어 패널)
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
+  // 이름 편집 중인 레이어 ID
+  const [editingNameId, setEditingNameId] = useState(null);
+  const [editingNameVal, setEditingNameVal] = useState('');
   const validImages = (allImages || []).filter(Boolean);
 
-  // 메인사진의 z-index (override.zIndex가 없으면 기본 500)
-  const mainZ = imageOverrides['P1.heroImage']?.zIndex ?? 500;
+  // P1의 메인 레이어 정의 — 다른 페이지에서 재활용 시 변경 가능
+  const MAIN_LAYERS = [{ id: 'P1.heroImage', defaultName: '🖼 메인 사진', defaultZ: 1 }];
 
-  // 메인사진 레이어 변경 (EditableImage와 동일 정책)
-  const changeMainLayer = (action) => {
-    const cur = mainZ;
-    let newZ = cur;
-    if (action === 'front') newZ = 999;
-    else if (action === 'back') newZ = 1;
-    else if (action === 'forward') {
-      newZ = cur + 1;
-      if (newZ === 500) newZ = 501;
-      if (newZ > 999) newZ = 999;
-    } else if (action === 'backward') {
-      newZ = cur - 1;
-      if (newZ === 500) newZ = 499;
-      if (newZ < 1) newZ = 1;
-    }
-    onImageOverrideChange('P1.heroImage', { zIndex: newZ });
-  };
+  // 메인사진의 z-index (override가 없으면 기본 1)
+  const mainZ = imageOverrides['P1.heroImage']?.zIndex ?? 1;
 
   // 모든 레이어 통합 목록 (z-index 내림차순 = 위에서 아래)
+  // 1..N 정규화된 z-index 사용
   const allLayers = [
-    {
+    ...MAIN_LAYERS.map((m) => ({
       kind: 'main',
-      id: 'P1.heroImage',
-      label: '🖼 메인 사진',
-      src: imageOverrides['P1.heroImage']?.src || image,
-      zIndex: mainZ,
-    },
-    ...(freeImages || []).map((it, i) => ({
-      kind: 'free',
-      id: it.id,
-      label: `📷 추가 사진 ${i + 1}`,
-      src: it.src,
-      zIndex: it.zIndex ?? 501,
+      id: m.id,
+      defaultName: m.defaultName,
+      label: layerNames[m.id] || m.defaultName,
+      src: imageOverrides[m.id]?.src || image,
+      zIndex: imageOverrides[m.id]?.zIndex ?? m.defaultZ,
     })),
+    ...(freeImages || []).map((it, i) => {
+      const def = `📷 추가 사진 ${i + 1}`;
+      return {
+        kind: 'free',
+        id: it.id,
+        defaultName: def,
+        label: layerNames[it.id] || def,
+        src: it.src,
+        zIndex: it.zIndex ?? 1,
+      };
+    }),
   ].sort((a, b) => b.zIndex - a.zIndex);
 
   const handleLayerAction = (layer, action) => {
-    if (layer.kind === 'main') changeMainLayer(action);
-    else onChangeLayer(layer.id, action);
+    // 정규화된 액션 사용 (메인+자유이미지 모두 1..N으로 재할당)
+    if (typeof onChangeLayerKind === 'function') {
+      onChangeLayerKind(layer.kind, layer.id, action, MAIN_LAYERS);
+    } else if (layer.kind === 'free') {
+      onChangeLayer(layer.id, action);
+    }
   };
+
+  // 활성 레이어 여부 헬퍼 — 클릭 관통 제어용
+  const isLayerActive = (kind, id) => activeLayerId === `${kind}:${id}`;
+  const activateLayer = (kind, id) => onSetActiveLayer(`${kind}:${id}`);
+  const clearActiveLayer = () => onSetActiveLayer(null);
 
   // 파일 업로드 → base64 DataURL → onAddFreeImage
   const handleFileUpload = (e) => {
@@ -118,15 +126,18 @@ export default function P1Hero({
   );
   const pageHeight = Math.max(baseHeight, freeBottom + 80); // 하단 80px 여유
 
-  // 레이어 정책:
-  //   페이지 배경: z=0
-  //   자유 이미지 ▼▼ 맨뒤 가능 영역: z=1 ~ 499
-  //   기존 콘텐츠 (제목/메인사진/카드): z=500 (고정)
-  //   자유 이미지 ▲▲ 맨앞 가능 영역: z=501 ~ 999
+  // 레이어 정책 (정규화):
+  //   모든 레이어가 1..N 의 연속 정수 z-index 사용
+  //   레이어 패널 맨 위 = 가장 큰 z, 맨 아래 = z=1
+  //
+  // 클릭 관통 정책:
+  //   - editMode + activeLayerId가 메인이면 콘텐츠 wrapper 활성화
+  //   - 그 외에는 콘텐츠 wrapper의 빈 공간은 통과 (pointer-events:none),
+  //     실제 텍스트/이미지/카드만 화이트리스트로 활성화
+  const mainActive = isLayerActive('main', 'P1.heroImage');
   return (
     <PageFrame height={pageHeight} bg={BRAND.colors.white}>
-      {/* 상단 70% — 기존 콘텐츠 (z-index 500 고정)
-          편집모드일 때 빈 영역은 마우스 통과 → 뒤에 있는 자유이미지 클릭 가능 */}
+      {/* 상단 70% — 기존 콘텐츠 */}
       <div className={editMode ? 'p1-content-layer' : ''} style={{
         position: 'relative',
         padding: '60px 50px 30px', textAlign: 'center',
@@ -166,7 +177,19 @@ export default function P1Hero({
             </EditableText>
           </div>
         )}
-        <div data-edit-image style={{ marginTop: 36, pointerEvents: 'auto' }}>
+        <div
+          data-edit-image
+          onMouseDown={editMode ? () => activateLayer('main', 'P1.heroImage') : undefined}
+          style={{
+            marginTop: 36,
+            pointerEvents: 'auto',
+            position: 'relative',
+            zIndex: mainZ,
+            outline: editMode && mainActive ? '2px solid #f59e0b' : 'none',
+            outlineOffset: 4,
+            borderRadius: 22,
+          }}
+        >
           <EditableImage
             id="P1.heroImage"
             src={image}
@@ -176,6 +199,7 @@ export default function P1Hero({
             override={imageOverrides['P1.heroImage'] || {}}
             onChange={(partial) => onImageOverrideChange('P1.heroImage', partial)}
             availableImages={allImages.filter(Boolean)}
+            onLayerAction={(action) => handleLayerAction({ kind: 'main', id: 'P1.heroImage' }, action)}
           />
         </div>
       </div>
@@ -290,10 +314,12 @@ export default function P1Hero({
           key={item.id}
           item={{ ...item, galleryImages: validImages }}
           editMode={editMode}
+          isActive={isLayerActive('free', item.id)}
+          onActivate={() => activateLayer('free', item.id)}
           canvasWidth={780}
           onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
           onDelete={() => onDeleteFreeImage(item.id)}
-          onChangeLayer={(action) => onChangeLayer(item.id, action)}
+          onChangeLayer={(action) => handleLayerAction({ kind: 'free', id: item.id }, action)}
         />
       ))}
 
@@ -403,14 +429,23 @@ export default function P1Hero({
               <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 8, lineHeight: 1.5 }}>
                 💡 위 = 앞쪽, 아래 = 뒤쪽. ⠿ 영역 드래그로 순서 변경, ▲▼ 버튼으로도 가능.
               </div>
-              {allLayers.map((layer, idx) => (
+              {allLayers.map((layer, idx) => {
+                const isItemActive = isLayerActive(layer.kind, layer.id);
+                const isEditingName = editingNameId === layer.id;
+                const commitName = () => {
+                  const v = (editingNameVal || '').trim();
+                  // 빈 문자열은 기본 이름으로 되돌림 (삭제 효과)
+                  onSetLayerName(layer.id, v || '');
+                  setEditingNameId(null);
+                };
+                return (
                 <div
                   key={layer.id}
-                  draggable
+                  draggable={!isEditingName}
+                  onClick={() => activateLayer(layer.kind, layer.id)}
                   onDragStart={(e) => {
                     setDragIdx(idx);
                     e.dataTransfer.effectAllowed = 'move';
-                    // Firefox 호환
                     try { e.dataTransfer.setData('text/plain', layer.id); } catch (_) {}
                   }}
                   onDragOver={(e) => {
@@ -428,7 +463,6 @@ export default function P1Hero({
                     setDragIdx(null);
                     setDragOverIdx(null);
                     if (from === null || from === to) return;
-                    // 새 순서 만들기
                     const next = allLayers.slice();
                     const [moved] = next.splice(from, 1);
                     next.splice(to, 0, moved);
@@ -441,15 +475,19 @@ export default function P1Hero({
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: 6, marginBottom: 4,
-                    border: dragOverIdx === idx ? '2px solid #2563eb' : '1px solid #e2ddd4',
+                    border: dragOverIdx === idx ? '2px solid #2563eb'
+                          : isItemActive ? '2px solid #f59e0b'
+                          : '1px solid #e2ddd4',
                     borderRadius: 6,
-                    backgroundColor: layer.kind === 'main' ? '#eff6ff' : '#fafaf9',
+                    backgroundColor: isItemActive ? '#fffbeb'
+                          : layer.kind === 'main' ? '#eff6ff'
+                          : '#fafaf9',
                     opacity: dragIdx === idx ? 0.4 : 1,
-                    cursor: 'grab',
-                    transition: 'border-color 0.1s',
+                    cursor: isEditingName ? 'text' : 'grab',
+                    transition: 'border-color 0.1s, background-color 0.1s',
                   }}
                 >
-                  {/* 드래그 핸들 표시 */}
+                  {/* 드래그 핸들 */}
                   <div style={{
                     fontSize: 14,
                     color: '#94a3b8',
@@ -461,33 +499,72 @@ export default function P1Hero({
                   <img src={layer.src} alt="" crossOrigin="anonymous"
                     style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: '#2F2A26',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {layer.label}
-                    </div>
-                    <div style={{ fontSize: 9, color: '#64748b' }}>z{layer.zIndex}</div>
+                    {isEditingName ? (
+                      <input
+                        autoFocus
+                        value={editingNameVal}
+                        onChange={(e) => setEditingNameVal(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitName();
+                          else if (e.key === 'Escape') setEditingNameId(null);
+                        }}
+                        onBlur={commitName}
+                        placeholder={layer.defaultName}
+                        style={{
+                          width: '100%', fontSize: 11, fontWeight: 700,
+                          padding: '2px 4px', border: '1px solid #2563eb',
+                          borderRadius: 3, outline: 'none', color: '#2F2A26',
+                        }}
+                      />
+                    ) : (
+                      <div
+                        title="더블클릭하여 이름 수정"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingNameId(layer.id);
+                          setEditingNameVal(layerNames[layer.id] || '');
+                        }}
+                        style={{
+                          fontSize: 11, fontWeight: 800, color: '#2F2A26',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          cursor: 'text',
+                        }}
+                      >
+                        {layer.label}
+                        <span style={{ marginLeft: 4, fontSize: 9, color: '#94a3b8' }}>✏️</span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 9, color: '#64748b' }}>z{layer.zIndex}{isItemActive ? ' · 활성' : ''}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <button onClick={() => handleLayerAction(layer, 'front')}
+                    <button onClick={(e) => { e.stopPropagation(); handleLayerAction(layer, 'front'); }}
                       style={layerBtn('#475569')} title="맨 앞으로">▲▲</button>
-                    <button onClick={() => handleLayerAction(layer, 'back')}
+                    <button onClick={(e) => { e.stopPropagation(); handleLayerAction(layer, 'back'); }}
                       style={layerBtn('#475569')} title="맨 뒤로">▼▼</button>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <button onClick={() => handleLayerAction(layer, 'forward')}
+                    <button onClick={(e) => { e.stopPropagation(); handleLayerAction(layer, 'forward'); }}
                       style={layerBtn('#64748b')} title="한 단계 앞">▲</button>
-                    <button onClick={() => handleLayerAction(layer, 'backward')}
+                    <button onClick={(e) => { e.stopPropagation(); handleLayerAction(layer, 'backward'); }}
                       style={layerBtn('#64748b')} title="한 단계 뒤">▼</button>
                   </div>
                   {layer.kind === 'free' && (
                     <button
-                      onClick={() => { if (window.confirm('이 사진을 삭제할까요?')) onDeleteFreeImage(layer.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm('이 사진을 삭제할까요?')) {
+                          onDeleteFreeImage(layer.id);
+                          if (isItemActive) clearActiveLayer();
+                        }
+                      }}
                       style={{ ...layerBtn('#dc2626'), padding: '4px 6px' }}
                       title="삭제"
                     >🗑</button>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
