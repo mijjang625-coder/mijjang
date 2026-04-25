@@ -155,11 +155,14 @@ export default function EditableImage({
 
   // 🆕 부모 컨테이너 실측 너비 추적 (ResizeObserver)
   // 모바일 미리보기처럼 부모 너비가 frame.width 보다 작을 때 비율대로 자동 축소하기 위함.
+  // ⚠️ getBoundingClientRect()는 transform: scale 의 영향을 받아 이미 축소된 px 을 반환하므로,
+  //    offsetWidth (CSS px 기준, transform 무시) 를 사용한다.
+  //    → 모바일 미리보기 wrapper(scale 0.46)에서도 실제 컨테이너 너비(700px)로 측정됨.
   useEffect(() => {
     const parent = wrapperRef.current?.parentElement;
     if (!parent) return;
     const update = () => {
-      const w = parent.getBoundingClientRect().width || 0;
+      const w = parent.offsetWidth || 0;
       setParentWidth((prev) => (Math.abs(prev - w) > 0.5 ? w : prev));
     };
     update();
