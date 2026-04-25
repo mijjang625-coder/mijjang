@@ -508,6 +508,7 @@ export default function EditableImage({
       {/* 프레임 박스 */}
       <div
         ref={frameRef}
+        data-edit-image="true"
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseDown={(e) => {

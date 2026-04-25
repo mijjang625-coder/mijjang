@@ -161,7 +161,7 @@ export default function P10Faq({
   const mainActive = layer.isLayerActive('main', mainImgId);
 
   return (
-    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
     <div style={{ position: 'relative' }}>
       {/* ─────────── 1. 구성품 안내 (강조) ─────────── */}
       <div style={{ padding: '50px 40px 30px' }}>

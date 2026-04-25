@@ -203,6 +203,7 @@ export default function EditableText({
     <>
       <Tag
         ref={ref}
+        data-editable="true"
         className={className}
         contentEditable={isEditing}
         suppressContentEditableWarning

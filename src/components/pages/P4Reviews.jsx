@@ -49,7 +49,7 @@ export default function P4Reviews({
   );
 
   return (
-    <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
       <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
         <div style={{ padding: '50px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText

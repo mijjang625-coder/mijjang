@@ -153,7 +153,7 @@ export default function P1Hero({
   //     실제 텍스트/이미지/카드만 화이트리스트로 활성화
   const mainActive = isLayerActive('main', 'P1.heroImage');
   return (
-    <PageFrame height={pageHeight} bg={BRAND.colors.white}>
+    <PageFrame height={pageHeight} bg={BRAND.colors.white} onClearActive={clearActiveLayer}>
       {/* 상단 70% — 기존 콘텐츠 */}
       <div className={editMode ? 'p1-content-layer' : ''} style={{
         position: 'relative',

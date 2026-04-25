@@ -3,10 +3,31 @@ import { BRAND } from '../../lib/theme.js';
 const fallbackImg =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect fill="%23e8e5e1" width="400" height="400"/><text x="50%25" y="50%25" font-size="18" text-anchor="middle" fill="%238a8680" font-family="sans-serif" dy=".3em">사진이 필요합니다</text></svg>';
 
-export function PageFrame({ children, height = 1200, bg = BRAND.colors.white }) {
+export function PageFrame({ children, height = 1200, bg = BRAND.colors.white, onClearActive }) {
+  // 빈 공간 클릭 → 활성 레이어 해제
+  // 자식 요소(이미지/텍스트/툴바)는 자체 mousedown에서 stopPropagation 또는 onActivate를 호출하므로,
+  // 여기까지 버블링된 mousedown은 "어떤 편집 가능 요소도 잡지 못한 빈 공간 클릭"으로 간주한다.
+  // 단, data-editable / data-toolbar / data-handle / data-edit-image 영역은 제외.
+  const handleMouseDown = (e) => {
+    if (typeof onClearActive !== 'function') return;
+    let n = e.target;
+    while (n && n !== e.currentTarget) {
+      if (
+        n.dataset?.editable === 'true' ||
+        n.dataset?.toolbar !== undefined ||
+        n.dataset?.handle !== undefined ||
+        n.dataset?.editImage !== undefined ||
+        n.dataset?.freeImage !== undefined ||
+        n.dataset?.layerPanel !== undefined
+      ) return;
+      n = n.parentElement;
+    }
+    onClearActive();
+  };
   return (
     <div
       className="coupang-page"
+      onMouseDown={handleMouseDown}
       style={{
         width: 780,
         minHeight: height,

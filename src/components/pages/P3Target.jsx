@@ -52,7 +52,7 @@ export default function P3Target({
   const mainZ = imageOverrides[mainImgId]?.zIndex ?? 1;
 
   return (
-    <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
       <div style={{
         display: 'flex', flexDirection: 'column', minHeight: 1200, width: '100%',
         position: 'relative', pointerEvents: editMode ? 'none' : 'auto',

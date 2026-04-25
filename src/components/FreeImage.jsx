@@ -307,6 +307,7 @@ export default function FreeImage({
   return (
     <div
       ref={wrapRef}
+      data-free-image="true"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       onMouseDown={(e) => {

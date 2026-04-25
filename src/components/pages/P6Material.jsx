@@ -54,7 +54,7 @@ export default function P6Material({
   const sizeActive = layer.isLayerActive('main', sizeId);
 
   return (
-    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
     <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
       {/* 상단 — 소재 */}
       <div style={{ padding: '50px 40px 30px', pointerEvents: editMode ? 'auto' : 'inherit' }}>

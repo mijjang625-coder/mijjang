@@ -50,7 +50,7 @@ export default function P9HowTo({
   });
 
   return (
-    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
       <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
         <div style={{ padding: '50px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
