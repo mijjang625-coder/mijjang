@@ -78,7 +78,7 @@ const PageRenderer = forwardRef(function PageRenderer(
 
   switch (pageNumber) {
     case 'P1':
-      return <div ref={ref}><P1Hero copy={copy} image={pick(PAGE_IMAGE_MAP.P1.start)} variant={variant} {...editProps} /></div>;
+      return <div ref={ref}><P1Hero copy={copy} image={pick(PAGE_IMAGE_MAP.P1.start)} allImages={images} variant={variant} {...editProps} /></div>;
 
     case 'P2':
       return <div ref={ref}><P2Benefits copy={copy} images={imagesFor('P2')} {...editProps} /></div>;

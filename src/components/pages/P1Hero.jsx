@@ -8,6 +8,7 @@ import EditableImage from '../EditableImage.jsx';
 export default function P1Hero({
   copy = {},
   image,
+  allImages = [],
   variant = 0,
   editMode = false,
   overrides = {},
@@ -80,6 +81,7 @@ export default function P1Hero({
             editMode={editMode}
             override={imageOverrides['P1.heroImage'] || {}}
             onChange={(partial) => onImageOverrideChange('P1.heroImage', partial)}
+            availableImages={allImages.filter(Boolean)}
           />
         </div>
       </div>
