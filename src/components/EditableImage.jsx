@@ -704,54 +704,90 @@ export default function EditableImage({
         </div>
       )}
 
-      {/* 사진 교체 패널 — 툴바 바로 아래(박스 상단에 떠 있게) */}
+      {/* 사진 교체 패널 — 자유사진과 통일된 흰 배경 카드 스타일 */}
       {mode === 'cropping' && showSwapPanel && (
         <div
           data-toolbar
           style={{
             position: 'absolute',
             left: fx,
-            top: fy - 8,                   // 툴바(fy-50, 높이 ~38) 바로 아래
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 70px)',
-            gap: 6,
-            padding: 10,
-            backgroundColor: '#1e293b',
-            borderRadius: 8,
-            boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-            maxWidth: 320,
-            maxHeight: 280,
+            top: fy - 8,                   // 툴바 바로 아래
+            width: 280,
+            maxHeight: 360,
             overflowY: 'auto',
+            backgroundColor: '#fff',
+            border: '1px solid #e2ddd4',
+            borderRadius: 10,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
+            padding: 12,
             zIndex: 50,
           }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          {availableImages.map((imgUrl, i) => (
+          {/* 헤더 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#2F2A26' }}>🔄 사진 교체</div>
             <button
-              key={i}
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange({ src: imgUrl, crop: null }); // 교체 시 크롭 자동 리셋
-                setShowSwapPanel(false);
+              onClick={(e) => { e.stopPropagation(); setShowSwapPanel(false); }}
+              style={{ border: 'none', background: 'transparent', color: '#64748b', fontSize: 14, cursor: 'pointer' }}
+            >✕</button>
+          </div>
+
+          {/* 파일 업로드 */}
+          <label
+            style={{
+              display: 'block', border: '2px dashed #93c5fd', backgroundColor: '#eff6ff',
+              borderRadius: 8, padding: '10px 8px', textAlign: 'center', fontSize: 11,
+              fontWeight: 700, color: '#1d4ed8', cursor: 'pointer', marginBottom: 8,
+            }}
+          >
+            ⬆️ 내 컴퓨터에서 업로드
+            <input
+              type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  if (ev.target?.result) {
+                    onChange({ src: ev.target.result, crop: null });
+                    setShowSwapPanel(false);
+                  }
+                };
+                reader.readAsDataURL(file);
+                e.target.value = '';
               }}
-              style={{
-                width: 70,
-                height: 70,
-                padding: 0,
-                border: imgUrl === currentSrc ? '3px solid #f97316' : '2px solid transparent',
-                borderRadius: 6,
-                overflow: 'hidden',
-                cursor: 'pointer',
-                background: '#000',
-              }}
-            >
-              <img
-                src={imgUrl}
-                alt=""
-                crossOrigin="anonymous"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
-            </button>
-          ))}
+            />
+          </label>
+
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>
+            또는 갤러리에서 선택 ({availableImages.length}장)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5 }}>
+            {availableImages.map((imgUrl, i) => (
+              <button
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange({ src: imgUrl, crop: null });
+                  setShowSwapPanel(false);
+                }}
+                style={{
+                  border: imgUrl === currentSrc ? '2px solid #3b82f6' : '1px solid #e2ddd4',
+                  borderRadius: 6, padding: 0, overflow: 'hidden', cursor: 'pointer',
+                  aspectRatio: '1 / 1', backgroundColor: '#f3f4f6',
+                }}
+                title={`사진 ${i + 1}로 교체`}
+              >
+                <img
+                  src={imgUrl}
+                  alt=""
+                  crossOrigin="anonymous"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -382,33 +382,61 @@ export default function FreeImage({
         );
       })}
 
-      {/* idle 툴바 (좌상단 또는 좌하단 자동 배치) */}
+      {/* idle 툴바 — 메인사진 스타일과 통일 (텍스트 라벨 + 색상 구분) */}
       {showToolbar && (
         <div
           data-free-toolbar
           style={{
             position: 'absolute',
             left: 0,
-            top: toolbarBelow ? h + 6 : -36,
-            display: 'flex',
-            gap: 3,
+            top: toolbarBelow ? h + 6 : -42,
+            display: 'flex', gap: 6, alignItems: 'center',
+            backgroundColor: '#1e293b',
+            padding: '6px 10px',
+            borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             zIndex: 30,
-            backgroundColor: 'rgba(30,41,59,0.92)',
-            padding: '4px 5px',
-            borderRadius: 6,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
             whiteSpace: 'nowrap',
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button onClick={() => setMode('cropping')} style={btn('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)">🔍</button>
-          <span style={{ color: '#475569', fontSize: 12, padding: '0 2px', alignSelf: 'center' }}>|</span>
-          <button onClick={() => onChangeLayer('front')} style={btn('#475569')} title="맨 앞으로">▲▲</button>
-          <button onClick={() => onChangeLayer('forward')} style={btn('#64748b')} title="한 단계 앞으로">▲</button>
-          <button onClick={() => onChangeLayer('backward')} style={btn('#64748b')} title="한 단계 뒤로">▼</button>
-          <button onClick={() => onChangeLayer('back')} style={btn('#475569')} title="맨 뒤로">▼▼</button>
-          <span style={{ color: '#475569', fontSize: 12, padding: '0 2px', alignSelf: 'center' }}>|</span>
-          <button onClick={() => { if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }} style={btn('#dc2626')} title="삭제">🗑</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setMode('cropping'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)"
+          >🔍 크롭</button>
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+          <button
+            onClick={(e) => { e.stopPropagation(); onChangeLayer('front'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#475569')} title="맨 앞으로"
+          >▲▲ 맨앞</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onChangeLayer('forward'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#64748b')} title="한 단계 앞으로"
+          >▲ 앞</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onChangeLayer('backward'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#64748b')} title="한 단계 뒤로"
+          >▼ 뒤</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onChangeLayer('back'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#475569')} title="맨 뒤로"
+          >▼▼ 맨뒤</button>
+          <span style={{
+            backgroundColor: '#fbbf24', color: '#1e293b',
+            padding: '2px 6px', borderRadius: 4,
+            fontSize: 10, fontWeight: 900,
+          }}>z{zIndex}</span>
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+          <button
+            onClick={(e) => { e.stopPropagation(); if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#dc2626')} title="삭제"
+          >🗑 삭제</button>
         </div>
       )}
 
@@ -420,11 +448,11 @@ export default function FreeImage({
           padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 800,
           zIndex: 30, pointerEvents: 'none',
         }}>
-          {Math.round(w)}×{Math.round(h)} · z{zIndex}
+          {Math.round(w)}×{Math.round(h)}
         </div>
       )}
 
-      {/* B모드 툴바 (자동 위/아래) */}
+      {/* B모드 툴바 — 메인사진 스타일과 통일 */}
       {mode === 'cropping' && (
         <div
           data-free-toolbar
@@ -440,26 +468,35 @@ export default function FreeImage({
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>확대</span>
+          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>확대:</span>
           <input
             type="range" min={MIN_IMG_SCALE} max={MAX_IMG_SCALE} step="0.05"
             value={currentScale}
             onChange={(e) => handleScaleChange(parseFloat(e.target.value))}
-            style={{ width: 180, accentColor: '#f97316' }}
+            style={{ width: 130, accentColor: '#f97316' }}
             onMouseDown={(e) => e.stopPropagation()}
             title="50% ~ 400%"
           />
-          <span style={{ color: '#fbbf24', fontSize: 12, fontWeight: 800, minWidth: 44, textAlign: 'right' }}>
+          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700, minWidth: 40 }}>
             {Math.round(currentScale * 100)}%
           </span>
-          <span style={{ color: '#475569', fontSize: 12, padding: '0 2px' }}>|</span>
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
           <button
             data-replace-trigger
             onClick={(e) => { e.stopPropagation(); setShowReplace((s) => !s); }}
-            style={btn('#0ea5e9')} title="사진 교체"
-          >🔄</button>
-          <button onClick={() => onUpdate({ crop: null })} style={btn('#7c2d12')} title="크롭(확대/위치) 초기화">↺</button>
-          <button onClick={() => setMode('idle')} style={btn('#16a34a')} title="완료 (ESC)">✓</button>
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#0ea5e9')} title="다른 사진으로 교체"
+          >🔄 사진 교체</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onUpdate({ crop: null }); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#7c2d12')} title="크롭 초기화 (사진 위치/확대만 리셋)"
+          >↺ 크롭만</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setMode('idle'); setShowReplace(false); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#16a34a')} title="크롭 모드 종료 (ESC)"
+          >✓ 완료</button>
         </div>
       )}
 
@@ -567,5 +604,22 @@ function btn(color) {
     cursor: 'pointer',
     boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
     minWidth: 28,
+  };
+}
+
+// 메인사진 스타일과 통일된 라벨 버튼 (텍스트 포함)
+function btnLabel(color) {
+  return {
+    backgroundColor: color,
+    color: '#fff',
+    border: 'none',
+    padding: '6px 10px',
+    borderRadius: 5,
+    fontSize: 11,
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+    whiteSpace: 'nowrap',
+    lineHeight: 1.2,
   };
 }
