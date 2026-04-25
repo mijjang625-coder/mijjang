@@ -52,20 +52,34 @@ export default function EditableText({
     );
   }
 
+  // 툴바 위치 계산 — viewport 기준 (position: fixed)
+  // 텍스트 위쪽에 공간이 충분하면 위에, 부족하면 아래에 표시
+  const updateToolbarPos = () => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const TOOLBAR_HEIGHT = 44;
+    const TOOLBAR_WIDTH = 460; // 대략적인 툴바 너비
+    const margin = 8;
+
+    // 위쪽 공간이 부족하면 텍스트 아래에 표시
+    const showBelow = rect.top < TOOLBAR_HEIGHT + margin;
+    const top = showBelow ? rect.bottom + margin : rect.top - TOOLBAR_HEIGHT - margin;
+
+    // 가로는 텍스트 좌측에 맞추되, 화면 밖으로 나가지 않게 보정
+    let left = rect.left;
+    const maxLeft = window.innerWidth - TOOLBAR_WIDTH - margin;
+    if (left > maxLeft) left = maxLeft;
+    if (left < margin) left = margin;
+
+    setToolbarPos({ top, left });
+  };
+
   // ─────────── 더블클릭 → 편집 시작 ───────────
   const startEditing = (e) => {
     e.stopPropagation();
     setIsEditing(true);
     setShowToolbar(true);
-    // 툴바 위치: 요소 위쪽에 붙게
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect();
-      const parentRect = ref.current.offsetParent?.getBoundingClientRect?.() || { top: 0, left: 0 };
-      setToolbarPos({
-        top: rect.top - parentRect.top - 44,
-        left: rect.left - parentRect.left,
-      });
-    }
+    updateToolbarPos();
     // contentEditable 활성화 후 포커스
     setTimeout(() => {
       if (ref.current) {
@@ -97,15 +111,21 @@ export default function EditableText({
     if (isEditing) return; // 편집 중이면 무시
     e.stopPropagation();
     setShowToolbar((s) => !s);
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect();
-      const parentRect = ref.current.offsetParent?.getBoundingClientRect?.() || { top: 0, left: 0 };
-      setToolbarPos({
-        top: rect.top - parentRect.top - 44,
-        left: rect.left - parentRect.left,
-      });
-    }
+    updateToolbarPos();
   };
+
+  // 스크롤/리사이즈 시 툴바 위치 재계산
+  useEffect(() => {
+    if (!showToolbar) return;
+    const handler = () => updateToolbarPos();
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler, true);
+      window.removeEventListener('resize', handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showToolbar]);
 
   // ─────────── 드래그 이동 ───────────
   const handleMouseDown = (e) => {
@@ -214,7 +234,7 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: pos.top,
         left: pos.left,
         zIndex: 9999,
