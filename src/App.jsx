@@ -12,7 +12,7 @@ import {
 import {
   downloadAsImage, downloadAsHtml,
   downloadAllAsSinglePng, downloadAllAsSeparatePngs,
-  downloadAllAsHtml, downloadForFigma,
+  downloadAllAsHtml,
 } from './lib/exporters.js';
 import { CheckIcon as CheckIconPreview } from './components/pages/Shared.jsx';
 import ReviewAnalyzer from './components/ReviewAnalyzer.jsx';
@@ -1066,17 +1066,6 @@ export default function App() {
     } catch (err) { setError(err.message); setExportProgress(null); }
   };
 
-  const handleExportFigma = async () => {
-    try {
-      setShowExportPanel(true);
-      setExportProgress({ done: 0, total: 1, label: 'Figma 내보내기 준비...' });
-      const list = await collectAllPageNodes();
-      if (!list.length) { setError('완성된 페이지가 없습니다.'); setExportProgress(null); return; }
-      await downloadForFigma(list, productSlug, setExportProgress);
-      setTimeout(() => setExportProgress(null), 2000);
-    } catch (err) { setError(err.message); setExportProgress(null); }
-  };
-
   // 숨겨진 전체 페이지 렌더링용 refs (편집 UI 없이 순수 렌더)
   const exportPageRefs = {
     P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),
@@ -1173,7 +1162,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* P1~P10 전체 내보내기 (PNG/HTML/Figma) */}
+            {/* P1~P10 전체 내보내기 (PNG/HTML) */}
             <div className="relative">
               <button
                 onClick={() => setShowExportPanel((v) => !v)}
@@ -1213,15 +1202,6 @@ export default function App() {
                     style={{ color: '#2F2A26' }}
                   >
                     📄 <div><div>전체 HTML 한 파일</div><div className="text-[10px] font-normal text-slate-500">쿠팡 등록용 (780px)</div></div>
-                  </button>
-                  <div className="border-t my-1" style={{ borderColor: '#e2ddd4' }} />
-                  <button
-                    onClick={() => { handleExportFigma(); }}
-                    disabled={!!exportProgress || completedCount === 0}
-                    className="w-full text-left px-3 py-2 rounded text-[12px] font-bold hover:bg-slate-100 disabled:opacity-50 flex items-center gap-2"
-                    style={{ color: '#7c3aed' }}
-                  >
-                    🎨 <div><div>Figma로 내보내기</div><div className="text-[10px] font-normal text-slate-500">PNG 10장 + HTML + manifest</div></div>
                   </button>
                   <button
                     onClick={() => setShowExportPanel(false)}
