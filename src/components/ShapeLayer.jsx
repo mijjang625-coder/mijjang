@@ -68,11 +68,11 @@ export default function ShapeLayer({
         />
       ))}
 
-      {/* 🟦 도형 추가 버튼 + 패널 — 편집모드에서만 */}
+      {/* 🟦 도형 추가 버튼 + 패널 — 편집모드에서만 (fixed 로 화면 우측에 고정) */}
       {editMode && (
         <div ref={pickerRef} style={{
-          position: 'absolute',
-          right: 16, top: 104,
+          position: 'fixed',
+          right: 24, top: 272,
           zIndex: 9999,
         }}>
           <button
@@ -84,7 +84,7 @@ export default function ShapeLayer({
               boxShadow: '0 4px 12px rgba(168,85,247,0.45)',
               display: 'flex', alignItems: 'center', gap: 6,
             }}
-            title="페이지에 도형(사각형, 원, 화살표 등)을 그립니다"
+            title="페이지에 도형(사각형, 원, 화살표 등)을 그립니다 (스크롤해도 따라다님)"
           >
             🟦 도형 추가
             {shapes.length > 0 && (
