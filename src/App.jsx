@@ -2466,9 +2466,6 @@ Q5. / A5.
                   <InfoCard title="📷 사용 사진" items={currentResult.usedPhotos} />
                   <InfoCard title="🎨 디자인/배치 지시" items={currentResult.designNotes} />
                 </div>
-                <div className="p-3 rounded-lg text-sm whitespace-pre-line mb-4" style={{ backgroundColor: '#F7F3EE', color: '#2F2A26', border: '1px solid #e2ddd4' }}>
-                  {currentResult.confirmMessage}
-                </div>
 
                 <div className="flex gap-2 mb-4">
                   <button onClick={() => handleDownloadImage(currentPage)} className="px-4 py-2 rounded-lg text-white text-sm font-bold" style={{ backgroundColor: '#2F2A26' }}>
