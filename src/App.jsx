@@ -149,6 +149,8 @@ export default function App() {
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
       // 페이지 중앙 근처에 200×200 박스로 배치 (페이지 폭 780)
       const offsetIdx = list.length;
+      // 신규 추가는 콘텐츠(500)보다 위에서 시작 → 메인사진/카드 위에 보임
+      // 기존 자유이미지보다도 위에 오도록 list.length 만큼 누적
       const newItem = {
         id,
         src,
@@ -157,7 +159,7 @@ export default function App() {
         w: 200,
         h: 200,
         crop: null,
-        zIndex: 100 + list.length,  // 새로 추가된 게 위에 오도록
+        zIndex: 501 + list.length,
       };
       return { ...prev, [pageNum]: [...list, newItem] };
     });
@@ -186,21 +188,41 @@ export default function App() {
   };
 
   // 레이어 관리 헬퍼: zIndex 변경
+  // 레이어 정책 (P1Hero 기준):
+  //   1~499 = 콘텐츠 뒤 (자유이미지가 메인사진/카드 뒤로)
+  //   500   = 기존 콘텐츠 고정
+  //   501~999 = 콘텐츠 앞 (자유이미지가 메인사진/카드 위로)
+  const CONTENT_Z = 500;
   const changeLayer = (pageNum, id, action) => {
     // action: 'front' | 'back' | 'forward' | 'backward'
     setFreeImages((prev) => {
       const list = (prev[pageNum] || []).slice();
       if (list.length === 0) return prev;
-      const allZ = list.map((it) => it.zIndex || 100);
-      const maxZ = Math.max(...allZ);
-      const minZ = Math.min(...allZ);
       const target = list.find((it) => it.id === id);
       if (!target) return prev;
-      let newZ = target.zIndex || 100;
-      if (action === 'front') newZ = maxZ + 1;
-      else if (action === 'back') newZ = minZ - 1;
-      else if (action === 'forward') newZ = (target.zIndex || 100) + 1;
-      else if (action === 'backward') newZ = (target.zIndex || 100) - 1;
+      const curZ = target.zIndex ?? 501;
+      const others = list.filter((it) => it.id !== id).map((it) => it.zIndex ?? 501);
+      const maxZ = others.length ? Math.max(...others, curZ) : curZ;
+      const minZ = others.length ? Math.min(...others, curZ) : curZ;
+
+      let newZ = curZ;
+      if (action === 'front') {
+        // 콘텐츠보다 무조건 위로 (501 이상이고 모든 다른 자유이미지보다 위)
+        newZ = Math.max(maxZ + 1, 501);
+      } else if (action === 'back') {
+        // 콘텐츠 뒤로 (499 이하이고 모든 다른 자유이미지보다 뒤)
+        newZ = Math.min(minZ - 1, 499);
+        if (newZ < 1) newZ = 1;
+      } else if (action === 'forward') {
+        // 한 단계 앞으로: 콘텐츠 경계(500) 넘을 수 있음
+        newZ = curZ + 1;
+        if (newZ === CONTENT_Z) newZ = CONTENT_Z + 1; // 500은 건너뛰기
+      } else if (action === 'backward') {
+        // 한 단계 뒤로
+        newZ = curZ - 1;
+        if (newZ === CONTENT_Z) newZ = CONTENT_Z - 1; // 500은 건너뛰기
+        if (newZ < 1) newZ = 1;
+      }
       return {
         ...prev,
         [pageNum]: list.map((it) => (it.id === id ? { ...it, zIndex: newZ } : it)),

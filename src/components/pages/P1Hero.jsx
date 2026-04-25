@@ -68,10 +68,15 @@ export default function P1Hero({
   );
   const pageHeight = Math.max(baseHeight, freeBottom + 80); // 하단 80px 여유
 
+  // 레이어 정책:
+  //   페이지 배경: z=0
+  //   자유 이미지 ▼▼ 맨뒤 가능 영역: z=1 ~ 499
+  //   기존 콘텐츠 (제목/메인사진/카드): z=500 (고정)
+  //   자유 이미지 ▲▲ 맨앞 가능 영역: z=501 ~ 999
   return (
     <PageFrame height={pageHeight} bg={BRAND.colors.white}>
-      {/* 상단 70% — 메인 타이틀 120% 확대 */}
-      <div style={{ padding: '60px 50px 30px', textAlign: 'center' }}>
+      {/* 상단 70% — 기존 콘텐츠 (z-index 500 고정) */}
+      <div style={{ position: 'relative', zIndex: 500, padding: '60px 50px 30px', textAlign: 'center' }}>
         <EditableText
           {...editPropsFor('P1.mainHeadline')}
           as="h2"
@@ -120,9 +125,9 @@ export default function P1Hero({
         </div>
       </div>
 
-      {/* 하단 30% — 강점 카드 3개
+      {/* 하단 30% — 강점 카드 3개 (z-index 500 고정)
           사각형을 좀 작게 + 카드 사이 간격 넓게 + 서브글씨 150% 확대(3줄까지 허용) */}
-      <div style={{ backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20 }}>
+      <div style={{ position: 'relative', zIndex: 500, backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
           {strengthCards.slice(0, 3).map((c, i) => (
             <div
