@@ -2249,7 +2249,7 @@ Q5. / A5.
               <div className="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition" style={{ borderColor: '#C8B6A6' }}>
                 <div className="text-xl mb-1">⬆️</div>
                 <div className="text-sm font-semibold" style={{ color: '#2F2A26' }}>클릭해서 이미지 추가</div>
-                <div className="text-[11px] text-slate-500 mt-1">여러 장 한번에 추가 가능 · 각 사진 아래 버튼으로 교체/삭제</div>
+                <div className="text-[11px] text-slate-500 mt-1">여러 장 한번에 추가 가능 · 우측 상단 × 버튼으로 삭제</div>
                 <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
               </div>
             </label>
@@ -2290,26 +2290,7 @@ Q5. / A5.
                       >
                         ×
                       </button>
-                      {/* 교체 버튼 (하단 오버레이) */}
-                      <label className="absolute bottom-0 left-0 right-0 bg-black/75 hover:bg-black/90 text-white text-[11px] font-semibold py-1 text-center cursor-pointer">
-                        🔄 교체
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              const newUrl = ev.target.result;
-                              setImages((prev) => prev.map((s, i) => (i === idx ? newUrl : s)));
-                            };
-                            reader.readAsDataURL(file);
-                            e.target.value = ''; // 같은 파일 재선택 가능하게
-                          }}
-                        />
-                      </label>
+
                     </div>
                   );
                 })}
@@ -2626,7 +2607,7 @@ Q5. / A5.
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
                   💡 <b>텍스트 수정</b>: 지워달라 / 바꿔달라 / 더 짧게 등 (이전 수정도 누적 반영)<br />
-                  📷 <b>사진 교체</b>는 섹션 4 "제품 사진 업로드"에서 각 사진 하단 <b>🔄 교체</b> 버튼 → 사진 다시 반영은 페이지 <b>재생성</b> 필요<br />
+                  📷 <b>사진 교체</b>는 편집 모드에서 사진 클릭 후 우측 <b>↔ 사진 변경</b> 버튼 사용<br />
                   ⌨️ Ctrl/⌘ + Enter로 바로 전송
                 </div>
               </div>
