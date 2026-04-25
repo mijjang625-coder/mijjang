@@ -461,74 +461,42 @@ export default function EditableImage({
   }, [isActive]);
 
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
+  // 🆕 정책 변경: 편집 OFF (미리보기/모바일/내보내기) 에서는 frame 을 완전히 무시하고
+  //    부모 컨테이너 너비를 100% 로 가득 채워 aspect ratio 로 렌더링한다.
+  //    → 모바일에서 작아지는 문제, 카드에 회색 여백이 생기는 문제를 한번에 해결.
+  //    → PC 편집 ON 에서는 frame 이 그대로 동작하므로 사용자 편집 자유도는 유지됨.
   if (!editMode) {
-    const hasFrame = !!frame;
-    // 🆕 모바일/미리보기 자동 적응:
-    //  - frame.width 가 부모 너비보다 크면 → 비율 유지하며 축소 (모바일에서 잘림 방지)
-    //  - frame.width 가 부모 너비보다 작으면 → 비율 유지하며 확장 (사진이 카드 가득 차도록)
-    //  → 결과: 편집 OFF (미리보기/모바일/내보내기) 에서는 항상 부모 너비를 가득 채움
-    //  사용자가 PC 편집모드에서 frame 으로 의도적으로 작게 만들었더라도, 미리보기에서는
-    //  카드를 가득 채우는 게 시각적으로 더 자연스럽다.
-    let scaleRatio = 1;
-    if (hasFrame && parentWidth > 0 && frame.width > 0) {
-      scaleRatio = parentWidth / frame.width;
-    }
-    const renderedW = hasFrame ? frame.width * scaleRatio : null;
-    const renderedH = hasFrame ? frame.height * scaleRatio : null;
-    const renderedX = hasFrame ? frame.x * scaleRatio : 0;
-    const renderedY = hasFrame ? frame.y * scaleRatio : 0;
-    const shrinkRatio = scaleRatio; // 아래 img 스타일에서 사용
     return (
       <div
         ref={wrapperRef}
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: hasFrame ? undefined : aspect,
-          minHeight: hasFrame
-            ? renderedH + Math.max(0, renderedY) + 20 * shrinkRatio
-            : undefined,
+          aspectRatio: aspect,
+          backgroundColor: '#e8e5e1',
+          borderRadius: radius,
+          overflow: 'hidden',
           zIndex: customZ ?? 1,
-          pointerEvents: hasFrame ? 'none' : 'auto',
         }}
       >
-        <div
+        <img
+          ref={imgRef}
+          src={currentSrc || fallbackImg}
+          alt={alt}
+          crossOrigin="anonymous"
+          draggable={false}
+          onLoad={handleImgLoad}
           style={{
-            position: hasFrame ? 'absolute' : 'relative',
-            left: hasFrame ? renderedX : 0,
-            top: hasFrame ? renderedY : 0,
-            width: hasFrame ? renderedW : '100%',
-            height: hasFrame ? renderedH : undefined,
-            aspectRatio: hasFrame ? undefined : aspect,
-            backgroundColor: '#e8e5e1',
-            borderRadius: radius,
-            overflow: 'hidden',
-            zIndex: override?.zIndex || 'auto',
-            pointerEvents: 'auto',
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+            userSelect: 'none',
+            filter: cssFilter,
           }}
-        >
-          <img
-            ref={imgRef}
-            src={currentSrc || fallbackImg}
-            alt={alt}
-            crossOrigin="anonymous"
-            draggable={false}
-            onLoad={handleImgLoad}
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: '50%',
-              width: imgW > 0 ? imgW * shrinkRatio : '100%',
-              height: imgH > 0 ? imgH * shrinkRatio : '100%',
-              maxWidth: 'none',
-              transform: `translate(calc(-50% + ${offsetX * shrinkRatio}px), calc(-50% + ${offsetY * shrinkRatio}px))`,
-              objectFit: 'cover',
-              display: 'block',
-              userSelect: 'none',
-              filter: cssFilter,
-            }}
-          />
-        </div>
+        />
       </div>
     );
   }
