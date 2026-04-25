@@ -27,3 +27,9 @@ body {
 .coupang-page *:not([style*="font-family"]) {
   font-family: inherit;
 }
+
+/* 편집모드: 콘텐츠 컨테이너의 빈 공간은 마우스 통과(뒤에 있는 자유이미지 선택 가능),
+   직계 자식(텍스트/이미지/카드)은 정상적으로 이벤트 받음 */
+.p1-content-layer > * {
+  pointer-events: auto;
+}

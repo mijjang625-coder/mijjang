@@ -75,8 +75,13 @@ export default function P1Hero({
   //   자유 이미지 ▲▲ 맨앞 가능 영역: z=501 ~ 999
   return (
     <PageFrame height={pageHeight} bg={BRAND.colors.white}>
-      {/* 상단 70% — 기존 콘텐츠 (z-index 500 고정) */}
-      <div style={{ position: 'relative', zIndex: 500, padding: '60px 50px 30px', textAlign: 'center' }}>
+      {/* 상단 70% — 기존 콘텐츠 (z-index 500 고정)
+          편집모드일 때 빈 영역은 마우스 통과 → 뒤에 있는 자유이미지 클릭 가능 */}
+      <div className={editMode ? 'p1-content-layer' : ''} style={{
+        position: 'relative', zIndex: 500,
+        padding: '60px 50px 30px', textAlign: 'center',
+        pointerEvents: editMode ? 'none' : 'auto',
+      }}>
         <EditableText
           {...editPropsFor('P1.mainHeadline')}
           as="h2"
@@ -125,9 +130,12 @@ export default function P1Hero({
         </div>
       </div>
 
-      {/* 하단 30% — 강점 카드 3개 (z-index 500 고정)
-          사각형을 좀 작게 + 카드 사이 간격 넓게 + 서브글씨 150% 확대(3줄까지 허용) */}
-      <div style={{ position: 'relative', zIndex: 500, backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20 }}>
+      {/* 하단 30% — 강점 카드 3개 (z-index 500 고정) */}
+      <div className={editMode ? 'p1-content-layer' : ''} style={{
+        position: 'relative', zIndex: 500,
+        backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20,
+        pointerEvents: editMode ? 'none' : 'auto',
+      }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
           {strengthCards.slice(0, 3).map((c, i) => (
             <div
