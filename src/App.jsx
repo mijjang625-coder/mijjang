@@ -162,12 +162,11 @@ export default function App() {
   const [imageOverrides, setImageOverrides] = useState({});
 
   // 페이지별 자유 배치 이미지 (사용자가 추가한 사진들)
-  // { P1: [{ id, src, x, y, w, h, crop, zIndex }, ...] }
+  // { P1: [{ id, src, x, y, w, h, crop, zIndex, slot? }, ...] }
+  // slot: 'top' | 'between-0-1' | 'between-1-2' | ... | 'bottom' | null
+  //   slot != null  → 인라인 끼워넣기 (본문 콘텐츠가 그만큼 아래로 밀려남)
+  //   slot == null  → 자유 위치 (기존 동작, 자유사진끼리 자유롭게 배치/겹침)
   const [freeImages, setFreeImages] = useState({});
-
-  // 자동 밀어내기(Push-down) 모드 — 자유이미지 추가/이동 시 아래 이미지 자동 밀어내기
-  // 사용자는 사이드바 토글로 끌 수 있음 (자유 겹치기를 원할 때)
-  const [autoPushDown, setAutoPushDown] = useState(true);
 
   // 페이지별 레이어 사용자 지정 이름  { P1: { 'free_xxx': '메인꽃병', 'P1.heroImage': '메인사진' } }
   const [layerNames, setLayerNames] = useState({});
@@ -188,141 +187,72 @@ export default function App() {
     }));
   };
 
-  // 자유 이미지 추가
-  // - 신규 사진은 본문 콘텐츠 + 기존 자유이미지 모두의 "가장 아래" 다음 줄에 배치
-  //   → 텍스트나 다른 사진과 절대 겹치지 않음
-  // - 페이지 길이는 freeImageLayer 의 freeBottom 계산으로 자동 연장됨
+  // 자유 이미지 추가 (자유 위치 — slot=null)
+  // - 페이지 우상단의 "사진 추가" 버튼으로 추가되는 사진은 자유 위치 모드로 들어감
+  // - 본문 텍스트/사진과 안 겹치도록 페이지 본문 콘텐츠 아래에 떨어뜨림
   const addFreeImage = (pageNum, src) => {
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-
-      // 페이지 폭 780, 새 이미지 폭 480, 가운데 정렬
       const NEW_W = 480;
       const NEW_H = 360;
       const GAP = 24;
       const PAGE_W = 780;
       const x = Math.round((PAGE_W - NEW_W) / 2);
 
-      // 페이지별 본문 콘텐츠 baseHeight (이 값보다 아래에 새 사진이 떨어져야 본문과 안 겹침)
-      // 각 페이지(P1~P10)의 컴포넌트가 사용하는 baseHeight 와 동일
+      // 페이지별 본문 콘텐츠 baseHeight
       const PAGE_BASE_HEIGHT = {
         P1: 1500, P2: 1300, P3: 1450, P4: 1300, P5: 1300,
         P6: 1300, P7: 1500, P8: 1350, P9: 1300, P10: 1500,
       };
       const baseHeight = PAGE_BASE_HEIGHT[pageNum] || 1300;
 
-      // 기존 자유이미지의 가장 아래 끝
-      const maxBottom = list.reduce(
+      // 자유 위치 사진들(slot=null)의 가장 아래 끝
+      const freeOnly = list.filter((it) => !it.slot);
+      const maxBottom = freeOnly.reduce(
         (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
         0
       );
-      // 본문 baseHeight 와 기존 자유사진 끝 중 더 아래쪽 + GAP
       const y = Math.max(baseHeight, maxBottom) + GAP;
 
       const newItem = {
-        id,
-        src,
-        x,
-        y,
-        w: NEW_W,
-        h: NEW_H,
-        crop: null,
-        // zIndex 는 기존 자유이미지보다 1 높게 → 새로 추가된 것이 앞에 표시
-        zIndex: 501 + list.length,
+        id, src, x, y, w: NEW_W, h: NEW_H,
+        crop: null, zIndex: 501 + list.length,
+        slot: null, // 자유 위치
       };
       return { ...prev, [pageNum]: [...list, newItem] };
     });
   };
 
-  // 자유이미지 "끼워넣기" — 특정 anchor 자유이미지 바로 아래에 새 사진 삽입
-  // anchor 아래에 있던 모든 자유이미지는 새 사진 높이만큼 아래로 자동으로 밀려남
-  const insertFreeImageBelow = (pageNum, anchorId, src) => {
+  // 인라인 끼워넣기 — 특정 슬롯 위치에 사진 삽입
+  // slot: 'top' | `between-${i}-${i+1}` | 'bottom' (페이지 컴포넌트가 정의)
+  // 본문이 이 사진 높이만큼 아래로 밀려남 (페이지 컴포넌트에서 처리)
+  const addFreeImageToSlot = (pageNum, slot, src) => {
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
-      const anchor = list.find((it) => it.id === anchorId);
-      if (!anchor) {
-        // 앵커가 없으면 일반 추가로 폴백
-        return prev;
-      }
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-      const NEW_W = anchor.w || 480;
-      const NEW_H = anchor.h || 360;
-      const GAP = 24;
-      const insertY = (anchor.y || 0) + (anchor.h || 0) + GAP;
-      const pushAmount = NEW_H + GAP; // 아래쪽에 있던 이미지들 밀어낼 거리
-
-      // anchor 보다 아래(y >= insertY)에 있던 자유이미지들은 pushAmount 만큼 아래로 이동
-      const shifted = list.map((it) => {
-        if (it.id === anchorId) return it;
-        if ((it.y || 0) >= (anchor.y || 0) + (anchor.h || 0)) {
-          return { ...it, y: (it.y || 0) + pushAmount };
-        }
-        return it;
-      });
-
+      const NEW_W = 700;   // 본문 폭(700) 가득 찬 큰 사진
+      const NEW_H = 460;
+      const PAGE_W = 780;
+      const x = Math.round((PAGE_W - NEW_W) / 2);
       const newItem = {
-        id,
-        src,
-        x: anchor.x || 0,
-        y: insertY,
-        w: NEW_W,
-        h: NEW_H,
+        id, src, x, y: 0, w: NEW_W, h: NEW_H,
         crop: null,
-        zIndex: 501 + list.length,
+        zIndex: 100 + list.length,
+        slot, // 인라인 끼워넣기
       };
-      return { ...prev, [pageNum]: [...shifted, newItem] };
+      return { ...prev, [pageNum]: [...list, newItem] };
     });
   };
 
-  // 자유 이미지 업데이트
-  // - autoPushDown=true 이고 위치/크기 변경(y, h)이면, 변경된 이미지와 수직으로 겹치는
-  //   다른 자유이미지를 자동으로 아래로 밀어내어 끼워넣기 효과를 만든다
+  // 자유 이미지 업데이트 — 자유사진끼리는 서로 절대 밀어내지 않음 (자유로운 겹침/배치 허용)
   const updateFreeImage = (pageNum, id, partial) => {
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
-      const target = list.find((it) => it.id === id);
-      if (!target) return prev;
-      const next = { ...target, ...partial };
-
-      // 푸시다운 비활성 또는 y/h 변경이 아니면 단순 업데이트
-      const yhChanged =
-        (partial.y !== undefined && partial.y !== target.y) ||
-        (partial.h !== undefined && partial.h !== target.h);
-      if (!autoPushDown || !yhChanged) {
-        return {
-          ...prev,
-          [pageNum]: list.map((it) => (it.id === id ? next : it)),
-        };
-      }
-
-      // ── Push-down: 변경된 이미지와 수직으로 겹치는 자유이미지를 아래로 밀기 ──
-      // 단, "수평으로도 겹치는" 이미지만 밀어낸다 (옆으로 비켜선 사진은 그대로)
-      const GAP = 12;
-      const tTop = next.y || 0;
-      const tBottom = tTop + (next.h || 0);
-      const tLeft = next.x || 0;
-      const tRight = tLeft + (next.w || 0);
-
-      const updated = list.map((it) => {
-        if (it.id === id) return next;
-        const iTop = it.y || 0;
-        const iBottom = iTop + (it.h || 0);
-        const iLeft = it.x || 0;
-        const iRight = iLeft + (it.w || 0);
-        // 수평 겹침이 없으면 패스
-        const hOverlap = !(iRight <= tLeft || iLeft >= tRight);
-        if (!hOverlap) return it;
-        // 이미 변경된 이미지보다 위쪽에 있으면 패스
-        if (iTop + (it.h || 0) / 2 < tTop + (next.h || 0) / 2) return it;
-        // 수직 겹침 검사
-        const vOverlap = !(iBottom <= tTop || iTop >= tBottom);
-        if (!vOverlap) return it;
-        // 새 y = 변경된 이미지 바닥 + GAP
-        return { ...it, y: tBottom + GAP };
-      });
-
-      return { ...prev, [pageNum]: updated };
+      return {
+        ...prev,
+        [pageNum]: list.map((it) => (it.id === id ? { ...it, ...partial } : it)),
+      };
     });
   };
 
@@ -1506,35 +1436,6 @@ export default function App() {
             })()}
           </Section>
 
-          {/* ─────────── 자유이미지 자동 밀어내기 토글 ─────────── */}
-          <Section title="자유이미지 자동 끼워넣기" emoji="📥" collapsible defaultCollapsed>
-            <div className="text-[11px] leading-relaxed" style={{ color: '#6B5E52' }}>
-              <label className="flex items-start gap-2 cursor-pointer p-2 rounded-lg"
-                style={{ backgroundColor: autoPushDown ? '#ecfdf5' : '#f8fafc',
-                         border: `1px solid ${autoPushDown ? '#86efac' : '#e2e8f0'}` }}>
-                <input
-                  type="checkbox"
-                  checked={autoPushDown}
-                  onChange={(e) => setAutoPushDown(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  <span className="font-bold" style={{ color: autoPushDown ? '#15803d' : '#64748b' }}>
-                    {autoPushDown ? '✅ 켜짐' : '⬜ 꺼짐'}
-                  </span>
-                  {' — '}
-                  미리보기에서 사진을 추가하거나 두 사진 사이로 이동하면,
-                  <br/>아래 사진들이 자동으로 밀려납니다.
-                </span>
-              </label>
-              <div className="mt-2 px-2 text-[10px]" style={{ color: '#94a3b8' }}>
-                💡 본문 텍스트는 정해진 자리가 있어 밀리지 않고, 추가 사진끼리만 자동 정렬됩니다.<br/>
-                💡 사진을 일부러 겹치고 싶으면 토글을 끄세요.<br/>
-                💡 새 사진은 가장 아래 자유사진 다음 줄에 자동 배치되어 페이지 길이도 자동으로 늘어납니다.
-              </div>
-            </div>
-          </Section>
-
           <Section title="2. 참조 자료로 자동 채우기" emoji="🔗" collapsible>
             {/* 모드 탭 */}
             <div className="flex gap-1 mb-2 p-1 rounded-lg" style={{ backgroundColor: '#F7F3EE' }}>
@@ -2615,6 +2516,7 @@ Q5. / A5.
                   onImageOverrideChange={(imageId, partial) => updateImageOverride(currentPage, imageId, partial)}
                   freeImages={freeImages[currentPage] || []}
                   onAddFreeImage={(src) => addFreeImage(currentPage, src)}
+                  onAddFreeImageToSlot={(slot, src) => addFreeImageToSlot(currentPage, slot, src)}
                   onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
                   onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
                   onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
