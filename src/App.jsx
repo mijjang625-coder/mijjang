@@ -2716,9 +2716,10 @@ Q5. / A5.
                   title="미리보기 디바이스 전환"
                 >
                   {[
-                    { key: 'pc',     label: '🖥 PC',      sub: '780px' },
-                    { key: 'mobile', label: '📱 모바일',  sub: '360px' },
-                    { key: 'split',  label: '🔀 동시',    sub: 'PC+모바일' },
+                    { key: 'pc',         label: '🖥 PC',        sub: '780px' },
+                    { key: 'mobile',     label: '📱 모바일',    sub: '360px' },
+                    { key: 'mobileFull', label: '📜 전체',      sub: 'P1~P10 모바일' },
+                    { key: 'split',      label: '🔀 동시',      sub: 'PC+모바일' },
                   ].map((m) => (
                     <button
                       key={m.key}
@@ -2728,6 +2729,7 @@ Q5. / A5.
                         backgroundColor: previewMode === m.key ? '#2F2A26' : '#fff',
                         color: previewMode === m.key ? '#fff' : '#2F2A26',
                         borderRight: m.key !== 'split' ? '1px solid #e2ddd4' : 'none',
+                        whiteSpace: 'nowrap',
                       }}
                       title={`${m.label} — ${m.sub}`}
                     >
@@ -2852,6 +2854,79 @@ Q5. / A5.
                       <MobileFrame>
                         <ScaledHeightWrap scale={SCALE}>
                           {renderPage(pageRefs[currentPage], 'mobile')}
+                        </ScaledHeightWrap>
+                      </MobileFrame>
+                    </div>
+                  );
+                }
+
+                // 🆕 전체 모드: 생성된 모든 페이지(P1~P10)를 세로로 이어붙여 핸드폰 안에서 스크롤
+                if (previewMode === 'mobileFull') {
+                  const generatedPages = PAGE_LIST.filter((p) => pages[p]?.copy && !pages[p].needsMoreInfo);
+                  if (generatedPages.length === 0) {
+                    return (
+                      <div className="text-xs text-slate-400 py-20 text-center">
+                        먼저 페이지를 생성해주세요 (P1부터).
+                      </div>
+                    );
+                  }
+                  // 각 페이지를 PageRenderer 로 렌더 (편집 OFF)
+                  const renderPageFor = (pageKey) => {
+                    const result = pages[pageKey];
+                    if (!result?.copy) return null;
+                    return (
+                      <PageRenderer
+                        key={pageKey}
+                        pageNumber={pageKey}
+                        copy={{ ...result.copy, p1CardSettings: brief.p1CardSettings }}
+                        images={images}
+                        version={p5Version}
+                        variant={pageVariants[pageKey] || 0}
+                        editMode={false}
+                        overrides={textOverrides[pageKey] || {}}
+                        onOverrideChange={() => {}}
+                        imageOverrides={imageOverrides[pageKey] || {}}
+                        onImageOverrideChange={() => {}}
+                        freeImages={freeImages[pageKey] || []}
+                        onAddFreeImage={() => {}}
+                        onAddFreeImageToSlot={() => {}}
+                        onUpdateFreeImage={() => {}}
+                        onDeleteFreeImage={() => {}}
+                        shapes={shapes[pageKey] || []}
+                        onAddShape={() => {}}
+                        onUpdateShape={() => {}}
+                        onDeleteShape={() => {}}
+                        onChangeLayer={() => {}}
+                        onChangeLayerKind={() => {}}
+                        onReorderLayers={() => {}}
+                        layerNames={layerNames[pageKey] || {}}
+                        onSetLayerName={() => {}}
+                        activeLayerId={null}
+                        onSetActiveLayer={() => {}}
+                      />
+                    );
+                  };
+                  return (
+                    <div style={{ position: 'relative' }}>
+                      <MobileFrame label={`📜 전체 (${generatedPages.length}개 페이지)`}>
+                        <ScaledHeightWrap scale={SCALE}>
+                          <div style={{ width: 780, display: 'flex', flexDirection: 'column' }}>
+                            {generatedPages.map((p) => (
+                              <div key={p} style={{ position: 'relative' }}>
+                                {/* 페이지 구분 라벨 (선택) */}
+                                <div style={{
+                                  position: 'absolute', top: 8, left: 8, zIndex: 9999,
+                                  fontSize: 14, fontWeight: 700, color: '#fff',
+                                  backgroundColor: 'rgba(47,42,38,0.85)',
+                                  padding: '4px 10px', borderRadius: 6,
+                                  pointerEvents: 'none',
+                                }}>
+                                  {p}
+                                </div>
+                                {renderPageFor(p)}
+                              </div>
+                            ))}
+                          </div>
                         </ScaledHeightWrap>
                       </MobileFrame>
                     </div>
