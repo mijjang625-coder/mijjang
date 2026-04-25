@@ -1,4 +1,12 @@
-import html2canvas from 'html2canvas';
+// 🚀 html2canvas는 lazy load — 사용자가 "내보내기" 클릭할 때만 로드 (~200KB 절약)
+// 캐싱: 한 번 로드되면 재사용
+let _html2canvas = null;
+async function getHtml2Canvas() {
+  if (_html2canvas) return _html2canvas;
+  const mod = await import('html2canvas');
+  _html2canvas = mod.default || mod;
+  return _html2canvas;
+}
 
 const NANUMSQUARE_CSS_URL =
   'https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css';
@@ -9,6 +17,7 @@ const NANUMSQUARE_CSS_URL =
 export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   if (!node) throw new Error('렌더링할 노드가 없습니다.');
   await waitForImages(node);
+  const html2canvas = await getHtml2Canvas();
   const canvas = await html2canvas(node, {
     scale: 2,
     useCORS: true,
@@ -48,6 +57,7 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
   if (!pages?.length) throw new Error('내보낼 페이지가 없습니다.');
   const total = pages.length;
   const canvases = [];
+  const html2canvas = await getHtml2Canvas();
   for (let i = 0; i < pages.length; i++) {
     const { key, node } = pages[i];
     onProgress?.({ done: i, total, label: `${key} 캡처 중...` });
@@ -145,6 +155,7 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
   };
 
   // 각 페이지 PNG로 다운로드
+  const html2canvas = await getHtml2Canvas();
   for (let i = 0; i < pages.length; i++) {
     const { key, node } = pages[i];
     onProgress?.({ done: i, total: pages.length + 2, label: `${key} → PNG` });

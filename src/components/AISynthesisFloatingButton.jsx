@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import AISynthesisPanel from './AISynthesisPanel.jsx';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+
+// 🚀 AISynthesisPanel은 lazy load — 모달 열릴 때만 로드 (nano-banana 합성 라이브러리 무거움)
+const AISynthesisPanel = lazy(() => import('./AISynthesisPanel.jsx'));
 
 /**
  * AISynthesisFloatingButton
@@ -145,18 +147,25 @@ export default function AISynthesisFloatingButton({
               overflowY: 'auto',
               padding: 16,
             }}>
-              <AISynthesisPanel
-                apiKey={apiKey}
-                falApiKey={falApiKey}
-                productName={productName}
-                uploadedImages={uploadedImages}
-                initialSourceUrl={activeImageSrc}
-                currentPage={currentPage}
-                onAddImages={(urls) => {
-                  onAddImages(urls);
-                  // 추가 후 모달은 열어둠 (여러 번 합성 가능)
-                }}
-              />
+              <Suspense fallback={
+                <div style={{ padding: 40, textAlign: 'center', color: '#6b635c' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🍌</div>
+                  <div style={{ fontSize: 14, fontWeight: 'bold' }}>합성 패널 로딩 중...</div>
+                </div>
+              }>
+                <AISynthesisPanel
+                  apiKey={apiKey}
+                  falApiKey={falApiKey}
+                  productName={productName}
+                  uploadedImages={uploadedImages}
+                  initialSourceUrl={activeImageSrc}
+                  currentPage={currentPage}
+                  onAddImages={(urls) => {
+                    onAddImages(urls);
+                    // 추가 후 모달은 열어둠 (여러 번 합성 가능)
+                  }}
+                />
+              </Suspense>
             </div>
           </div>
         </div>

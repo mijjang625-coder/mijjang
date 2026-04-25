@@ -1,14 +1,41 @@
-import { forwardRef } from 'react';
-import P1Hero from './pages/P1Hero.jsx';
-import P2Benefits from './pages/P2Benefits.jsx';
-import P3Target from './pages/P3Target.jsx';
-import P4Reviews from './pages/P4Reviews.jsx';
-import P5Compare from './pages/P5Compare.jsx';
-import P6Material from './pages/P6Material.jsx';
-import P7Lifestyle from './pages/P7Lifestyle.jsx';
-import P8Usages from './pages/P8Usages.jsx';
-import P9HowTo from './pages/P9HowTo.jsx';
-import P10Faq from './pages/P10Faq.jsx';
+import { forwardRef, lazy, Suspense } from 'react';
+
+// 🚀 P1~P10 페이지 컴포넌트 lazy load
+//   - 첫 진입 시 P1만 빠르게 로드
+//   - 사용자가 다른 페이지 탭 클릭하면 그 페이지만 추가 로드
+//   - "전체 미리보기" 모드에서는 모두 동시 로드 (Suspense가 알아서 처리)
+const P1Hero      = lazy(() => import('./pages/P1Hero.jsx'));
+const P2Benefits  = lazy(() => import('./pages/P2Benefits.jsx'));
+const P3Target    = lazy(() => import('./pages/P3Target.jsx'));
+const P4Reviews   = lazy(() => import('./pages/P4Reviews.jsx'));
+const P5Compare   = lazy(() => import('./pages/P5Compare.jsx'));
+const P6Material  = lazy(() => import('./pages/P6Material.jsx'));
+const P7Lifestyle = lazy(() => import('./pages/P7Lifestyle.jsx'));
+const P8Usages    = lazy(() => import('./pages/P8Usages.jsx'));
+const P9HowTo     = lazy(() => import('./pages/P9HowTo.jsx'));
+const P10Faq      = lazy(() => import('./pages/P10Faq.jsx'));
+
+// 페이지 로딩 fallback (스켈레톤)
+function PageFallback({ pageNumber }) {
+  return (
+    <div style={{
+      width: '100%',
+      minHeight: 600,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#F7F3EE',
+      color: '#6b635c',
+      fontSize: 14,
+      fontWeight: 'bold',
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 24, marginBottom: 6 }}>📄</div>
+        {pageNumber} 로딩 중...
+      </div>
+    </div>
+  );
+}
 
 /**
  * 페이지별 사진 자동 분배 — 전체를 순차적으로 할당하고 부족하면 순환.
@@ -109,48 +136,53 @@ const PageRenderer = forwardRef(function PageRenderer(
     return pickRange(map.start, map.count);
   };
 
+  // Suspense로 감싸 lazy 로드된 페이지 컴포넌트가 준비될 때까지 fallback 표시
+  const fallback = <PageFallback pageNumber={pageNumber} />;
+
   switch (pageNumber) {
     case 'P1':
-      return <div ref={ref}><P1Hero copy={copy} image={pick(PAGE_IMAGE_MAP.P1.start)} allImages={images} variant={variant} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P1Hero copy={copy} image={pick(PAGE_IMAGE_MAP.P1.start)} allImages={images} variant={variant} {...editProps} /></Suspense></div>;
 
     case 'P2':
-      return <div ref={ref}><P2Benefits copy={copy} images={imagesFor('P2')} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P2Benefits copy={copy} images={imagesFor('P2')} {...editProps} /></Suspense></div>;
 
     case 'P3':
-      return <div ref={ref}><P3Target copy={copy} image={pick(PAGE_IMAGE_MAP.P3.start)} variant={variant} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P3Target copy={copy} image={pick(PAGE_IMAGE_MAP.P3.start)} variant={variant} {...editProps} /></Suspense></div>;
 
     case 'P4':
-      return <div ref={ref}><P4Reviews copy={copy} images={imagesFor('P4')} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P4Reviews copy={copy} images={imagesFor('P4')} {...editProps} /></Suspense></div>;
 
     case 'P5':
       return (
         <div ref={ref}>
-          <P5Compare
-            copy={copy}
-            ourImage={pick(PAGE_IMAGE_MAP.P5.start)}
-            generalImage={null}
-            version={version}
-            {...editProps}
-          />
+          <Suspense fallback={fallback}>
+            <P5Compare
+              copy={copy}
+              ourImage={pick(PAGE_IMAGE_MAP.P5.start)}
+              generalImage={null}
+              version={version}
+              {...editProps}
+            />
+          </Suspense>
         </div>
       );
 
     case 'P6': {
       const [materialImg, sizeImg] = imagesFor('P6');
-      return <div ref={ref}><P6Material copy={copy} materialImage={materialImg} sizeImage={sizeImg} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P6Material copy={copy} materialImage={materialImg} sizeImage={sizeImg} {...editProps} /></Suspense></div>;
     }
 
     case 'P7':
-      return <div ref={ref}><P7Lifestyle copy={copy} images={imagesFor('P7')} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P7Lifestyle copy={copy} images={imagesFor('P7')} {...editProps} /></Suspense></div>;
 
     case 'P8':
-      return <div ref={ref}><P8Usages copy={copy} images={imagesFor('P8')} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P8Usages copy={copy} images={imagesFor('P8')} {...editProps} /></Suspense></div>;
 
     case 'P9':
-      return <div ref={ref}><P9HowTo copy={copy} images={imagesFor('P9')} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P9HowTo copy={copy} images={imagesFor('P9')} {...editProps} /></Suspense></div>;
 
     case 'P10':
-      return <div ref={ref}><P10Faq copy={copy} componentImage={pick(PAGE_IMAGE_MAP.P10.start)} variant={variant} {...editProps} /></div>;
+      return <div ref={ref}><Suspense fallback={fallback}><P10Faq copy={copy} componentImage={pick(PAGE_IMAGE_MAP.P10.start)} variant={variant} {...editProps} /></Suspense></div>;
 
     default:
       return null;

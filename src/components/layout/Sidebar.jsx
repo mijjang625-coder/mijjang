@@ -1,11 +1,24 @@
+import { lazy, Suspense } from 'react';
 import Section from '../ui/Section.jsx';
 import Field from '../ui/Field.jsx';
 import InfoCard from '../ui/InfoCard.jsx';
-import ReviewAnalyzer from '../ReviewAnalyzer.jsx';
-import CompetitorAnalyzer from '../CompetitorAnalyzer.jsx';
 import { CheckIcon as CheckIconPreview } from '../pages/Shared.jsx';
 import { THEME_PRESETS, FONT_PRESETS } from '../../lib/theme.js';
 import { DEFAULT_BRIEF, PRODUCT_TYPES } from '../../lib/briefDefaults.js';
+
+// 🚀 분석 도구는 lazy load — 사이드바 섹션 펼쳐졌을 때만 로드 (xlsx + 분석 로직 포함)
+const ReviewAnalyzer = lazy(() => import('../ReviewAnalyzer.jsx'));
+const CompetitorAnalyzer = lazy(() => import('../CompetitorAnalyzer.jsx'));
+
+// 분석 도구 로딩 표시
+function AnalyzerFallback({ icon = '🔍', label = '도구 로딩 중...' }) {
+  return (
+    <div style={{ padding: 24, textAlign: 'center', color: '#6b635c' }}>
+      <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
+      <div style={{ fontSize: 12, fontWeight: 'bold' }}>{label}</div>
+    </div>
+  );
+}
 
 /**
  * Sidebar — 좌측 입력/설정 사이드바 (16개 섹션)
@@ -125,6 +138,7 @@ export default function Sidebar({
 
           {/* ─────────── 🆕 분석 도구 (위로 이동) ─────────── */}
           <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
+            <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
             <ReviewAnalyzer
               apiKey={apiKey}
               model={model}
@@ -152,9 +166,11 @@ export default function Sidebar({
                 alert(`✅ 리뷰 키워드 ${mapped.length}개를 검색어 목록에 추가했습니다.`);
               }}
             />
+            </Suspense>
           </Section>
 
           <Section title="🕵️ 경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed>
+            <Suspense fallback={<AnalyzerFallback icon="🕵️" label="경쟁사 분석 도구 로딩 중..." />}>
             <CompetitorAnalyzer
               apiKey={apiKey}
               model={model}
@@ -191,6 +207,7 @@ export default function Sidebar({
                 alert('✅ 경쟁사 분석 결과가 브리프(추가 메모)에 반영되었습니다. P1~P10 생성 시 자동 참고됩니다.');
               }}
             />
+            </Suspense>
           </Section>
 
           {/* ─────────── 폰트 선택 (전체 페이지 일괄 적용) ─────────── */}

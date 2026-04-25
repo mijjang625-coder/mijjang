@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { analyzeReviews } from '../lib/openai.js';
+
+// 🚀 xlsx는 lazy load — 사용자가 엑셀 업로드할 때만 로드 (~250KB 절약)
+let _XLSX = null;
+async function getXLSX() {
+  if (_XLSX) return _XLSX;
+  _XLSX = await import('xlsx');
+  return _XLSX;
+}
 
 /**
  * ReviewAnalyzer — 리뷰 분석 & 마케팅 문구 자동생성
@@ -91,9 +98,10 @@ export default function ReviewAnalyzer({
     setError('');
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = new Uint8Array(ev.target.result);
+        const XLSX = await getXLSX();
         const wb = XLSX.read(data, { type: 'array' });
         const sheetName = wb.SheetNames[0];
         const sheet = wb.Sheets[sheetName];
