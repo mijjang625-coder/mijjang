@@ -86,6 +86,21 @@ export default function App() {
     return getCostSummary({ sinceMs: sessionStartMs });
   })();
 
+  // ⏱ 페이지 생성 진행 상태 (예상 시간 표시용)
+  // 페이지별 평균 소요 시간 (초) — 실측 기반 보수치
+  const PAGE_AVG_SECONDS = {
+    P1: 18, P2: 22, P3: 16, P4: 28, P5: 24,
+    P6: 18, P7: 22, P8: 26, P9: 22, P10: 32,
+  };
+  // generationProgress: { pageNumber, startedAt, avgSec, isRevision } | null
+  const [generationProgress, setGenerationProgress] = useState(null);
+  const [progressTick, setProgressTick] = useState(0); // 1초마다 +1
+  useEffect(() => {
+    if (!generationProgress) return;
+    const id = setInterval(() => setProgressTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [generationProgress]);
+
   // 참조 URL (1688/쿠팡/네이버 등) - AI 자동 채우기
   const [referenceUrl, setReferenceUrl] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
@@ -948,6 +963,14 @@ export default function App() {
     validatePageRequirements(pageNumber, brief);
 
     if (revisionRequest) setIsRevising(true); else setIsLoading(true);
+    // ⏱ 진행 상태 시작
+    setGenerationProgress({
+      pageNumber,
+      startedAt: Date.now(),
+      avgSec: PAGE_AVG_SECONDS[pageNumber] || 22,
+      isRevision: !!revisionRequest,
+    });
+    setProgressTick(0);
     try {
       // 이전 페이지 요약
       const previousPagesSummary = PAGE_LIST.slice(0, PAGE_LIST.indexOf(pageNumber))
@@ -1025,6 +1048,7 @@ export default function App() {
     } finally {
       setIsLoading(false);
       setIsRevising(false);
+      setGenerationProgress(null);
     }
   };
 
@@ -1490,6 +1514,55 @@ export default function App() {
                 좌측에 정보를 입력한 뒤 상단 <b>{currentPage} 생성</b> 버튼을 눌러주세요.
               </div>
             )}
+
+            {/* ⏱ 페이지 생성 진행률 (예상 시간 표시) */}
+            {generationProgress && (() => {
+              void progressTick; // 1초마다 리렌더 트리거
+              const elapsedSec = Math.max(0, Math.floor((Date.now() - generationProgress.startedAt) / 1000));
+              const avgSec = generationProgress.avgSec;
+              const pct = Math.min(95, Math.round((elapsedSec / avgSec) * 100)); // 100% 안 채워서 답답함 방지
+              const remainSec = Math.max(1, avgSec - elapsedSec);
+              const isOverdue = elapsedSec > avgSec;
+              return (
+                <div
+                  className="p-4 rounded-xl border-2"
+                  style={{
+                    borderColor: '#C8B6A6',
+                    backgroundColor: '#FFFBEB',
+                    boxShadow: '0 2px 8px rgba(200,182,166,0.15)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-bold flex items-center gap-2" style={{ color: '#92400E' }}>
+                      <span className="inline-block animate-pulse">🔄</span>
+                      {generationProgress.pageNumber} {generationProgress.isRevision ? '수정' : '생성'} 중...
+                    </div>
+                    <div className="text-xs font-bold" style={{ color: isOverdue ? '#dc2626' : '#92400E' }}>
+                      {isOverdue ? '⏳ 거의 완료' : `⏱ 약 ${remainSec}초 남음`}
+                    </div>
+                  </div>
+                  {/* 프로그레스 바 */}
+                  <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#FDE68A' }}>
+                    <div
+                      className="h-full transition-all duration-1000"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: isOverdue ? '#F59E0B' : '#C8B6A6',
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 text-[10px]" style={{ color: '#92400E', opacity: 0.8 }}>
+                    <span>경과 {elapsedSec}초 / 평균 {avgSec}초</span>
+                    <span>{pct}%</span>
+                  </div>
+                  {isOverdue && (
+                    <div className="mt-2 text-[11px]" style={{ color: '#92400E' }}>
+                      💡 평균보다 오래 걸리고 있어요. 응답이 길거나 서버가 혼잡할 때 발생할 수 있습니다.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* 수정 요청 채팅창 */}
             {currentResult?.copy && (
