@@ -603,6 +603,15 @@ export default function EditableImage({
               ↺ 크롭
             </button>
           )}
+          {override?.src && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onChange({ src: null, crop: null }); }}
+              title="원본 사진으로 복원"
+              style={toolbarBtnStyle('#dc2626')}
+            >
+              ↺ 사진
+            </button>
+          )}
         </div>
       )}
 
@@ -671,11 +680,20 @@ export default function EditableImage({
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onChange({ crop: null }); }}
-            title="크롭 초기화 (자동 cover)"
+            title="크롭 초기화 (사진 위치/확대만 리셋, 교체된 사진은 유지)"
             style={toolbarBtnStyle('#7c2d12')}
           >
-            ↺ 초기화
+            ↺ 크롭만
           </button>
+          {override?.src && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onChange({ src: null, crop: null }); }}
+              title="원본 사진으로 복원 (사진 교체 + 크롭 모두 리셋)"
+              style={toolbarBtnStyle('#dc2626')}
+            >
+              ↺ 사진 원본
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); setMode('idle'); setShowSwapPanel(false); }}
             title="크롭 모드 종료 (ESC)"

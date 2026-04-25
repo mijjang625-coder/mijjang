@@ -18,6 +18,12 @@ body {
   color: #2F2A26;
 }
 
-.coupang-page, .coupang-page * {
-  font-family: 'NanumSquare', '나눔스퀘어', 'NanumSquareOTF', 'Pretendard', system-ui, sans-serif !important;
+/* 쿠팡 페이지 영역의 기본 폰트 — CSS 변수로 동적 변경 가능
+   사용자가 섹션 1에서 폰트 카드를 클릭하면 --app-font 변수가 바뀌어 즉시 반영됨.
+   inline style의 fontFamily가 명시되면 그걸 우선 (개별 텍스트 커스텀 가능). */
+.coupang-page {
+  font-family: var(--app-font, 'Pretendard Variable', 'Pretendard', 'NanumSquare', system-ui, sans-serif);
+}
+.coupang-page *:not([style*="font-family"]) {
+  font-family: inherit;
 }
