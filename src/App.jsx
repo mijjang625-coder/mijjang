@@ -16,6 +16,7 @@ import {
 } from './lib/exporters.js';
 import { CheckIcon as CheckIconPreview } from './components/pages/Shared.jsx';
 import ReviewAnalyzer from './components/ReviewAnalyzer.jsx';
+import AISynthesisPanel from './components/AISynthesisPanel.jsx';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 import {
   saveProject,
@@ -2261,6 +2262,18 @@ Q5. / A5.
               💡 각 사진의 오렌지 라벨은 <b>해당 페이지에 배치될 순서</b>를 뜻합니다 (P1→P2→…→P10).
               23장 넘으면 "순환"으로 재사용됩니다.
             </div>
+          </Section>
+
+          <Section title="AI 사진 합성 (배경교체 · 사용장면 · Before/After)" emoji="🎨" collapsible defaultCollapsed badge="NEW">
+            <AISynthesisPanel
+              apiKey={apiKey}
+              productName={brief.productName}
+              uploadedImages={images}
+              onAddImages={(urls) => {
+                if (!Array.isArray(urls) || !urls.length) return;
+                setImages((prev) => [...prev, ...urls]);
+              }}
+            />
           </Section>
 
           <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
