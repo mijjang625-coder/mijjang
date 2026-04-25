@@ -984,3 +984,153 @@ ${hasImages ? `\n첨부 이미지 ${validImages.length}장 — 그림 속 글씨
     throw new Error('OpenAI 응답을 JSON으로 파싱할 수 없습니다.');
   }
 }
+
+// ──────────────────────────────────────────────────────────────────
+// 🔍 리뷰 분석 — 페인포인트/긍정포인트/타겟고객/키워드 + 마케팅 문구 자동생성
+// ──────────────────────────────────────────────────────────────────
+/**
+ * 리뷰 텍스트 배열을 GPT 로 분석.
+ *
+ * @param {Object} options
+ * @param {string} options.apiKey                 - OpenAI API 키
+ * @param {string} [options.model]                - 기본 'gpt-4o-mini'
+ * @param {string[]} options.reviews              - 리뷰 텍스트 배열 (각 1개 리뷰)
+ * @param {string} [options.productName]          - 제품명 (있으면 분석 정확도 ↑)
+ * @param {string} [options.productType]          - 제품 유형
+ * @returns {Promise<{
+ *   painPoints: { rank: number, title: string, desc: string, freq: string }[],
+ *   positivePoints: { rank: number, title: string, desc: string, freq: string }[],
+ *   targetCustomers: { who: string, when: string, purpose: string }[],
+ *   keywords: { rank: number, keyword: string, count: number, category: string }[],
+ *   headlines: { id: string, painPointTitle: string, headline: string, body: string }[],
+ *   summary: string,
+ * }>}
+ */
+export async function analyzeReviews({
+  apiKey,
+  model = 'gpt-4o-mini',
+  reviews = [],
+  productName = '',
+  productType = '',
+}) {
+  if (!apiKey) throw new Error('OpenAI API 키가 필요합니다.');
+  const valid = (reviews || [])
+    .map((r) => (typeof r === 'string' ? r.trim() : ''))
+    .filter((r) => r.length >= 5);
+  if (valid.length < 3) {
+    throw new Error('분석에 사용할 리뷰가 너무 적습니다 (최소 3개 이상).');
+  }
+
+  // 토큰 절약: 너무 많으면 앞 200개만 사용 (대표 샘플)
+  const sample = valid.slice(0, 200);
+  const totalCount = valid.length;
+  const reviewsBlock = sample
+    .map((r, i) => `${i + 1}. ${r.slice(0, 500)}`)
+    .join('\n');
+
+  const systemPrompt = `당신은 쿠팡/네이버쇼핑의 리뷰 분석 전문가입니다.
+주어진 고객 리뷰들을 분석하여 다음 5가지를 JSON으로 추출합니다.
+
+【규칙】
+- 모든 출력은 한국어로 작성합니다.
+- 추측 금지. 리뷰에 실제로 등장한 내용만 사용합니다.
+- 빈도(많이 언급된 정도)를 기준으로 순위를 매깁니다.
+- 짧고 마케팅에 바로 쓸 수 있는 문장으로 작성합니다.
+
+【1. 페인포인트 (painPoints) Top 3】
+고객들이 가장 불만을 느낀 요소 3가지.
+- title: 짧은 핵심 문구 (예: "배송 중 파손")
+- desc: 1~2 문장 설명 (예: "택배가 험하게 와서 깨졌다는 불만이 자주 등장")
+- freq: 빈도 (예: "자주", "보통", "가끔")
+
+【2. 긍정포인트 (positivePoints) Top 3】
+고객들이 구매를 결정한 결정적인 이유 3가지.
+- title, desc, freq: 위와 동일
+
+【3. 타겟고객 (targetCustomers) Top 3】
+실제 리뷰에서 추정 가능한 주요 구매층 3가지.
+- who: 누가 (예: "자취생", "30대 워킹맘", "신혼부부")
+- when: 언제/어떤 상황 (예: "이사 후", "선물용으로")
+- purpose: 어떤 용도 (예: "거실 인테리어", "공부방 정리")
+
+【4. 키워드 (keywords) Top 20】
+리뷰에서 자주 등장하는 단어/문구 20개.
+- keyword: 단어 또는 짧은 구 (예: "디자인", "포장 꼼꼼", "은은한 색감")
+- count: 대략적인 등장 횟수 (정수)
+- category: "장점" / "단점" / "용도" / "감성" / "기타"
+- 빈도 내림차순으로 정렬.
+
+【5. 마케팅 헤드라인 (headlines) 6~9개】
+페인포인트 3가지를 해결한다는 메시지로, 각 페인포인트당 2~3개씩 강조 문구를 만드세요.
+- id: 'h1', 'h2', 'h3', ...
+- painPointTitle: 어떤 페인포인트를 해결하는지 (위 painPoints[i].title 과 일치)
+- headline: 임팩트 있는 짧은 한 줄 (15자 이내, 예: "이번엔 안 깨집니다")
+- body: 보충 설명 1~2 문장 (예: "3중 에어백 포장으로 배송 사고 0%")
+- 톤: 자신감 있고 구체적 / 과장·허위 금지 / 비교광고 금지(타사 비방 X)
+
+【6. 요약 (summary)】
+전체 리뷰를 2~3 문장으로 요약. 어떤 제품인지·전반적 평가가 어떤지.
+
+【출력 JSON 형식】
+{
+  "summary": "이 제품은 ...",
+  "painPoints": [{"rank":1,"title":"...","desc":"...","freq":"자주"}],
+  "positivePoints": [{"rank":1,"title":"...","desc":"...","freq":"자주"}],
+  "targetCustomers": [{"who":"...","when":"...","purpose":"..."}],
+  "keywords": [{"rank":1,"keyword":"...","count":12,"category":"장점"}],
+  "headlines": [{"id":"h1","painPointTitle":"...","headline":"...","body":"..."}]
+}
+정확히 painPoints 3개, positivePoints 3개, targetCustomers 3개, keywords 20개, headlines 6~9개를 반환합니다.`;
+
+  const userContent = `## 분석 대상 제품
+제품명: ${productName || '(미입력)'}
+제품 유형: ${productType || '(미입력)'}
+총 수집된 리뷰 수: ${totalCount}개${totalCount > sample.length ? ` (분석 샘플 ${sample.length}개)` : ''}
+
+## 고객 리뷰 ${sample.length}개
+${reviewsBlock}
+
+위 리뷰들을 분석해 JSON 으로 반환하세요.`;
+
+  const response = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.4,
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`OpenAI API 오류 (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenAI 응답이 비어있습니다.');
+
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      summary: parsed.summary || '',
+      painPoints: Array.isArray(parsed.painPoints) ? parsed.painPoints.slice(0, 3) : [],
+      positivePoints: Array.isArray(parsed.positivePoints) ? parsed.positivePoints.slice(0, 3) : [],
+      targetCustomers: Array.isArray(parsed.targetCustomers) ? parsed.targetCustomers.slice(0, 3) : [],
+      keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 20) : [],
+      headlines: Array.isArray(parsed.headlines) ? parsed.headlines.slice(0, 12) : [],
+      meta: { totalCount, analyzedCount: sample.length },
+    };
+  } catch {
+    throw new Error('OpenAI 응답을 JSON으로 파싱할 수 없습니다.');
+  }
+}

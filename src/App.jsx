@@ -15,6 +15,7 @@ import {
   downloadAllAsHtml, downloadForFigma,
 } from './lib/exporters.js';
 import { CheckIcon as CheckIconPreview } from './components/pages/Shared.jsx';
+import ReviewAnalyzer from './components/ReviewAnalyzer.jsx';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 import {
   saveProject,
@@ -2272,6 +2273,37 @@ Q5. / A5.
               💡 각 사진의 오렌지 라벨은 <b>해당 페이지에 배치될 순서</b>를 뜻합니다 (P1→P2→…→P10).
               23장 넘으면 "순환"으로 재사용됩니다.
             </div>
+          </Section>
+
+          <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
+            <ReviewAnalyzer
+              apiKey={apiKey}
+              model={model}
+              productName={brief.productName}
+              productType={brief.productType}
+              onAddKeywordsToSearch={(reviewKeywords) => {
+                // ReviewAnalyzer 의 키워드({rank, keyword, count, category}) →
+                // 사이드바 keywords 형식({rank, keyword, type}) 으로 변환 후 병합 (중복 제거)
+                if (!Array.isArray(reviewKeywords) || !reviewKeywords.length) return;
+                const exists = new Set((keywords || []).map((k) => String(k.keyword).trim().toLowerCase()));
+                const mapped = reviewKeywords
+                  .map((k) => ({
+                    keyword: String(k.keyword || '').trim(),
+                    type: k.category || '리뷰',
+                  }))
+                  .filter((k) => k.keyword && !exists.has(k.keyword.toLowerCase()));
+                if (!mapped.length) {
+                  alert('이미 추가된 키워드입니다.');
+                  return;
+                }
+                const merged = [...(keywords || []), ...mapped].map((k, idx) => ({
+                  ...k,
+                  rank: idx + 1,
+                }));
+                setKeywords(merged);
+                alert(`✅ 리뷰 키워드 ${mapped.length}개를 검색어 목록에 추가했습니다.`);
+              }}
+            />
           </Section>
 
           <Section title="5. 리뷰 4개 (P4 필수)" emoji="⭐" collapsible>
