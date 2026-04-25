@@ -1244,10 +1244,10 @@ export default function App() {
                   <br />① 브라우저에서 상품 페이지 열기
                   <br />② <b>Ctrl+A → Ctrl+C</b>로 페이지 전체 복사
                   <br />③ 아래 칸에 <b>Ctrl+V</b>로 붙여넣기
-                  <br />④ 아래 <b>✨ 내용 분석</b> 버튼 클릭
-                  <br /><span style={{ color: '#C8B6A6' }}>※ 이미지는 복사 안되니 글 위주로 OK</span>
+                  <br />④ 이미지는 따로 다운받아 <b>아래 이미지 첨부</b>에 올리면 자동으로 글씨까지 분석됨
+                  <br />⑤ 아래 <b>✨ 내용 분석</b> 버튼 클릭
                 </div>
-                <Field label="① 1688/쿠팡 페이지 내용 붙여넣기 (선택)">
+                <Field label="① 1688/쿠팡 크롤링 자료 (텍스트 + 이미지 OCR)">
                   <textarea
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
@@ -1257,8 +1257,17 @@ export default function App() {
                     style={{ resize: 'vertical', minHeight: '140px' }}
                   />
                 </Field>
-                <div className="text-[10px] text-slate-400 -mt-1">
-                  1688/쿠팡 내용: {pastedText.length.toLocaleString()}자 {pastedText.length >= 500 && '✓'}
+                <div className="text-[10px] text-slate-500 -mt-1 leading-relaxed">
+                  📋 텍스트: <b>{pastedText.length.toLocaleString()}자</b> {pastedText.length >= 500 && '✓'}
+                  {images.length > 0 && (
+                    <>
+                      {' · '}
+                      📷 첨부 이미지: <b>{images.length}장</b>
+                      <span style={{ color: '#92400e' }}> (이미지 안 글씨도 같이 분석됨)</span>
+                    </>
+                  )}
+                  <br />
+                  <span style={{ color: '#C8B6A6' }}>※ 1688 이미지를 다운받아 <b>아래 이미지 첨부</b>에 올리면 그림 속 중국어/한국어/숫자도 함께 분석됩니다 (최대 8장)</span>
                 </div>
 
                 <Field label="② 🔑 내가 직접 쓴 메모 (최우선 적용)">
@@ -1421,18 +1430,12 @@ Q5. / A5.
                   style={{ backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}
                 >
                   💡 내 메모: <b>{userNotes.length.toLocaleString()}자</b>
-                  {images.length > 0 && (
-                    <>
-                      {' · '}
-                      📷 첨부 이미지: <b>{images.length}장</b> (이미지 안 글씨도 자동 분석)
-                    </>
-                  )}
                   <br />
-                  • <b>①·②·이미지 중 하나만</b> 있어도 OK (모두 합쳐도 OK)
+                  • <b>①(크롤링 자료) 또는 ②(내 메모) 중 하나만</b> 있어도 OK
                   <br />
-                  • <b>②(내 메모) &gt; ①(페이지 내용) &gt; 📷(이미지 OCR)</b> 순으로 우선 적용
+                  • <b>②(내 메모)가 ①(크롤링 자료)보다 항상 우선</b> 적용
                   <br />
-                  • 1688 이미지를 다운받아 아래 <b>이미지 첨부</b>에 올리면 그림 속 글씨도 분석됩니다 (최대 8장)
+                  • 🚫 자료에 <b>없는 정보는 빈 칸으로 둠</b> (AI가 추측해서 채우지 않음). 빈 칸은 나중에 직접 채우거나 <b>🪄 빈 칸 채우기</b> 버튼 사용
                 </div>
               </>
             )}
