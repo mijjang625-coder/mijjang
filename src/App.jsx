@@ -38,6 +38,7 @@ import {
   resetSession,
   getSessionStart,
 } from './lib/costTracker.js';
+import { useUndoableHistory, useUndoRedoKeyboard } from './hooks/useUndoableHistory.js';
 
 const PAGE_LIST = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10'];
 
@@ -192,6 +193,64 @@ export default function App() {
     setActiveLayerId(null);
   }, [editMode, currentPage]);
 
+  // ─── 🔄 Undo/Redo 히스토리 ───────────────────────────
+  // 6개 편집 가능한 상태를 묶어서 한 번에 undo/redo
+  const undoHistory = useUndoableHistory({
+    pages: {},
+    textOverrides: {},
+    imageOverrides: {},
+    freeImages: {},
+    shapes: {},
+    layerNames: {},
+  });
+
+  // setter들을 history에 등록 (한 번만)
+  useEffect(() => {
+    undoHistory.registerSetters({
+      pages: setPages,
+      textOverrides: setTextOverrides,
+      imageOverrides: setImageOverrides,
+      freeImages: setFreeImages,
+      shapes: setShapes,
+      layerNames: setLayerNames,
+    });
+  }, [undoHistory]);
+
+  // 현재 상태 스냅샷 헬퍼 — snapshot 호출 시 사용
+  const getCurrentSnapshot = useCallback(() => ({
+    pages,
+    textOverrides,
+    imageOverrides,
+    freeImages,
+    shapes,
+    layerNames,
+  }), [pages, textOverrides, imageOverrides, freeImages, shapes, layerNames]);
+
+  // 키보드 단축키 등록 (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z)
+  useUndoRedoKeyboard(undoHistory.undo, undoHistory.redo);
+
+  // 편집 액션 직전에 호출 — 변경 후 자동으로 그 상태가 다음 history 항목이 됨
+  // pattern: pushHistory('라벨'); 그 다음 setState(...)
+  const pushHistory = useCallback((label) => {
+    undoHistory.snapshot(getCurrentSnapshot(), label);
+  }, [undoHistory, getCurrentSnapshot]);
+
+  // 🔄 연속 동작용 debounce snapshot
+  // 같은 키(예: 'P1.heroImage.move')로 연속 호출되면 첫 번째만 스냅샷 (드래그 한 묶음)
+  // 다른 키가 오거나 800ms 후에는 새 스냅샷 가능
+  const lastActionRef = useRef({ key: null, timestamp: 0 });
+  const pushHistoryDebounced = useCallback((key, label) => {
+    const now = Date.now();
+    const last = lastActionRef.current;
+    // 같은 key + 800ms 이내 → 무시 (연속 동작)
+    if (last.key === key && now - last.timestamp < 800) {
+      lastActionRef.current = { key, timestamp: now };
+      return;
+    }
+    pushHistory(label);
+    lastActionRef.current = { key, timestamp: now };
+  }, [pushHistory]);
+
   // ─────────────────────────────────────────────────────────
   // 🎨 AI 합성용 — 현재 활성화된 레이어의 실제 이미지 src 추출
   // 페이지별 EditableImage id 형식:
@@ -260,6 +319,7 @@ export default function App() {
   // - 페이지 우상단의 "사진 추가" 버튼으로 추가되는 사진은 자유 위치 모드로 들어감
   // - 본문 텍스트/사진과 안 겹치도록 페이지 본문 콘텐츠 아래에 떨어뜨림
   const addFreeImage = (pageNum, src) => {
+    pushHistory(`${pageNum} 사진 추가`);
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
@@ -297,6 +357,7 @@ export default function App() {
   // slot: 'top' | `between-${i}-${i+1}` | 'bottom' (페이지 컴포넌트가 정의)
   // 본문이 이 사진 높이만큼 아래로 밀려남 (페이지 컴포넌트에서 처리)
   const addFreeImageToSlot = (pageNum, slot, src) => {
+    pushHistory(`${pageNum} 사진 끼워넣기`);
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
@@ -316,6 +377,7 @@ export default function App() {
 
   // 자유 이미지 업데이트 — 자유사진끼리는 서로 절대 밀어내지 않음 (자유로운 겹침/배치 허용)
   const updateFreeImage = (pageNum, id, partial) => {
+    pushHistoryDebounced(`free.${pageNum}.${id}`, `${pageNum} 사진 편집`);
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       return {
@@ -327,6 +389,7 @@ export default function App() {
 
   // 자유 이미지 삭제
   const deleteFreeImage = (pageNum, id) => {
+    pushHistory(`${pageNum} 사진 삭제`);
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       return {
@@ -339,6 +402,7 @@ export default function App() {
   // ─── 🟦 도형 CRUD ─────────────────────────────────────────────────
   // 도형 추가 (페이지 가운데 근처에 기본 크기로)
   const addShape = (pageNum, type) => {
+    pushHistory(`${pageNum} 도형 추가 (${type})`);
     setShapes((prev) => {
       const list = prev[pageNum] || [];
       const id = 'shape_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
@@ -380,6 +444,7 @@ export default function App() {
   };
 
   const updateShape = (pageNum, id, partial) => {
+    pushHistoryDebounced(`shape.${pageNum}.${id}`, `${pageNum} 도형 편집`);
     setShapes((prev) => {
       const list = prev[pageNum] || [];
       return {
@@ -390,6 +455,7 @@ export default function App() {
   };
 
   const deleteShape = (pageNum, id) => {
+    pushHistory(`${pageNum} 도형 삭제`);
     setShapes((prev) => {
       const list = prev[pageNum] || [];
       return {
@@ -509,6 +575,7 @@ export default function App() {
 
   // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
   const updateTextOverride = (pageNum, textId, partial) => {
+    pushHistoryDebounced(`text.${pageNum}.${textId}`, `${pageNum} 텍스트 수정`);
     setTextOverrides((prev) => {
       const pagePrev = prev[pageNum] || {};
       const itemPrev = pagePrev[textId] || {};
@@ -524,6 +591,7 @@ export default function App() {
 
   // 이미지 오버라이드 업데이트 헬퍼
   const updateImageOverride = (pageNum, imageId, partial) => {
+    pushHistoryDebounced(`img.${pageNum}.${imageId}`, `${pageNum} 사진 조정`);
     setImageOverrides((prev) => {
       const pagePrev = prev[pageNum] || {};
       const itemPrev = pagePrev[imageId] || {};
@@ -608,6 +676,15 @@ export default function App() {
           if (saved.p5Version) setP5Version(saved.p5Version);
           if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
           setLastSavedAt(getLastSaved());
+          // 🔄 복원된 상태를 히스토리 시작점으로
+          undoHistory.reset({
+            pages: saved.pages || {},
+            textOverrides: saved.textOverrides || {},
+            imageOverrides: saved.imageOverrides || {},
+            freeImages: saved.freeImages || {},
+            shapes: saved.shapes || {},
+            layerNames: saved.layerNames || {},
+          });
         }
       } catch (e) {
         console.warn('프로젝트 복원 실패:', e);
@@ -676,6 +753,15 @@ export default function App() {
       setLayerNames(data.layerNames || {});
       setP5Version(data.p5Version || 'text');
       setRevisionHistory(data.revisionHistory || {});
+      // 🔄 히스토리 초기화 (불러온 상태가 새 시작점)
+      undoHistory.reset({
+        pages: data.pages || {},
+        textOverrides: data.textOverrides || {},
+        imageOverrides: data.imageOverrides || {},
+        freeImages: data.freeImages || {},
+        shapes: data.shapes || {},
+        layerNames: data.layerNames || {},
+      });
       alert('✅ 프로젝트를 불러왔습니다.');
     } catch (e) {
       alert('❌ 불러오기 실패: ' + e.message);
@@ -707,6 +793,15 @@ export default function App() {
     setUserNotes('');
     setError('');
     setLastSavedAt(null);
+    // 🔄 히스토리도 초기화
+    undoHistory.reset({
+      pages: {},
+      textOverrides: {},
+      imageOverrides: {},
+      freeImages: {},
+      shapes: {},
+      layerNames: {},
+    });
     alert('✅ 초기화되었습니다.');
   }, []);
 
@@ -1044,6 +1139,8 @@ export default function App() {
         setError(`🤖 AI가 정보 부족으로 생성을 거부했습니다: ${items || '상세 정보 필요'}\n→ 섹션 3~5에서 더 구체적으로 입력하거나 '빈 칸 채우기'를 먼저 눌러주세요.`);
       }
 
+      // 🔄 페이지 생성/수정 직전 상태를 히스토리에 저장 (Ctrl+Z로 이전 결과로 복원 가능)
+      pushHistory(revisionRequest ? `${pageNumber} 수정` : `${pageNumber} 생성`);
       setPages((prev) => ({ ...prev, [pageNumber]: result }));
       setCurrentPage(pageNumber);
 
@@ -1675,6 +1772,45 @@ export default function App() {
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="text-sm font-bold" style={{ color: '#2F2A26' }}>{currentPage} 미리보기</div>
               <div className="flex items-center gap-2">
+                {/* 🔄 Undo/Redo 버튼 — 항상 표시 */}
+                <div className="flex items-center gap-1 mr-1">
+                  <button
+                    onClick={undoHistory.undo}
+                    disabled={!undoHistory.canUndo}
+                    className="text-[11px] font-bold px-2 py-1 rounded border transition-all"
+                    style={{
+                      backgroundColor: undoHistory.canUndo ? '#fff' : '#f5f1ec',
+                      borderColor: undoHistory.canUndo ? '#C8B6A6' : '#e2ddd4',
+                      color: undoHistory.canUndo ? '#2F2A26' : '#bcb5ad',
+                      cursor: undoHistory.canUndo ? 'pointer' : 'not-allowed',
+                    }}
+                    title={
+                      undoHistory.canUndo
+                        ? `실행취소 (Ctrl+Z)\n마지막: ${undoHistory.lastLabel || ''}`
+                        : '되돌릴 변경 내역 없음'
+                    }
+                  >
+                    ⏪ 실행취소
+                  </button>
+                  <button
+                    onClick={undoHistory.redo}
+                    disabled={!undoHistory.canRedo}
+                    className="text-[11px] font-bold px-2 py-1 rounded border transition-all"
+                    style={{
+                      backgroundColor: undoHistory.canRedo ? '#fff' : '#f5f1ec',
+                      borderColor: undoHistory.canRedo ? '#C8B6A6' : '#e2ddd4',
+                      color: undoHistory.canRedo ? '#2F2A26' : '#bcb5ad',
+                      cursor: undoHistory.canRedo ? 'pointer' : 'not-allowed',
+                    }}
+                    title={
+                      undoHistory.canRedo
+                        ? `다시실행 (Ctrl+Y)\n다음: ${undoHistory.nextLabel || ''}`
+                        : '다시 실행할 내역 없음'
+                    }
+                  >
+                    ⏩ 다시실행
+                  </button>
+                </div>
                 {currentResult?.copy && (
                   <>
                     <button
