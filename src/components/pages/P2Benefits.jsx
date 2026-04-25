@@ -305,6 +305,11 @@ export default function P2Benefits({
         onDeleteShape={onDeleteShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
+        onChangeShapeLayer={(shapeId, action) => {
+          if (onChangeLayerKind) {
+            onChangeLayerKind('shape', shapeId, action, mainLayers);
+          }
+        }}
       />
     </PageFrame>
   );

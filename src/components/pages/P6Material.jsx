@@ -2,6 +2,7 @@ import { BRAND } from '../../lib/theme.js';
 import { PageFrame, CheckIcon, Divider } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
+import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // P6: 소재 & 사이즈 실증
@@ -24,6 +25,11 @@ export default function P6Material({
   onReorderLayers = () => {},
   layerNames = {},
   onSetLayerName = () => {},
+  // 🟦 도형 레이어 props (ShapeLayer)
+  shapes = [],
+  onAddShape = () => {},
+  onUpdateShape = () => {},
+  onDeleteShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -43,10 +49,17 @@ export default function P6Material({
     { id: matId, defaultName: '🖼 소재 사진', defaultZ: 1 },
     { id: sizeId, defaultName: '🖼 사이즈 사진', defaultZ: 2 },
   ];
+  // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
+  const shapesBottom = (shapes || []).reduce(
+    (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
+    0
+  );
   const layer = useFreeImageLayer({
-    pageKey: 'P6', mainLayers, image: materialImage, allImages, baseHeight: 1150,
+    pageKey: 'P6', mainLayers, image: materialImage, allImages, baseHeight: Math.max(1150, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
     onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
+    shapes,
+    onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
     activeLayerId, onSetActiveLayer,
   });
@@ -268,6 +281,21 @@ export default function P6Material({
 
     {layer.renderFreeImages()}
     {layer.renderOverlay()}
+      {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
+      <ShapeLayer
+        shapes={shapes}
+        editMode={editMode}
+        onAddShape={onAddShape}
+        onUpdateShape={onUpdateShape}
+        onDeleteShape={onDeleteShape}
+        activeLayerId={activeLayerId}
+        onSetActiveLayer={onSetActiveLayer}
+        onChangeShapeLayer={(shapeId, action) => {
+          if (onChangeLayerKind) {
+            onChangeLayerKind('shape', shapeId, action, mainLayers);
+          }
+        }}
+      />
     </PageFrame>
   );
 }

@@ -2,6 +2,7 @@ import { BRAND } from '../../lib/theme.js';
 import { PageFrame } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
+import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // 일반 제품용 자동 생성 실루엣 이미지 (무채색 + 블러 효과, 텍스트 없음)
@@ -48,6 +49,11 @@ export default function P5Compare({
   onReorderLayers = () => {},
   layerNames = {},
   onSetLayerName = () => {},
+  // 🟦 도형 레이어 props (ShapeLayer)
+  shapes = [],
+  onAddShape = () => {},
+  onUpdateShape = () => {},
+  onDeleteShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -62,10 +68,17 @@ export default function P5Compare({
   const mainLayers = version === 'photo'
     ? [{ id: mainImgId, defaultName: '🖼 우리 제품 사진', defaultZ: 1 }]
     : [];
+  // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
+  const shapesBottom = (shapes || []).reduce(
+    (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
+    0
+  );
   const layer = useFreeImageLayer({
-    pageKey: 'P5', mainLayers, image: ourImage, allImages, baseHeight: 900,
+    pageKey: 'P5', mainLayers, image: ourImage, allImages, baseHeight: Math.max(900, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
     onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
+    shapes,
+    onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
     activeLayerId, onSetActiveLayer,
   });
@@ -372,6 +385,21 @@ export default function P5Compare({
 
       {layer.renderFreeImages()}
       {layer.renderOverlay()}
+      {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
+      <ShapeLayer
+        shapes={shapes}
+        editMode={editMode}
+        onAddShape={onAddShape}
+        onUpdateShape={onUpdateShape}
+        onDeleteShape={onDeleteShape}
+        activeLayerId={activeLayerId}
+        onSetActiveLayer={onSetActiveLayer}
+        onChangeShapeLayer={(shapeId, action) => {
+          if (onChangeLayerKind) {
+            onChangeLayerKind('shape', shapeId, action, mainLayers);
+          }
+        }}
+      />
     </PageFrame>
   );
 }

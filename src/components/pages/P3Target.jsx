@@ -2,6 +2,7 @@ import { BRAND } from '../../lib/theme.js';
 import { PageFrame, CheckIcon, PillBadge } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
+import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // P3: 이런 분들께 추천드려요 (체크리스트형)
@@ -24,6 +25,11 @@ export default function P3Target({
   onReorderLayers = () => {},
   layerNames = {},
   onSetLayerName = () => {},
+  // 🟦 도형 레이어 props (ShapeLayer)
+  shapes = [],
+  onAddShape = () => {},
+  onUpdateShape = () => {},
+  onDeleteShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -41,10 +47,17 @@ export default function P3Target({
 
   const mainImgId = 'P3.image';
   const mainLayers = [{ id: mainImgId, defaultName: '🖼 메인 사진', defaultZ: 1 }];
+  // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
+  const shapesBottom = (shapes || []).reduce(
+    (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
+    0
+  );
   const layer = useFreeImageLayer({
-    pageKey: 'P3', mainLayers, image, allImages, baseHeight: 1200,
+    pageKey: 'P3', mainLayers, image, allImages, baseHeight: Math.max(1200, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
     onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
+    shapes,
+    onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
     activeLayerId, onSetActiveLayer,
   });
@@ -177,6 +190,21 @@ export default function P3Target({
 
       {layer.renderFreeImages()}
       {layer.renderOverlay()}
+      {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
+      <ShapeLayer
+        shapes={shapes}
+        editMode={editMode}
+        onAddShape={onAddShape}
+        onUpdateShape={onUpdateShape}
+        onDeleteShape={onDeleteShape}
+        activeLayerId={activeLayerId}
+        onSetActiveLayer={onSetActiveLayer}
+        onChangeShapeLayer={(shapeId, action) => {
+          if (onChangeLayerKind) {
+            onChangeLayerKind('shape', shapeId, action, mainLayers);
+          }
+        }}
+      />
     </PageFrame>
   );
 }

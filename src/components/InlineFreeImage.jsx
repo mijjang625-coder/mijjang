@@ -359,29 +359,29 @@ export default function InlineFreeImage({
             style={btnLabel('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)">🔍 크롭</button>
           <span style={sep} />
 
-          {/* 레이어 순서 (FreeImage 와 동일) */}
+          {/* 레이어 순서 (압축: 아이콘만) */}
           <button onClick={() => onChangeLayer('front')}
-            style={btnLabel('#475569')} title="맨 앞으로">▲▲ 맨앞</button>
+            style={btnIcon('#475569')} title="맨 앞으로">▲▲</button>
           <button onClick={() => onChangeLayer('forward')}
-            style={btnLabel('#64748b')} title="한 단계 앞으로">▲ 앞</button>
+            style={btnIcon('#64748b')} title="한 단계 앞으로">▲</button>
           <button onClick={() => onChangeLayer('backward')}
-            style={btnLabel('#64748b')} title="한 단계 뒤로">▼ 뒤</button>
+            style={btnIcon('#64748b')} title="한 단계 뒤로">▼</button>
           <button onClick={() => onChangeLayer('back')}
-            style={btnLabel('#475569')} title="맨 뒤로">▼▼ 맨뒤</button>
+            style={btnIcon('#475569')} title="맨 뒤로">▼▼</button>
           {zIndexLabel != null && (
             <span style={{
               backgroundColor: '#fbbf24', color: '#1e293b',
-              padding: '2px 6px', borderRadius: 4,
-              fontSize: 10, fontWeight: 900,
+              padding: '2px 5px', borderRadius: 4,
+              fontSize: 9, fontWeight: 900,
             }}>z{zIndexLabel}</span>
           )}
           <span style={sep} />
 
           {/* 인라인 슬롯 위/아래 이동 */}
           <button onClick={onMoveUp} disabled={!canMoveUp}
-            style={btnLabel(canMoveUp ? '#0ea5e9' : '#334155')} title="본문 위로 이동">⇧</button>
+            style={btnIcon(canMoveUp ? '#0ea5e9' : '#334155')} title="본문 위로 이동">⇧</button>
           <button onClick={onMoveDown} disabled={!canMoveDown}
-            style={btnLabel(canMoveDown ? '#0ea5e9' : '#334155')} title="본문 아래로 이동">⇩</button>
+            style={btnIcon(canMoveDown ? '#0ea5e9' : '#334155')} title="본문 아래로 이동">⇩</button>
           <span style={sep} />
 
           {/* 🎨 색상 */}
@@ -395,9 +395,9 @@ export default function InlineFreeImage({
           {/* 🗑 삭제 */}
           <button
             onClick={() => { if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }}
-            style={btnLabel('#dc2626')}
+            style={btnIcon('#dc2626')}
             title="삭제"
-          >🗑 삭제</button>
+          >🗑</button>
         </div>
       )}
 
@@ -586,6 +586,16 @@ function btnLabel(color) {
     fontSize: 11, fontWeight: 800, cursor: 'pointer',
     boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
     minWidth: 28, lineHeight: 1.2, whiteSpace: 'nowrap',
+  };
+}
+// 아이콘 전용 (압축형) — 텍스트 라벨 없는 버튼
+function btnIcon(color) {
+  return {
+    backgroundColor: color, color: '#fff', border: 'none',
+    padding: '5px 7px', borderRadius: 4,
+    fontSize: 11, fontWeight: 800, cursor: 'pointer',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+    minWidth: 24, lineHeight: 1.1, whiteSpace: 'nowrap',
   };
 }
 const sep = { width: 1, height: 18, backgroundColor: '#475569' };

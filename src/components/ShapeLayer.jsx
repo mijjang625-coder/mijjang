@@ -41,6 +41,8 @@ export default function ShapeLayer({
   onDeleteShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
+  // 레이어 순서 변경 (도형도 레이어 시스템에 통합)
+  onChangeShapeLayer = () => {},  // (shapeId, action: 'front'|'forward'|'backward'|'back')
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef(null);
@@ -65,6 +67,7 @@ export default function ShapeLayer({
           onActivate={() => onSetActiveLayer(`shape:${shape.id}`)}
           onUpdate={(partial) => onUpdateShape(shape.id, partial)}
           onDelete={() => onDeleteShape(shape.id)}
+          onChangeLayer={(action) => onChangeShapeLayer(shape.id, action)}
         />
       ))}
 
@@ -136,7 +139,7 @@ export default function ShapeLayer({
 }
 
 // ─── 개별 도형 컴포넌트 ────────────────────────────────
-function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete }) {
+function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onChangeLayer = () => {} }) {
   const wrapRef = useRef(null);
   const [draggingPos, setDraggingPos] = useState(null);
   const [resizing, setResizing] = useState(null);
@@ -355,6 +358,22 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete }) {
             zIndex: 40, whiteSpace: 'nowrap',
           }}
         >
+          {/* 레이어 순서 (FreeImage / InlineFreeImage 와 동일) */}
+          <button onClick={() => onChangeLayer('front')}
+            style={btn('#475569')} title="맨 앞으로">▲▲</button>
+          <button onClick={() => onChangeLayer('forward')}
+            style={btn('#64748b')} title="한 단계 앞으로">▲</button>
+          <button onClick={() => onChangeLayer('backward')}
+            style={btn('#64748b')} title="한 단계 뒤로">▼</button>
+          <button onClick={() => onChangeLayer('back')}
+            style={btn('#475569')} title="맨 뒤로">▼▼</button>
+          <span style={{
+            backgroundColor: '#fbbf24', color: '#1e293b',
+            padding: '2px 6px', borderRadius: 4,
+            fontSize: 10, fontWeight: 900,
+          }}>z{zIndex}</span>
+          <span style={sep} />
+
           {/* 색상 토글 */}
           <button onClick={() => setShowStyle((s) => !s)}
             style={{

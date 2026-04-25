@@ -4,6 +4,7 @@ import { PageFrame, Img, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import FreeImage from '../FreeImage.jsx';
+import ShapeLayer from '../ShapeLayer.jsx';
 
 // P1: 메인 히어로 + 강점 카드 3개
 // editMode / overrides / onOverrideChange: 인라인 편집 지원
@@ -21,6 +22,11 @@ export default function P1Hero({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  // 🟦 도형 레이어 props
+  shapes = [],
+  onAddShape = () => {},
+  onUpdateShape = () => {},
+  onDeleteShape = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null, // (kind, id, action, mainLayers) => void
   onReorderLayers = () => {},
@@ -102,6 +108,19 @@ export default function P1Hero({
         zIndex: it.zIndex ?? 1,
       };
     }),
+    // 🟦 도형 레이어
+    ...(shapes || []).map((s, i) => {
+      const def = `🟪 도형 ${i + 1} (${s.type})`;
+      return {
+        kind: 'shape',
+        id: s.id,
+        defaultName: def,
+        label: layerNames[s.id] || def,
+        shapeType: s.type,
+        shapeColor: s.stroke || s.fill || '#a855f7',
+        zIndex: s.zIndex ?? 700,
+      };
+    }),
   ].sort((a, b) => b.zIndex - a.zIndex);
 
   const handleLayerAction = (layer, action) => {
@@ -156,7 +175,12 @@ export default function P1Hero({
     (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
     0
   );
-  const pageHeight = Math.max(baseHeight, freeBottom + 80); // 하단 80px 여유
+  // 🟦 도형의 최하단 좌표도 반영
+  const shapesBottom = (shapes || []).reduce(
+    (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
+    0
+  );
+  const pageHeight = Math.max(baseHeight, freeBottom + 80, shapesBottom + 80); // 하단 80px 여유
 
   // 레이어 정책 (정규화):
   //   모든 레이어가 1..N 의 연속 정수 z-index 사용
@@ -536,8 +560,23 @@ export default function P1Hero({
                     flexShrink: 0,
                     paddingRight: 2,
                   }} title="드래그로 순서 변경">⠿</div>
-                  <img src={layer.src} alt="" crossOrigin="anonymous"
-                    style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                  {layer.kind === 'shape' ? (
+                    <div style={{
+                      width: 36, height: 36, flexShrink: 0,
+                      backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe',
+                      borderRadius: 4, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 18, color: layer.shapeColor || '#a855f7',
+                    }} title={layer.shapeType}>
+                      {layer.shapeType === 'rect' ? '⬜'
+                        : layer.shapeType === 'circle' ? '⭕'
+                        : layer.shapeType === 'line' ? '➖'
+                        : layer.shapeType === 'arrow' ? '➡️'
+                        : '🟨'}
+                    </div>
+                  ) : (
+                    <img src={layer.src} alt="" crossOrigin="anonymous"
+                      style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {isEditingName ? (
                       <input
@@ -595,6 +634,19 @@ export default function P1Hero({
                         e.stopPropagation();
                         if (window.confirm('이 사진을 삭제할까요?')) {
                           onDeleteFreeImage(layer.id);
+                          if (isItemActive) clearActiveLayer();
+                        }
+                      }}
+                      style={{ ...layerBtn('#dc2626'), padding: '4px 6px' }}
+                      title="삭제"
+                    >🗑</button>
+                  )}
+                  {layer.kind === 'shape' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm('이 도형을 삭제할까요?')) {
+                          onDeleteShape(layer.id);
                           if (isItemActive) clearActiveLayer();
                         }
                       }}
@@ -724,6 +776,22 @@ export default function P1Hero({
           )}
         </>
       )}
+
+      {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
+      <ShapeLayer
+        shapes={shapes}
+        editMode={editMode}
+        onAddShape={onAddShape}
+        onUpdateShape={onUpdateShape}
+        onDeleteShape={onDeleteShape}
+        activeLayerId={activeLayerId}
+        onSetActiveLayer={onSetActiveLayer}
+        onChangeShapeLayer={(shapeId, action) => {
+          if (typeof onChangeLayerKind === 'function') {
+            onChangeLayerKind('shape', shapeId, action, MAIN_LAYERS);
+          }
+        }}
+      />
     </PageFrame>
   );
 }
