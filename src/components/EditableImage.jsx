@@ -18,13 +18,15 @@ import { useEffect, useRef, useState, useCallback } from 'react';
  * Override 데이터 구조:
  *   {
  *     frame: { width, height, x, y },          // A모드 (CSS px)
- *     crop:  { imgW, imgH, offsetX, offsetY }, // B모드: 사진 절대 크기 + 박스 중앙 기준 오프셋
+ *     crop:  { scale, offsetXR, offsetYR },    // B모드: cover 대비 배율 + 박스 크기 대비 오프셋 비율
  *     src:   string,                            // 사진 교체된 경우
  *     zIndex: number,
  *   }
  *
- *   - imgW/imgH가 없으면 cover 효과 (박스에 꽉 채우기)
- *   - imgW/imgH가 있으면 그 크기 그대로 박스 안에 그려짐 (박스가 커지든 작아지든 사진은 안 변함)
+ *   - scale: cover 기준 배율 (1.0 = 박스 cover, 1.5 = 50% 더 확대)
+ *   - offsetXR / offsetYR: 박스 크기 대비 비율 (-1.0 ~ 1.0). 박스가 변해도 자동 비례 보정됨.
+ *   - 사진은 항상 (cover × scale) 크기로 그려짐 → 박스 변경 시 사진도 비례 축소/확대
+ *   - scale은 항상 ≥ 1.0 보장 → 사진이 박스보다 작아지지 않음 (빈 공간 안 생김)
  */
 
 const fallbackImg =
@@ -43,7 +45,7 @@ const HANDLES = [
 
 const SNAP_THRESHOLD = 8;
 const MIN_FRAME_SIZE = 40;
-const MIN_IMG_SCALE = 0.5;
+const MIN_IMG_SCALE = 1.0;   // 사진은 항상 박스를 cover (빈 공간 X)
 const MAX_IMG_SCALE = 4.0;
 
 /**
@@ -123,15 +125,19 @@ export default function EditableImage({
   const boxW = frame ? frame.width : naturalSize.w;
   const boxH = frame ? frame.height : naturalSize.h;
 
-  // 현재 사진 표시 크기 (crop 우선, 없으면 cover 자동)
+  // 박스에 꽉 차는 cover 사이즈 (사진 원본 비율 유지)
   const cover = boxW > 0 && boxH > 0 ? coverSize(boxW, boxH, imgNatural.w, imgNatural.h) : { w: 0, h: 0 };
-  const imgW = crop?.imgW ?? cover.w;
-  const imgH = crop?.imgH ?? cover.h;
-  const offsetX = crop?.offsetX ?? 0;
-  const offsetY = crop?.offsetY ?? 0;
 
-  // 현재 스케일 (UI 표시용) — cover 기준 대비 배율
-  const currentScale = cover.w > 0 ? imgW / cover.w : 1;
+  // 현재 사진 표시 크기 = cover × scale (박스 변하면 같이 변함)
+  const currentScale = Math.max(MIN_IMG_SCALE, crop?.scale ?? 1.0);
+  const imgW = cover.w * currentScale;
+  const imgH = cover.h * currentScale;
+
+  // 오프셋: 박스 크기 대비 비율로 저장 → 박스 변경 시 자동 비례
+  const offsetXR = crop?.offsetXR ?? 0;
+  const offsetYR = crop?.offsetYR ?? 0;
+  const offsetX = offsetXR * boxW;
+  const offsetY = offsetYR * boxH;
 
   // ─── A모드: 프레임 리사이즈 ──────────────────────
   const handleResizeStart = (e, handleId) => {
@@ -282,6 +288,17 @@ export default function EditableImage({
     };
   }, [draggingFrame, frame, naturalSize, onChange]);
 
+  // 오프셋 클램핑: 사진이 박스 밖으로 너무 나가서 빈 공간 생기지 않도록 제한
+  // 사진 표시 크기(imgW/H)와 박스 크기(boxW/H) 차이의 절반까지만 이동 가능
+  const clampOffset = (ox, oy, _imgW = imgW, _imgH = imgH, _boxW = boxW, _boxH = boxH) => {
+    const maxOx = Math.max(0, (_imgW - _boxW) / 2);
+    const maxOy = Math.max(0, (_imgH - _boxH) / 2);
+    return {
+      x: Math.max(-maxOx, Math.min(maxOx, ox)),
+      y: Math.max(-maxOy, Math.min(maxOy, oy)),
+    };
+  };
+
   // ─── B모드: 크롭 (사진 이동) ──────────────────────
   const handleCropDragStart = (e) => {
     if (mode !== 'cropping') return;
@@ -301,11 +318,15 @@ export default function EditableImage({
     const onMove = (e) => {
       const dx = e.clientX - draggingCrop.startX;
       const dy = e.clientY - draggingCrop.startY;
+      const clamped = clampOffset(draggingCrop.startOx + dx, draggingCrop.startOy + dy);
+      // px → 비율로 변환해서 저장
+      const newXR = boxW > 0 ? clamped.x / boxW : 0;
+      const newYR = boxH > 0 ? clamped.y / boxH : 0;
       onChange({
         crop: {
-          imgW, imgH,
-          offsetX: Math.round(draggingCrop.startOx + dx),
-          offsetY: Math.round(draggingCrop.startOy + dy),
+          scale: currentScale,
+          offsetXR: newXR,
+          offsetYR: newYR,
         },
       });
     };
@@ -316,32 +337,40 @@ export default function EditableImage({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [draggingCrop, imgW, imgH, onChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingCrop, boxW, boxH, currentScale, imgW, imgH, onChange]);
 
   // 휠 확대/축소 (Shift 키 필요 — 페이지 스크롤과 충돌 방지)
   const handleWheel = useCallback((e) => {
     if (mode !== 'cropping') return;
-    if (!e.shiftKey) return; // Shift 안 누르면 정상 스크롤
+    if (!e.shiftKey) return;
     e.preventDefault();
     e.stopPropagation();
     const delta = e.deltaY > 0 ? -0.05 : 0.05;
     const newScale = Math.max(MIN_IMG_SCALE, Math.min(MAX_IMG_SCALE, currentScale + delta));
+    // 새 스케일 기준으로 오프셋 재클램프
+    const newImgW = cover.w * newScale;
+    const newImgH = cover.h * newScale;
+    const clamped = clampOffset(offsetX, offsetY, newImgW, newImgH, boxW, boxH);
     onChange({
       crop: {
-        imgW: Math.round(cover.w * newScale),
-        imgH: Math.round(cover.h * newScale),
-        offsetX, offsetY,
+        scale: newScale,
+        offsetXR: boxW > 0 ? clamped.x / boxW : 0,
+        offsetYR: boxH > 0 ? clamped.y / boxH : 0,
       },
     });
-  }, [mode, currentScale, cover.w, cover.h, offsetX, offsetY, onChange]);
+  }, [mode, currentScale, cover.w, cover.h, offsetX, offsetY, boxW, boxH, onChange]);
 
   // 슬라이더 onChange
   const handleScaleChange = (newScale) => {
+    const newImgW = cover.w * newScale;
+    const newImgH = cover.h * newScale;
+    const clamped = clampOffset(offsetX, offsetY, newImgW, newImgH, boxW, boxH);
     onChange({
       crop: {
-        imgW: Math.round(cover.w * newScale),
-        imgH: Math.round(cover.h * newScale),
-        offsetX, offsetY,
+        scale: newScale,
+        offsetXR: boxW > 0 ? clamped.x / boxW : 0,
+        offsetYR: boxH > 0 ? clamped.y / boxH : 0,
       },
     });
   };
@@ -402,11 +431,11 @@ export default function EditableImage({
               position: 'absolute',
               left: '50%',
               top: '50%',
-              width: imgW || '100%',
-              height: imgH || '100%',
+              width: imgW > 0 ? imgW : '100%',
+              height: imgH > 0 ? imgH : '100%',
               maxWidth: 'none',
               transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
-              objectFit: imgW ? 'fill' : 'cover',
+              objectFit: 'cover',
               display: 'block',
               userSelect: 'none',
             }}
@@ -484,7 +513,7 @@ export default function EditableImage({
             height: imgH > 0 ? imgH : '100%',
             maxWidth: 'none',
             transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
-            objectFit: imgW > 0 ? 'fill' : 'cover',
+            objectFit: 'cover',
             display: 'block',
             userSelect: 'none',
             pointerEvents: mode === 'cropping' ? 'auto' : 'none',
