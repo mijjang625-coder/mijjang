@@ -425,7 +425,7 @@ export default function EditableImage({
           width: '100%',
           aspectRatio: hasFrame ? undefined : aspect,
           minHeight: hasFrame ? frame.height + Math.max(0, frame.y) + 20 : undefined,
-          zIndex: customZ ?? undefined,
+          zIndex: customZ ?? 500,
         }}
       >
         <div
@@ -485,7 +485,7 @@ export default function EditableImage({
         width: '100%',
         aspectRatio: hasFrame ? undefined : aspect,
         minHeight: wrapperMinHeight,
-        zIndex: customZ ?? undefined,
+        zIndex: customZ ?? 500,
       }}
     >
       {/* 프레임 박스 */}

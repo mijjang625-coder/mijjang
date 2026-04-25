@@ -28,8 +28,25 @@ body {
   font-family: inherit;
 }
 
-/* 편집모드: 콘텐츠 컨테이너의 빈 공간은 마우스 통과(뒤에 있는 자유이미지 선택 가능),
-   직계 자식(텍스트/이미지/카드)은 정상적으로 이벤트 받음 */
-.p1-content-layer > * {
+/* 편집모드: 콘텐츠 컨테이너 전체는 마우스 통과(뒤에 있는 자유이미지 선택 가능),
+   실제 인터랙션 요소(텍스트/이미지/버튼)만 이벤트 받음.
+   p1-content-layer 자체와 그 자손 div/section은 통과시키되,
+   단말 인터랙션 요소만 auto. */
+.p1-content-layer,
+.p1-content-layer * {
+  pointer-events: none;
+}
+.p1-content-layer h1,
+.p1-content-layer h2,
+.p1-content-layer h3,
+.p1-content-layer p,
+.p1-content-layer span,
+.p1-content-layer img,
+.p1-content-layer button,
+.p1-content-layer input,
+.p1-content-layer [contenteditable],
+.p1-content-layer [data-edit-text],
+.p1-content-layer [data-toolbar],
+.p1-content-layer [data-handle] {
   pointer-events: auto;
 }

@@ -78,7 +78,7 @@ export default function P1Hero({
       {/* 상단 70% — 기존 콘텐츠 (z-index 500 고정)
           편집모드일 때 빈 영역은 마우스 통과 → 뒤에 있는 자유이미지 클릭 가능 */}
       <div className={editMode ? 'p1-content-layer' : ''} style={{
-        position: 'relative', zIndex: 500,
+        position: 'relative',
         padding: '60px 50px 30px', textAlign: 'center',
         pointerEvents: editMode ? 'none' : 'auto',
       }}>
@@ -132,7 +132,7 @@ export default function P1Hero({
 
       {/* 하단 30% — 강점 카드 3개 (z-index 500 고정) */}
       <div className={editMode ? 'p1-content-layer' : ''} style={{
-        position: 'relative', zIndex: 500,
+        position: 'relative',
         backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20,
         pointerEvents: editMode ? 'none' : 'auto',
       }}>
