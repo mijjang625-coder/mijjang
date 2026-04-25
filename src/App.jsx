@@ -119,6 +119,7 @@ export default function App() {
   const [extractMode, setExtractMode] = useState('url'); // 'url' | 'paste'
   const [pastedText, setPastedText] = useState('');
   const [userNotes, setUserNotes] = useState(''); // 사용자가 직접 작성한 메모 (1688 내용보다 우선)
+  const [ocrImages, setOcrImages] = useState([]); // OCR용 이미지 (1688 다운받은 이미지, base64 dataURL)
   const [showPasteHint, setShowPasteHint] = useState(false); // Captcha 감지 시 true
 
   // 수정 요청 채팅창
@@ -519,8 +520,8 @@ export default function App() {
       setError('참조 URL을 입력해주세요.');
       return;
     }
-    if (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10 && images.length === 0) {
-      setError('① 페이지 내용(최소 50자), ② 내 메모(최소 10자), 또는 📷 이미지 첨부 중 하나는 필요합니다.');
+    if (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10 && ocrImages.length === 0) {
+      setError('① 페이지 내용(최소 50자), ② 내 메모(최소 10자), 또는 📷 OCR 이미지 중 하나는 필요합니다.');
       return;
     }
     try {
@@ -540,7 +541,7 @@ export default function App() {
           model,
           pastedText,
           userNotes,
-          imageDataUrls: images, // 업로드된 이미지를 OCR 분석에 함께 전달
+          imageDataUrls: ocrImages, // OCR 전용 이미지 (1688 다운받은 그림)
         });
       }
 
@@ -1259,15 +1260,84 @@ export default function App() {
                 </Field>
                 <div className="text-[10px] text-slate-500 -mt-1 leading-relaxed">
                   📋 텍스트: <b>{pastedText.length.toLocaleString()}자</b> {pastedText.length >= 500 && '✓'}
-                  {images.length > 0 && (
-                    <>
-                      {' · '}
-                      📷 첨부 이미지: <b>{images.length}장</b>
-                      <span style={{ color: '#92400e' }}> (이미지 안 글씨도 같이 분석됨)</span>
-                    </>
-                  )}
-                  <br />
-                  <span style={{ color: '#C8B6A6' }}>※ 1688 이미지를 다운받아 <b>아래 이미지 첨부</b>에 올리면 그림 속 중국어/한국어/숫자도 함께 분석됩니다 (최대 8장)</span>
+                </div>
+
+                {/* OCR 전용 이미지 업로드 — ①번 자료의 일부 */}
+                <Field label="📷 1688 이미지 OCR (선택) — 그림 속 글씨도 분석">
+                  <label className="block">
+                    <div
+                      className="border-2 border-dashed rounded-lg p-3 text-center cursor-pointer transition hover:bg-amber-50"
+                      style={{ borderColor: '#fbbf24', backgroundColor: '#fffbeb' }}
+                    >
+                      <div className="text-base mb-0.5">🖼️ 클릭해서 OCR용 이미지 추가</div>
+                      <div className="text-[10px] text-slate-600">
+                        1688에서 다운받은 상세페이지 이미지를 올려주세요 (최대 8장)
+                        <br />
+                        <span style={{ color: '#92400e' }}>※ 여기 올린 이미지는 <b>글씨 추출용</b>이며, P1~P10에는 사용되지 않습니다</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (!files.length) return;
+                          Promise.all(
+                            files.map(
+                              (file) =>
+                                new Promise((resolve) => {
+                                  const r = new FileReader();
+                                  r.onload = () => resolve(r.result);
+                                  r.readAsDataURL(file);
+                                })
+                            )
+                          ).then((urls) => {
+                            setOcrImages((prev) => [...prev, ...urls].slice(0, 8));
+                          });
+                          e.target.value = '';
+                        }}
+                      />
+                    </div>
+                  </label>
+                </Field>
+                {ocrImages.length > 0 && (
+                  <div className="-mt-1">
+                    <div className="text-[10px] mb-1" style={{ color: '#92400e' }}>
+                      📷 OCR 이미지 <b>{ocrImages.length}/8장</b>
+                      <button
+                        type="button"
+                        onClick={() => setOcrImages([])}
+                        className="ml-2 px-1.5 py-0.5 rounded text-[9px] border"
+                        style={{ borderColor: '#fbbf24', backgroundColor: 'white' }}
+                      >
+                        전체 삭제
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {ocrImages.map((src, idx) => (
+                        <div key={idx} className="relative group">
+                          <img
+                            src={src}
+                            alt={`OCR ${idx + 1}`}
+                            className="w-full h-14 object-cover rounded border"
+                            style={{ borderColor: '#fbbf24' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setOcrImages((prev) => prev.filter((_, i) => i !== idx))}
+                            className="absolute top-0 right-0 w-4 h-4 rounded-bl bg-black bg-opacity-60 text-white text-[10px] leading-none flex items-center justify-center"
+                            title="삭제"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="text-[10px] text-slate-400 -mt-1">
+                  💡 텍스트 + 이미지 OCR을 함께 사용하면 더 정확하게 분석됩니다
                 </div>
 
                 <Field label="② 🔑 내가 직접 쓴 메모 (최우선 적용)">
@@ -1451,7 +1521,7 @@ Q5. / A5.
               disabled={
                 isExtracting ||
                 (extractMode === 'url' && !referenceUrl.trim()) ||
-                (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10 && images.length === 0)
+                (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10 && ocrImages.length === 0)
               }
               className="w-full py-2.5 rounded-lg text-white font-bold text-sm shadow disabled:opacity-50"
               style={{ backgroundColor: '#C8B6A6' }}
