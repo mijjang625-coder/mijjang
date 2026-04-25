@@ -155,6 +155,14 @@ export default function App() {
 
   // 인라인 편집 모드 — 미리보기 위에서 더블클릭으로 텍스트 직접 수정
   const [editMode, setEditMode] = useState(false);
+  // 📱 미리보기 디바이스 모드 — 'pc'(780px) | 'mobile'(360px ≈ 0.46배 축소) | 'split'(둘 다)
+  // localStorage 에 저장하여 새로고침 후에도 유지
+  const [previewMode, setPreviewMode] = useState(() => {
+    try { return localStorage.getItem('previewMode') || 'pc'; } catch { return 'pc'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('previewMode', previewMode); } catch {}
+  }, [previewMode]);
   // 페이지별 텍스트 오버라이드
   // { P1: { "mainHeadline": { text, style, offset }, "subHeadline": {...}, ... } }
   const [textOverrides, setTextOverrides] = useState({});
@@ -2589,12 +2597,31 @@ Q5. / A5.
                     )}
                   </>
                 )}
+                {/* 📱 디바이스 미리보기 토글 */}
                 <div
-                  className="text-[11px] font-bold px-2 py-0.5 rounded"
-                  style={{ backgroundColor: '#F7F3EE', color: '#6b635c' }}
-                  title="쿠팡 상세페이지 업로드 규격"
+                  className="flex items-center rounded-lg overflow-hidden border"
+                  style={{ borderColor: '#C8B6A6' }}
+                  title="미리보기 디바이스 전환"
                 >
-                  📐 가로 780px (쿠팡 규격)
+                  {[
+                    { key: 'pc',     label: '🖥 PC',      sub: '780px' },
+                    { key: 'mobile', label: '📱 모바일',  sub: '360px' },
+                    { key: 'split',  label: '🔀 동시',    sub: 'PC+모바일' },
+                  ].map((m) => (
+                    <button
+                      key={m.key}
+                      onClick={() => setPreviewMode(m.key)}
+                      className="text-[11px] font-bold px-2.5 py-1 transition-all"
+                      style={{
+                        backgroundColor: previewMode === m.key ? '#2F2A26' : '#fff',
+                        color: previewMode === m.key ? '#fff' : '#2F2A26',
+                        borderRight: m.key !== 'split' ? '1px solid #e2ddd4' : 'none',
+                      }}
+                      title={`${m.label} — ${m.sub}`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -2606,40 +2633,128 @@ Q5. / A5.
                 ✏️ <b>편집 모드</b> — 텍스트: <b>더블클릭</b>으로 글자 수정 · <b>클릭</b>으로 폰트/크기/색상 툴바 · <b>드래그</b>로 위치 이동 / 사진: 우하단 <b>파란 핸들</b>을 드래그해서 크기 조절 (ESC로 편집 종료)
               </div>
             )}
-            <div className="rounded-xl overflow-auto flex justify-center py-4" style={{ backgroundColor: '#f0ebe4', maxHeight: 'calc(100vh - 260px)' }}>
-              {currentResult?.copy && !currentResult.needsMoreInfo ? (
-                <PageRenderer
-                  ref={pageRefs[currentPage]}
-                  pageNumber={currentPage}
-                  copy={{ ...currentResult.copy, p1CardSettings: brief.p1CardSettings }}
-                  images={images}
-                  version={p5Version}
-                  variant={pageVariants[currentPage] || 0}
-                  editMode={editMode}
-                  overrides={textOverrides[currentPage] || {}}
-                  onOverrideChange={(textId, partial) => updateTextOverride(currentPage, textId, partial)}
-                  imageOverrides={imageOverrides[currentPage] || {}}
-                  onImageOverrideChange={(imageId, partial) => updateImageOverride(currentPage, imageId, partial)}
-                  freeImages={freeImages[currentPage] || []}
-                  onAddFreeImage={(src) => addFreeImage(currentPage, src)}
-                  onAddFreeImageToSlot={(slot, src) => addFreeImageToSlot(currentPage, slot, src)}
-                  onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
-                  onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
-                  shapes={shapes[currentPage] || []}
-                  onAddShape={(type) => addShape(currentPage, type)}
-                  onUpdateShape={(id, partial) => updateShape(currentPage, id, partial)}
-                  onDeleteShape={(id) => deleteShape(currentPage, id)}
-                  onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
-                  onChangeLayerKind={(kind, id, action, mainLayers) =>
-                    changeLayerNormalized(currentPage, kind, id, action, mainLayers)
-                  }
-                  onReorderLayers={(newOrder) => reorderLayers(currentPage, newOrder)}
-                  layerNames={layerNames[currentPage] || {}}
-                  onSetLayerName={(layerId, name) => setLayerName(currentPage, layerId, name)}
-                  activeLayerId={activeLayerId}
-                  onSetActiveLayer={setActiveLayerId}
-                />
-              ) : (
+            <div className="rounded-xl overflow-auto flex justify-center py-4 gap-6" style={{ backgroundColor: '#f0ebe4', maxHeight: 'calc(100vh - 260px)' }}>
+              {currentResult?.copy && !currentResult.needsMoreInfo ? (() => {
+                // 페이지 콘텐츠 — 한번만 정의, 모드별로 다른 wrapper에 넣음
+                const renderPage = (refToUse, deviceMode) => (
+                  <PageRenderer
+                    ref={refToUse}
+                    pageNumber={currentPage}
+                    copy={{ ...currentResult.copy, p1CardSettings: brief.p1CardSettings }}
+                    images={images}
+                    version={p5Version}
+                    variant={pageVariants[currentPage] || 0}
+                    // 편집은 PC 모드(또는 split의 PC면)에서만 — 모바일은 미리보기 전용
+                    editMode={editMode && deviceMode === 'pc'}
+                    overrides={textOverrides[currentPage] || {}}
+                    onOverrideChange={(textId, partial) => updateTextOverride(currentPage, textId, partial)}
+                    imageOverrides={imageOverrides[currentPage] || {}}
+                    onImageOverrideChange={(imageId, partial) => updateImageOverride(currentPage, imageId, partial)}
+                    freeImages={freeImages[currentPage] || []}
+                    onAddFreeImage={(src) => addFreeImage(currentPage, src)}
+                    onAddFreeImageToSlot={(slot, src) => addFreeImageToSlot(currentPage, slot, src)}
+                    onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
+                    onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
+                    shapes={shapes[currentPage] || []}
+                    onAddShape={(type) => addShape(currentPage, type)}
+                    onUpdateShape={(id, partial) => updateShape(currentPage, id, partial)}
+                    onDeleteShape={(id) => deleteShape(currentPage, id)}
+                    onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
+                    onChangeLayerKind={(kind, id, action, mainLayers) =>
+                      changeLayerNormalized(currentPage, kind, id, action, mainLayers)
+                    }
+                    onReorderLayers={(newOrder) => reorderLayers(currentPage, newOrder)}
+                    layerNames={layerNames[currentPage] || {}}
+                    onSetLayerName={(layerId, name) => setLayerName(currentPage, layerId, name)}
+                    activeLayerId={activeLayerId}
+                    onSetActiveLayer={setActiveLayerId}
+                  />
+                );
+
+                // 모바일 폰 프레임 wrapper
+                // 실제 콘텐츠는 780px이지만, 모바일에서는 360/780 = 0.4615 배율로 축소
+                const MOBILE_W = 360;
+                const SCALE = MOBILE_W / 780;
+                const MobileFrame = ({ children, label }) => (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {label && (
+                      <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#fff', color: '#2F2A26', border: '1px solid #e2ddd4' }}>
+                        {label}
+                      </div>
+                    )}
+                    <div style={{
+                      width: MOBILE_W + 24, // 폰 베젤 양옆 12px씩
+                      backgroundColor: '#1e293b',
+                      borderRadius: 28,
+                      padding: '36px 12px 36px',
+                      boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+                      position: 'relative',
+                    }}>
+                      {/* 노치 */}
+                      <div style={{
+                        position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+                        width: 80, height: 16, backgroundColor: '#0f172a', borderRadius: 999,
+                      }} />
+                      <div style={{
+                        width: MOBILE_W,
+                        backgroundColor: '#fff',
+                        borderRadius: 6,
+                        overflow: 'hidden',
+                      }}>
+                        {/* children 은 ScaledHeightWrap 으로 감싼 상태 — 안에서 scale 처리 */}
+                        {children}
+                      </div>
+                    </div>
+                  </div>
+                );
+
+                const PCFrame = ({ children, label }) => (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {label && (
+                      <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#fff', color: '#2F2A26', border: '1px solid #e2ddd4' }}>
+                        {label}
+                      </div>
+                    )}
+                    {children}
+                  </div>
+                );
+
+                if (previewMode === 'mobile') {
+                  // ⚠️ 모바일 단독 모드: 스케일 컨테이너의 height는 inner * scale 이어야 잘림 방지
+                  return (
+                    <div style={{ position: 'relative' }}>
+                      <MobileFrame>
+                        <ScaledHeightWrap scale={SCALE}>
+                          {renderPage(pageRefs[currentPage], 'mobile')}
+                        </ScaledHeightWrap>
+                      </MobileFrame>
+                    </div>
+                  );
+                }
+
+                if (previewMode === 'split') {
+                  return (
+                    <>
+                      <PCFrame label="🖥 PC (780px) — 편집 가능">
+                        {renderPage(pageRefs[currentPage], 'pc')}
+                      </PCFrame>
+                      <MobileFrame label="📱 모바일 (360px)">
+                        <ScaledHeightWrap scale={SCALE}>
+                          {/* split 의 모바일은 별도 ref 없음 — 시각 미리보기용 */}
+                          {renderPage(null, 'mobile')}
+                        </ScaledHeightWrap>
+                      </MobileFrame>
+                    </>
+                  );
+                }
+
+                // 기본 PC 모드
+                return (
+                  <PCFrame>
+                    {renderPage(pageRefs[currentPage], 'pc')}
+                  </PCFrame>
+                );
+              })() : (
                 <div className="text-xs text-slate-400 py-20 text-center">
                   {currentPage} 생성 후 이곳에 미리보기가 표시됩니다.
                 </div>
@@ -2741,6 +2856,44 @@ Q5. / A5.
         .input:focus { border-color: #C8B6A6; box-shadow: 0 0 0 3px rgba(200,182,166,.2); }
         textarea.input { line-height: 1.5; }
       `}</style>
+    </div>
+  );
+}
+
+// 📱 모바일 미리보기용 스케일 래퍼
+// CSS transform: scale 은 시각만 축소하고 box width/height 는 원본(780)을 유지하므로,
+// 부모 컨테이너에 빈 공간이 생긴다. 자식 height 를 측정해서 자체 height 에
+// scale 곱한 값을 부여하여 실제 차지하는 공간도 비례 축소되도록 한다.
+// width 는 base(780) * scale 로 고정 — 모바일 폰 프레임 안에 정확히 들어맞도록.
+function ScaledHeightWrap({ children, scale, baseWidth = 780 }) {
+  const innerRef = useRef(null);
+  const [innerH, setInnerH] = useState(0);
+  useEffect(() => {
+    if (!innerRef.current) return;
+    const el = innerRef.current;
+    const update = () => setInnerH(el.scrollHeight || el.offsetHeight || 0);
+    update();
+    // 콘텐츠가 동적으로 자라는 경우 대응 (이미지 로드/추가 등)
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [children]);
+  return (
+    <div style={{
+      width: baseWidth * scale,
+      height: innerH * scale,
+      overflow: 'hidden',
+    }}>
+      <div
+        ref={innerRef}
+        style={{
+          width: baseWidth,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
