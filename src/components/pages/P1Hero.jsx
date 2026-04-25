@@ -12,6 +12,8 @@ export default function P1Hero({
   editMode = false,
   overrides = {},
   onOverrideChange = () => {},
+  imageOverrides = {},
+  onImageOverrideChange = () => {},
 }) {
   const {
     mainHeadline = '제품의 핵심을 한 줄로',
@@ -76,8 +78,8 @@ export default function P1Hero({
             aspect="1 / 1"
             radius={20}
             editMode={editMode}
-            override={overrides['P1.heroImage'] || {}}
-            onChange={(partial) => onOverrideChange('P1.heroImage', partial)}
+            override={imageOverrides['P1.heroImage'] || {}}
+            onChange={(partial) => onImageOverrideChange('P1.heroImage', partial)}
           />
         </div>
       </div>

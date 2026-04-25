@@ -45,11 +45,19 @@ const PageRenderer = forwardRef(function PageRenderer(
     editMode = false,
     overrides = {},
     onOverrideChange = () => {},
+    imageOverrides = {},
+    onImageOverrideChange = () => {},
   },
   ref,
 ) {
-  // 공통 편집 props — 각 페이지 컴포넌트가 EditableText를 지원하면 사용
-  const editProps = { editMode, overrides, onOverrideChange };
+  // 공통 편집 props — 각 페이지 컴포넌트가 EditableText/EditableImage를 지원하면 사용
+  const editProps = {
+    editMode,
+    overrides,
+    onOverrideChange,
+    imageOverrides,
+    onImageOverrideChange,
+  };
 
   // 순환 접근 — 사진이 부족하면 % 로 돌려 재사용
   const pick = (idx) => {

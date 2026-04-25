@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
  * Props:
  *   - id: 고유 식별자 (예: "P1.heroImage")
  *   - src: 이미지 URL
- *   - aspect: 기본 가로:세로 비율 (예: "1 / 1", "4 / 3")
+ *   - aspect: 가로:세로 비율 (예: "1 / 1", "4 / 3")
  *   - radius: border-radius (px)
  *   - editMode: 편집 모드 여부
  *   - override: { scale } — 사용자가 조정한 스케일 (1.0 = 100%)
@@ -28,7 +28,7 @@ export default function EditableImage({
   const containerRef = useRef(null);
   const [hovering, setHovering] = useState(false);
   const [resizing, setResizing] = useState(false);
-  const startData = useRef({ x: 0, y: 0, baseScale: 1, startWidth: 0 });
+  const startData = useRef({ x: 0, baseScale: 1, startWidth: 0 });
 
   // 사용자 조정 스케일 (기본 1.0 = 원본 100%)
   const scale = override?.scale ?? 1.0;
@@ -41,9 +41,8 @@ export default function EditableImage({
     const rect = containerRef.current.getBoundingClientRect();
     startData.current = {
       x: e.clientX,
-      y: e.clientY,
       baseScale: scale,
-      startWidth: rect.width / scale, // 원본 너비 추정
+      startWidth: rect.width / scale, // 원본 너비 (스케일 1.0 기준)
     };
     setResizing(true);
   };
@@ -52,7 +51,6 @@ export default function EditableImage({
     if (!resizing) return;
     const handleMove = (e) => {
       const dx = e.clientX - startData.current.x;
-      // 우측으로 드래그할수록 커짐 — startWidth 기준 비례
       const newWidth = startData.current.startWidth * startData.current.baseScale + dx;
       const newScale = newWidth / startData.current.startWidth;
       const clamped = Math.max(0.3, Math.min(2.0, newScale)); // 30% ~ 200%
@@ -115,7 +113,13 @@ export default function EditableImage({
         alt={alt}
         crossOrigin="anonymous"
         draggable={false}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none' }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+          userSelect: 'none',
+        }}
       />
 
       {/* 우하단 리사이즈 핸들 — hover 또는 리사이즈 중일 때 표시 */}
@@ -127,8 +131,8 @@ export default function EditableImage({
             position: 'absolute',
             right: -8,
             bottom: -8,
-            width: 24,
-            height: 24,
+            width: 26,
+            height: 26,
             borderRadius: '50%',
             backgroundColor: '#3b82f6',
             border: '3px solid #fff',
@@ -139,7 +143,7 @@ export default function EditableImage({
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 900,
             lineHeight: 1,
           }}
@@ -148,7 +152,7 @@ export default function EditableImage({
         </div>
       )}
 
-      {/* 현재 크기 표시 (배지) */}
+      {/* 현재 크기 배지 */}
       {(hovering || resizing) && scale !== 1.0 && (
         <div
           style={{
@@ -168,7 +172,7 @@ export default function EditableImage({
         </div>
       )}
 
-      {/* 리셋 버튼 — 100%가 아닐 때만 */}
+      {/* 100% 리셋 버튼 */}
       {(hovering || resizing) && scale !== 1.0 && (
         <button
           onClick={(e) => {

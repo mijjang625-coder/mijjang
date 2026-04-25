@@ -125,6 +125,9 @@ export default function App() {
   // 페이지별 텍스트 오버라이드
   // { P1: { "mainHeadline": { text, style, offset }, "subHeadline": {...}, ... } }
   const [textOverrides, setTextOverrides] = useState({});
+  // 페이지별 이미지 오버라이드
+  // { P1: { "heroImage": { scale }, ... } }
+  const [imageOverrides, setImageOverrides] = useState({});
 
   // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
   const updateTextOverride = (pageNum, textId, partial) => {
@@ -141,9 +144,29 @@ export default function App() {
     });
   };
 
-  // 현재 페이지 오버라이드 전체 리셋
+  // 이미지 오버라이드 업데이트 헬퍼
+  const updateImageOverride = (pageNum, imageId, partial) => {
+    setImageOverrides((prev) => {
+      const pagePrev = prev[pageNum] || {};
+      const itemPrev = pagePrev[imageId] || {};
+      return {
+        ...prev,
+        [pageNum]: {
+          ...pagePrev,
+          [imageId]: { ...itemPrev, ...partial },
+        },
+      };
+    });
+  };
+
+  // 현재 페이지 오버라이드 전체 리셋 (텍스트 + 이미지 모두)
   const resetPageOverrides = (pageNum) => {
     setTextOverrides((prev) => {
+      const next = { ...prev };
+      delete next[pageNum];
+      return next;
+    });
+    setImageOverrides((prev) => {
       const next = { ...prev };
       delete next[pageNum];
       return next;
@@ -1328,7 +1351,8 @@ export default function App() {
                     >
                       {editMode ? '✓ 편집 중 (끄기)' : '✏️ 인라인 편집'}
                     </button>
-                    {Object.keys(textOverrides[currentPage] || {}).length > 0 && (
+                    {(Object.keys(textOverrides[currentPage] || {}).length > 0 ||
+                      Object.keys(imageOverrides[currentPage] || {}).length > 0) && (
                       <button
                         onClick={() => {
                           if (window.confirm(`${currentPage}의 인라인 편집 내용을 모두 되돌릴까요?`)) {
@@ -1358,7 +1382,7 @@ export default function App() {
                 className="text-[11px] mb-2 px-3 py-2 rounded-lg border"
                 style={{ backgroundColor: '#FFF8F0', borderColor: '#FDBA74', color: '#9A3412' }}
               >
-                ✏️ <b>편집 모드</b> — <b>더블클릭</b>으로 텍스트 직접 수정 · <b>드래그</b>로 위치 이동 · 클릭 시 <b>툴바</b>에서 폰트/크기/색상/굵기 변경 (ESC로 편집 종료)
+                ✏️ <b>편집 모드</b> — 텍스트: <b>더블클릭</b>으로 글자 수정 · <b>클릭</b>으로 폰트/크기/색상 툴바 · <b>드래그</b>로 위치 이동 / 사진: 우하단 <b>파란 핸들</b>을 드래그해서 크기 조절 (ESC로 편집 종료)
               </div>
             )}
             <div className="rounded-xl overflow-auto flex justify-center py-4" style={{ backgroundColor: '#f0ebe4', maxHeight: 'calc(100vh - 260px)' }}>
@@ -1373,6 +1397,8 @@ export default function App() {
                   editMode={editMode}
                   overrides={textOverrides[currentPage] || {}}
                   onOverrideChange={(textId, partial) => updateTextOverride(currentPage, textId, partial)}
+                  imageOverrides={imageOverrides[currentPage] || {}}
+                  onImageOverrideChange={(imageId, partial) => updateImageOverride(currentPage, imageId, partial)}
                 />
               ) : (
                 <div className="text-xs text-slate-400 py-20 text-center">
