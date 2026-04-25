@@ -351,10 +351,21 @@ export default function App() {
       zMap[`${l.kind}:${l.id}`] = N - i;
     });
 
-    // 자유이미지 z-index 일괄 적용
+    // 자유이미지(free) + 인라인사진(inline) z-index 일괄 적용
+    // 둘 다 freeImages 배열에 있으므로 함께 처리
     setFreeImages((prev) => {
       const list = (prev[pageNum] || []).map((it) => {
-        const z = zMap[`free:${it.id}`];
+        const zFree = zMap[`free:${it.id}`];
+        const zInline = zMap[`inline:${it.id}`];
+        const z = zFree !== undefined ? zFree : zInline;
+        return z !== undefined ? { ...it, zIndex: z } : it;
+      });
+      return { ...prev, [pageNum]: list };
+    });
+    // 도형(shape) z-index 적용
+    setShapes((prev) => {
+      const list = (prev[pageNum] || []).map((it) => {
+        const z = zMap[`shape:${it.id}`];
         return z !== undefined ? { ...it, zIndex: z } : it;
       });
       return { ...prev, [pageNum]: list };
@@ -372,17 +383,33 @@ export default function App() {
   // mainLayers: [{ id, zIndex }, ...] - P1의 경우 'P1.heroImage'
   // 호출 측에서 어떤 메인 이미지들이 있는지 알려줘야 함 (P1Hero에서 전달)
   const getOrderedLayers = (pageNum, mainLayers = []) => {
-    const free = (freeImages[pageNum] || []).map((it) => ({
-      kind: 'free',
-      id: it.id,
-      zIndex: it.zIndex ?? 1,
-    }));
+    // 자유 위치 사진 (slot 없음)
+    const free = (freeImages[pageNum] || [])
+      .filter((it) => !it.slot)
+      .map((it) => ({
+        kind: 'free',
+        id: it.id,
+        zIndex: it.zIndex ?? 1,
+      }));
+    // 인라인 사진 (slot 있음)
+    const inlineList = (freeImages[pageNum] || [])
+      .filter((it) => !!it.slot)
+      .map((it, i) => ({
+        kind: 'inline',
+        id: it.id,
+        zIndex: it.zIndex ?? (500 + i),
+      }));
     const mains = mainLayers.map((m) => ({
       kind: 'main',
       id: m.id,
       zIndex: imageOverrides[pageNum]?.[m.id]?.zIndex ?? m.defaultZ ?? 1,
     }));
-    return [...mains, ...free].sort((a, b) => b.zIndex - a.zIndex);
+    const shapeList = (shapes[pageNum] || []).map((s) => ({
+      kind: 'shape',
+      id: s.id,
+      zIndex: s.zIndex ?? 700,
+    }));
+    return [...mains, ...free, ...inlineList, ...shapeList].sort((a, b) => b.zIndex - a.zIndex);
   };
 
   // 단건 레이어 액션: front/back/forward/backward

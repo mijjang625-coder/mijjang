@@ -59,6 +59,8 @@ export default function P2Benefits({
 
   // 자유 위치 사진(slot=null)만 freeImageLayer 에 넘겨 absolute 로 그리기
   const freePositioned = freeImages.filter((it) => !it.slot);
+  // 인라인(slot != null) 사진은 레이어 패널에만 별도로 등록
+  const inlineImagesAll = freeImages.filter((it) => !!it.slot);
 
   // 도형들의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
@@ -74,6 +76,9 @@ export default function P2Benefits({
     baseHeight: Math.max(1700, shapesBottom + 80),
     editMode,
     freeImages: freePositioned,
+    inlineImages: inlineImagesAll,
+    shapes,
+    onDeleteShape,
     imageOverrides,
     layerNames,
     onAddFreeImage,
@@ -155,14 +160,14 @@ export default function P2Benefits({
     return (
       <>
         {list.map((item, idx) => {
-          const isActive = activeLayerId === `free:${item.id}`;
+          const isActive = activeLayerId === `inline:${item.id}`;
           return (
             <InlineFreeImage
               key={item.id}
               item={item}
               editMode={editMode}
               isActive={isActive}
-              onActivate={() => onSetActiveLayer(`free:${item.id}`)}
+              onActivate={() => onSetActiveLayer(`inline:${item.id}`)}
               onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
               onDelete={() => onDeleteFreeImage(item.id)}
               onMoveUp={() => moveInline(item, -1)}
@@ -170,6 +175,10 @@ export default function P2Benefits({
               canMoveUp={!(slotKey === 'top' && idx === 0)}
               canMoveDown={!(slotKey === 'bottom' && idx === list.length - 1)}
               replaceImages={(allImages || []).filter(Boolean)}
+              onChangeLayer={(action) =>
+                layer.handleLayerAction({ kind: 'inline', id: item.id }, action)
+              }
+              zIndexLabel={item.zIndex ?? null}
             />
           );
         })}

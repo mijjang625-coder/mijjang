@@ -34,7 +34,10 @@ export function useFreeImageLayer({
   allImages = [],
   baseHeight = 1200,
   editMode = false,
-  freeImages = [],
+  freeImages = [],          // 자유 위치 사진 (slot=null) — 절대 좌표
+  inlineImages = [],        // 인라인 사진 (slot != null) — 본문 흐름
+  shapes = [],              // 도형 (rect/circle/line/arrow/highlight)
+  onDeleteShape = () => {},
   imageOverrides = {},
   layerNames = {},
   onAddFreeImage = () => {},
@@ -61,6 +64,15 @@ export function useFreeImageLayer({
   const clearActiveLayer = () => onSetActiveLayer(null);
   const hasActiveLayer = !!activeLayerId;
 
+  // 도형 타입별 라벨/이모지
+  const SHAPE_LABEL = {
+    rect:      '⬜ 사각형',
+    circle:    '⭕ 원',
+    line:      '➖ 선',
+    arrow:     '➡️ 화살표',
+    highlight: '🟨 하이라이트',
+  };
+
   // 통합 레이어 목록 — z-index 내림차순
   const allLayers = [
     ...mainLayers.map((m) => ({
@@ -72,7 +84,7 @@ export function useFreeImageLayer({
       zIndex: imageOverrides[m.id]?.zIndex ?? m.defaultZ ?? 1,
     })),
     ...(freeImages || []).map((it, i) => {
-      const def = `📷 추가 사진 ${i + 1}`;
+      const def = `📷 자유사진 ${i + 1}`;
       return {
         kind: 'free',
         id: it.id,
@@ -80,6 +92,33 @@ export function useFreeImageLayer({
         label: layerNames[it.id] || def,
         src: it.src,
         zIndex: it.zIndex ?? 1,
+      };
+    }),
+    ...(inlineImages || []).map((it, i) => {
+      const def = `🖼 끼워넣은 사진 ${i + 1}`;
+      return {
+        kind: 'inline',
+        id: it.id,
+        defaultName: def,
+        label: layerNames[it.id] || def,
+        src: it.src,
+        // 인라인은 본문 흐름이라 zIndex 가 의미는 작지만 표기상 보여주기 위해 인덱스 사용
+        zIndex: it.zIndex ?? (500 + i),
+        slot: it.slot,
+      };
+    }),
+    ...(shapes || []).map((s, i) => {
+      const typeLabel = SHAPE_LABEL[s.type] || '🟦 도형';
+      const def = `${typeLabel} ${i + 1}`;
+      return {
+        kind: 'shape',
+        id: s.id,
+        defaultName: def,
+        label: layerNames[s.id] || def,
+        src: null,
+        shapeType: s.type,
+        shapeColor: s.stroke && s.stroke !== 'none' ? s.stroke : (s.fill && s.fill !== 'none' ? s.fill : '#94a3b8'),
+        zIndex: s.zIndex ?? 700,
       };
     }),
   ].sort((a, b) => b.zIndex - a.zIndex);
@@ -153,17 +192,17 @@ export function useFreeImageLayer({
     if (!editMode) return null;
     return (
       <>
-        {/* 사진 추가 버튼 */}
+        {/* 사진 추가 버튼 — fixed 로 화면 우측에 고정 */}
         <button
           onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
           style={{
-            position: 'absolute', right: 16, top: 16, zIndex: 9999,
+            position: 'fixed', right: 24, top: 168, zIndex: 9999,
             backgroundColor: '#3b82f6', color: '#fff', border: '2px solid #fff',
             padding: '10px 14px', borderRadius: 999, fontSize: 13, fontWeight: 800,
             cursor: 'pointer', boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
             display: 'flex', alignItems: 'center', gap: 6,
           }}
-          title="페이지에 사진을 자유롭게 추가합니다"
+          title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
         >
           <span style={{ fontSize: 16, lineHeight: 1 }}>＋</span>
           <span>사진 추가</span>
@@ -175,18 +214,19 @@ export function useFreeImageLayer({
           )}
         </button>
 
-        {/* 레이어 패널 토글 */}
+        {/* 레이어 패널 토글 — fixed 로 스크롤과 무관하게 화면 우측에 고정 */}
         <button
           onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
           style={{
-            position: 'absolute', right: 16, top: 60, zIndex: 9999,
+            position: 'fixed', right: 24, top: 220,
+            zIndex: 9999,
             backgroundColor: showLayers ? '#1e293b' : '#475569', color: '#fff',
             border: '2px solid #fff', padding: '8px 12px', borderRadius: 999,
             fontSize: 12, fontWeight: 800, cursor: 'pointer',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             display: 'flex', alignItems: 'center', gap: 6,
           }}
-          title="모든 레이어 목록"
+          title="모든 레이어 목록 (스크롤해도 따라다님)"
         >
           📋 레이어 <span style={{
             backgroundColor: '#fbbf24', color: '#1e293b',
@@ -194,14 +234,15 @@ export function useFreeImageLayer({
           }}>{allLayers.length}</span>
         </button>
 
-        {/* 레이어 패널 */}
+        {/* 레이어 패널 — fixed 로 화면 우측에 고정, 스크롤 시 따라옴 */}
         {showLayers && (
           <div
             style={{
-              position: 'absolute', right: 16, top: 100, zIndex: 9998,
-              width: 280, maxHeight: 480, overflow: 'auto',
+              position: 'fixed', right: 24, top: 264,
+              zIndex: 9998,
+              width: 300, maxHeight: 'calc(100vh - 300px)', overflow: 'auto',
               backgroundColor: '#fff', border: '1px solid #e2ddd4',
-              borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', padding: 12,
+              borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.22)', padding: 12,
             }}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -277,7 +318,9 @@ export function useFreeImageLayer({
                     fontSize: 14, color: '#94a3b8', cursor: 'grab',
                     userSelect: 'none', flexShrink: 0, paddingRight: 2,
                   }} title="드래그로 순서 변경">⠿</div>
-                  {layer.src ? (
+                  {layer.kind === 'shape' ? (
+                    <ShapeThumb type={layer.shapeType} color={layer.shapeColor} />
+                  ) : layer.src ? (
                     <img src={layer.src} alt="" crossOrigin="anonymous"
                       style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
                   ) : (
@@ -320,7 +363,30 @@ export function useFreeImageLayer({
                         <span style={{ marginLeft: 4, fontSize: 9, color: '#94a3b8' }}>✏️</span>
                       </div>
                     )}
-                    <div style={{ fontSize: 9, color: '#64748b' }}>z{layer.zIndex}{isItemActive ? ' · 활성' : ''}</div>
+                    <div style={{ fontSize: 9, color: '#64748b' }}>
+                      {layer.kind === 'inline' && (
+                        <span style={{
+                          backgroundColor: '#10b981', color: '#fff',
+                          padding: '0 4px', borderRadius: 3, marginRight: 4,
+                          fontSize: 8, fontWeight: 800,
+                        }}>본문</span>
+                      )}
+                      {layer.kind === 'shape' && (
+                        <span style={{
+                          backgroundColor: '#a855f7', color: '#fff',
+                          padding: '0 4px', borderRadius: 3, marginRight: 4,
+                          fontSize: 8, fontWeight: 800,
+                        }}>도형</span>
+                      )}
+                      {layer.kind === 'free' && (
+                        <span style={{
+                          backgroundColor: '#3b82f6', color: '#fff',
+                          padding: '0 4px', borderRadius: 3, marginRight: 4,
+                          fontSize: 8, fontWeight: 800,
+                        }}>자유</span>
+                      )}
+                      z{layer.zIndex}{isItemActive ? ' · 활성' : ''}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <button onClick={(e) => { e.stopPropagation(); handleLayerAction(layer, 'front'); }}
@@ -334,7 +400,7 @@ export function useFreeImageLayer({
                     <button onClick={(e) => { e.stopPropagation(); handleLayerAction(layer, 'backward'); }}
                       style={layerBtn('#64748b')} title="한 단계 뒤">▼</button>
                   </div>
-                  {layer.kind === 'free' && (
+                  {(layer.kind === 'free' || layer.kind === 'inline') && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -347,20 +413,33 @@ export function useFreeImageLayer({
                       title="삭제"
                     >🗑</button>
                   )}
+                  {layer.kind === 'shape' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm('이 도형을 삭제할까요?')) {
+                          onDeleteShape(layer.id);
+                          if (isItemActive) clearActiveLayer();
+                        }
+                      }}
+                      style={{ ...layerBtn('#dc2626'), padding: '4px 6px' }}
+                      title="도형 삭제"
+                    >🗑</button>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* 사진 추가 패널 */}
+        {/* 사진 추가 패널 — fixed */}
         {showPicker && (
           <div
             style={{
-              position: 'absolute', right: 16, top: 60, zIndex: 9998,
-              width: 320, maxHeight: 480, overflow: 'auto',
+              position: 'fixed', right: 24, top: 220, zIndex: 9998,
+              width: 320, maxHeight: 'calc(100vh - 260px)', overflow: 'auto',
               backgroundColor: '#fff', border: '1px solid #e2ddd4',
-              borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', padding: 14,
+              borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.22)', padding: 14,
             }}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -437,4 +516,62 @@ function layerBtn(color) {
     padding: '2px 5px', borderRadius: 3, fontSize: 8, fontWeight: 800,
     cursor: 'pointer', minWidth: 22, lineHeight: 1.1,
   };
+}
+
+// 도형 썸네일 — 36×36 SVG 미니 미리보기
+function ShapeThumb({ type, color = '#94a3b8' }) {
+  const box = {
+    width: 36, height: 36, flexShrink: 0,
+    backgroundColor: '#fff', border: '1px solid #e5e7eb',
+    borderRadius: 4, padding: 2,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  };
+  const sw = 3;
+  switch (type) {
+    case 'rect':
+      return (
+        <div style={box}>
+          <svg width="28" height="28">
+            <rect x={sw / 2} y={sw / 2} width={28 - sw} height={28 - sw}
+              fill="none" stroke={color} strokeWidth={sw} rx={3} />
+          </svg>
+        </div>
+      );
+    case 'circle':
+      return (
+        <div style={box}>
+          <svg width="28" height="28">
+            <circle cx="14" cy="14" r={14 - sw / 2}
+              fill="none" stroke={color} strokeWidth={sw} />
+          </svg>
+        </div>
+      );
+    case 'line':
+      return (
+        <div style={box}>
+          <svg width="28" height="28">
+            <line x1="2" y1="14" x2="26" y2="14"
+              stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          </svg>
+        </div>
+      );
+    case 'arrow':
+      return (
+        <div style={box}>
+          <svg width="28" height="28">
+            <line x1="2" y1="14" x2="20" y2="14"
+              stroke={color} strokeWidth={sw} strokeLinecap="round" />
+            <path d="M 18 8 L 26 14 L 18 20 Z" fill={color} />
+          </svg>
+        </div>
+      );
+    case 'highlight':
+      return (
+        <div style={box}>
+          <div style={{ width: 26, height: 14, backgroundColor: color, opacity: 0.5, borderRadius: 2 }} />
+        </div>
+      );
+    default:
+      return <div style={box} />;
+  }
 }

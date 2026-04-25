@@ -3,21 +3,31 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * InlineFreeImage — 본문 흐름 안에서 자리를 차지하는 자유사진
  *
- * 핵심 차이 (FreeImage 와 비교):
- *   - 절대 좌표가 아니라 block 흐름으로 렌더 → 본문 텍스트/메인사진이 자동으로 밀려남
- *   - 너비는 컨테이너에 맞춤(또는 fitWidth), 높이만 사용자가 조절
- *   - 위/아래 이동 버튼으로 슬롯 안에서 순서 변경
- *   - 색상/밝기/채도/색조 조정, 삭제, 좌우 정렬, 사진 교체 지원
+ * 핵심 차이 (FreeImage vs InlineFreeImage):
+ *   - FreeImage: 절대 좌표(left/top) 로 페이지 위에 떠 있는 사진
+ *   - InlineFreeImage: block 흐름으로 렌더 → 본문 텍스트/메인사진을 자동으로 밀어냄
+ *
+ * UI 통일 (FreeImage 와 동일한 인터랙션):
+ *   - 호버/클릭 시 8개 핸들(코너 4 + 모서리 4)로 자유 리사이즈 (가로/세로 모두)
+ *   - idle 툴바: 🔍 크롭 / ▲▲ 맨앞 / ▲ 앞 / ▼ 뒤 / ▼▼ 맨뒤 / z표시 / 🎨 색상 / 🗑 삭제
+ *   - 더블클릭 → cropping 모드 (확대 슬라이더 / 사진 교체 / 크롭 리셋 / ✓ 완료)
+ *   - 색상 조정 패널: 밝기/대비/채도/색조 + 9 프리셋
  *
  * Props:
- *   item: { id, src, w, h, adjust, align, slot }
+ *   item: { id, src, w, h, adjust, align, slot, crop }
  *   editMode, isActive, onActivate
  *   onUpdate(partial) / onDelete() / onMoveUp() / onMoveDown()
+ *   onChangeLayer(action: 'front'|'back'|'forward'|'backward')  — 레이어 순서 변경
+ *   zIndexLabel — 레이어 z-index 표시용 (예: 5)
  *   canMoveUp, canMoveDown — 끝점일 때 비활성
  *   replaceImages: string[] — 교체 가능한 사진 후보
  */
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 4.0;
+const MIN_W = 200;
+const MAX_W = 740;
+const MIN_H = 120;
+const MAX_H = 1200;
 
 function coverSize(boxW, boxH, natW = 1, natH = 1) {
   const boxRatio = boxW / boxH;
@@ -35,6 +45,8 @@ export default function InlineFreeImage({
   onDelete = () => {},
   onMoveUp = () => {},
   onMoveDown = () => {},
+  onChangeLayer = () => {},
+  zIndexLabel = null,
   canMoveUp = true,
   canMoveDown = true,
   replaceImages = [],
@@ -151,22 +163,54 @@ export default function InlineFreeImage({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showAdjust, showReplace, mode]);
 
-  // 세로 리사이즈 — 너비는 컨테이너에 고정, 높이만 사용자가 조절
+  // 8개 핸들 리사이즈 (FreeImage 와 동일)
+  // n / s: 높이만 / e / w: 너비만 / nw, ne, sw, se: 비율 유지(Shift=자유)
   const handleResizeStart = (e, edge) => {
     e.preventDefault();
     e.stopPropagation();
-    setResizing({ edge, startY: e.clientY, sh: h });
+    setResizing({
+      edge,
+      startX: e.clientX, startY: e.clientY,
+      sw: w, sh: h,
+      ratio: w / Math.max(1, h),
+      shiftKey: e.shiftKey,
+    });
   };
 
   useEffect(() => {
     if (!resizing) return;
     const onMove = (e) => {
+      const dx = e.clientX - resizing.startX;
       const dy = e.clientY - resizing.startY;
+      let nw = resizing.sw;
       let nh = resizing.sh;
-      if (resizing.edge === 's') nh = resizing.sh + dy;
-      else if (resizing.edge === 'n') nh = resizing.sh - dy;
-      nh = Math.max(120, Math.min(1200, nh));
-      onUpdate({ h: Math.round(nh) });
+      const edge = resizing.edge;
+      const lockRatio = !e.shiftKey && (
+        edge === 'nw' || edge === 'ne' || edge === 'sw' || edge === 'se'
+      );
+
+      if (edge.includes('e')) nw = resizing.sw + dx;
+      if (edge.includes('w')) nw = resizing.sw - dx;
+      if (edge.includes('s')) nh = resizing.sh + dy;
+      if (edge.includes('n')) nh = resizing.sh - dy;
+
+      // 가운데 모서리 (n/s/e/w 단독) 인 경우 다른 축은 그대로
+      if (edge === 'n' || edge === 's') nw = resizing.sw;
+      if (edge === 'e' || edge === 'w') nh = resizing.sh;
+
+      // 비율 유지 (코너만)
+      if (lockRatio) {
+        // dx 와 dy 중 더 큰 변화량 기준으로 비율 결정
+        if (Math.abs(dx) > Math.abs(dy)) {
+          nh = nw / resizing.ratio;
+        } else {
+          nw = nh * resizing.ratio;
+        }
+      }
+
+      nw = Math.max(MIN_W, Math.min(MAX_W, nw));
+      nh = Math.max(MIN_H, Math.min(MAX_H, nh));
+      onUpdate({ w: Math.round(nw), h: Math.round(nh) });
     };
     const onUp = () => setResizing(null);
     window.addEventListener('mousemove', onMove);
@@ -177,7 +221,7 @@ export default function InlineFreeImage({
     };
   }, [resizing, onUpdate]);
 
-  // 좌우 정렬 → marginLeft/marginRight 자동 결정
+  // 좌우 정렬 → marginLeft/marginRight 자동 결정 (col flex 컨테이너)
   const containerStyle = {
     position: 'relative',
     width: '100%',
@@ -186,6 +230,18 @@ export default function InlineFreeImage({
     justifyContent: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center',
     pointerEvents: editMode ? 'auto' : 'none',
   };
+
+  // 8개 핸들 정의 — FreeImage 와 동일
+  const HANDLES = [
+    { id: 'nw', cursor: 'nwse-resize' },
+    { id: 'n',  cursor: 'ns-resize'  },
+    { id: 'ne', cursor: 'nesw-resize' },
+    { id: 'w',  cursor: 'ew-resize'  },
+    { id: 'e',  cursor: 'ew-resize'  },
+    { id: 'sw', cursor: 'nesw-resize' },
+    { id: 's',  cursor: 'ns-resize'  },
+    { id: 'se', cursor: 'nwse-resize' },
+  ];
 
   return (
     <div ref={wrapRef} style={containerStyle} data-inline-free="true">
@@ -257,36 +313,31 @@ export default function InlineFreeImage({
           </div>
         )}
 
-        {/* 세로 리사이즈 핸들 — 위/아래 가운데 */}
-        {editMode && isActive && (
-          <>
-            <div
-              onMouseDown={(e) => handleResizeStart(e, 'n')}
-              style={{
-                position: 'absolute', left: '50%', top: -6, transform: 'translateX(-50%)',
-                width: 28, height: 12,
-                backgroundColor: '#3b82f6', border: '2px solid #fff',
-                borderRadius: 6, cursor: 'ns-resize', zIndex: 20,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              }}
-              title="위쪽으로 드래그하여 높이 조절"
+        {/* 8개 리사이즈 핸들 — 활성 + idle 모드 일 때만 */}
+        {editMode && isActive && mode === 'idle' && HANDLES.map((hd) => {
+          const s = {
+            position: 'absolute', width: 12, height: 12,
+            backgroundColor: '#3b82f6', border: '2px solid #fff',
+            borderRadius: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            cursor: hd.cursor, zIndex: 20,
+          };
+          if (hd.id.includes('w')) s.left = -6;
+          else if (hd.id.includes('e')) s.right = -6;
+          else { s.left = '50%'; s.marginLeft = -6; }
+          if (hd.id.includes('n')) s.top = -6;
+          else if (hd.id.includes('s')) s.bottom = -6;
+          else { s.top = '50%'; s.marginTop = -6; }
+          return (
+            <div key={hd.id} data-handle
+              onMouseDown={(e) => handleResizeStart(e, hd.id)}
+              style={s}
+              title="드래그=비율유지(코너) / Shift=자유변형"
             />
-            <div
-              onMouseDown={(e) => handleResizeStart(e, 's')}
-              style={{
-                position: 'absolute', left: '50%', bottom: -6, transform: 'translateX(-50%)',
-                width: 28, height: 12,
-                backgroundColor: '#3b82f6', border: '2px solid #fff',
-                borderRadius: 6, cursor: 'ns-resize', zIndex: 20,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              }}
-              title="아래쪽으로 드래그하여 높이 조절"
-            />
-          </>
-        )}
+          );
+        })}
       </div>
 
-      {/* idle 툴바 — 활성 + 편집모드 + 크롭모드 아닐 때 */}
+      {/* idle 툴바 — 활성 + 편집모드 + 크롭모드 아닐 때 (FreeImage 와 동일한 디자인) */}
       {editMode && isActive && mode === 'idle' && (
         <div
           data-inline-toolbar
@@ -297,7 +348,7 @@ export default function InlineFreeImage({
             left: '50%',
             top: -42,
             transform: 'translateX(-50%)',
-            display: 'flex', gap: 4, alignItems: 'center',
+            display: 'flex', gap: 6, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '6px 10px',
             borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             zIndex: 30, whiteSpace: 'nowrap',
@@ -305,58 +356,52 @@ export default function InlineFreeImage({
         >
           {/* 🔍 크롭 모드 진입 */}
           <button onClick={() => setMode('cropping')}
-            style={tBtn('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)">🔍 크롭</button>
-          <span style={sep} />
-          <button onClick={onMoveUp} disabled={!canMoveUp}
-            style={tBtn(canMoveUp ? '#475569' : '#334155')} title="위로">▲</button>
-          <button onClick={onMoveDown} disabled={!canMoveDown}
-            style={tBtn(canMoveDown ? '#475569' : '#334155')} title="아래로">▼</button>
+            style={btnLabel('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)">🔍 크롭</button>
           <span style={sep} />
 
-          {/* 정렬 */}
-          <button onClick={() => onUpdate({ align: 'left' })}
-            style={tBtn(align === 'left' ? '#3b82f6' : '#475569')} title="왼쪽">⬅</button>
-          <button onClick={() => onUpdate({ align: 'center' })}
-            style={tBtn(align === 'center' ? '#3b82f6' : '#475569')} title="가운데">⬌</button>
-          <button onClick={() => onUpdate({ align: 'right' })}
-            style={tBtn(align === 'right' ? '#3b82f6' : '#475569')} title="오른쪽">➡</button>
-          <span style={sep} />
-
-          {/* 너비 */}
-          <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>W:</span>
-          <button onClick={() => onUpdate({ w: Math.max(200, w - 40) })}
-            style={tBtn('#475569')} title="좁게">−</button>
-          <button onClick={() => onUpdate({ w: Math.min(740, w + 40) })}
-            style={tBtn('#475569')} title="넓게">＋</button>
-          <span style={sep} />
-
-          {/* 색상 */}
-          <button
-            onClick={() => { setShowAdjust((s) => !s); setShowReplace(false); }}
-            style={tBtn(showAdjust ? '#7c3aed' : (isAdjusted ? '#a855f7' : '#475569'))}
-            title="색상·밝기·채도"
-          >🎨{isAdjusted ? '•' : ''}</button>
-
-          {/* 사진 교체 */}
-          {replaceImages.length > 0 && (
-            <button
-              onClick={() => { setShowReplace((s) => !s); setShowAdjust(false); }}
-              style={tBtn(showReplace ? '#0ea5e9' : '#475569')}
-              title="사진 교체"
-            >🔄</button>
+          {/* 레이어 순서 (FreeImage 와 동일) */}
+          <button onClick={() => onChangeLayer('front')}
+            style={btnLabel('#475569')} title="맨 앞으로">▲▲ 맨앞</button>
+          <button onClick={() => onChangeLayer('forward')}
+            style={btnLabel('#64748b')} title="한 단계 앞으로">▲ 앞</button>
+          <button onClick={() => onChangeLayer('backward')}
+            style={btnLabel('#64748b')} title="한 단계 뒤로">▼ 뒤</button>
+          <button onClick={() => onChangeLayer('back')}
+            style={btnLabel('#475569')} title="맨 뒤로">▼▼ 맨뒤</button>
+          {zIndexLabel != null && (
+            <span style={{
+              backgroundColor: '#fbbf24', color: '#1e293b',
+              padding: '2px 6px', borderRadius: 4,
+              fontSize: 10, fontWeight: 900,
+            }}>z{zIndexLabel}</span>
           )}
           <span style={sep} />
 
-          {/* 삭제 */}
+          {/* 인라인 슬롯 위/아래 이동 */}
+          <button onClick={onMoveUp} disabled={!canMoveUp}
+            style={btnLabel(canMoveUp ? '#0ea5e9' : '#334155')} title="본문 위로 이동">⇧</button>
+          <button onClick={onMoveDown} disabled={!canMoveDown}
+            style={btnLabel(canMoveDown ? '#0ea5e9' : '#334155')} title="본문 아래로 이동">⇩</button>
+          <span style={sep} />
+
+          {/* 🎨 색상 */}
+          <button
+            onClick={() => { setShowAdjust((s) => !s); setShowReplace(false); }}
+            style={btnLabel(showAdjust ? '#7c3aed' : (isAdjusted ? '#a855f7' : '#475569'))}
+            title="색상·밝기·채도 조정"
+          >🎨 색상{isAdjusted ? ' •' : ''}</button>
+          <span style={sep} />
+
+          {/* 🗑 삭제 */}
           <button
             onClick={() => { if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }}
-            style={tBtn('#dc2626')}
+            style={btnLabel('#dc2626')}
             title="삭제"
-          >🗑</button>
+          >🗑 삭제</button>
         </div>
       )}
 
-      {/* 🔍 크롭 모드 툴바 */}
+      {/* 🔍 크롭 모드 툴바 (FreeImage 와 동일) */}
       {editMode && isActive && mode === 'cropping' && (
         <div
           data-inline-toolbar
@@ -386,15 +431,19 @@ export default function InlineFreeImage({
             {Math.round(currentScale * 100)}%
           </span>
           <span style={sep} />
+          {replaceImages.length > 0 && (
+            <button onClick={() => { setShowReplace((s) => !s); }}
+              style={btnLabel('#0ea5e9')} title="다른 사진으로 교체">🔄 사진 교체</button>
+          )}
           <button onClick={() => onUpdate({ crop: null })}
-            style={tBtn('#7c2d12')} title="크롭 초기화 (확대/위치 리셋)">↺ 크롭만</button>
-          <button onClick={() => setMode('idle')}
-            style={tBtn('#16a34a')} title="크롭 모드 종료 (ESC)">✓ 완료</button>
+            style={btnLabel('#7c2d12')} title="크롭 초기화 (확대/위치 리셋)">↺ 크롭만</button>
+          <button onClick={() => { setMode('idle'); setShowReplace(false); }}
+            style={btnLabel('#16a34a')} title="크롭 모드 종료 (ESC)">✓ 완료</button>
         </div>
       )}
 
       {/* 색상 조정 패널 */}
-      {editMode && isActive && showAdjust && (
+      {editMode && isActive && showAdjust && mode === 'idle' && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -430,6 +479,18 @@ export default function InlineFreeImage({
           <Slider label="🌈 색조" unit="°" min={-180} max={180} step={1}
             value={adj.hue} defaultValue={0} color="#8b5cf6"
             onChange={(v) => onUpdate({ adjust: { ...adj, hue: v } })} />
+
+          {/* 정렬 */}
+          <div style={{ marginTop: 8, marginBottom: 4, fontSize: 10, fontWeight: 700, color: '#64748b' }}>📐 정렬</div>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+            <button onClick={() => onUpdate({ align: 'left' })}
+              style={alignBtn(align === 'left')} title="왼쪽">⬅ 왼쪽</button>
+            <button onClick={() => onUpdate({ align: 'center' })}
+              style={alignBtn(align === 'center')} title="가운데">⬌ 가운데</button>
+            <button onClick={() => onUpdate({ align: 'right' })}
+              style={alignBtn(align === 'right')} title="오른쪽">➡ 오른쪽</button>
+          </div>
+
           <div style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: '#64748b' }}>✨ 프리셋</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginTop: 4 }}>
             <Pre label="원본" onClick={() => onUpdate({ adjust: null })} />
@@ -445,8 +506,8 @@ export default function InlineFreeImage({
         </div>
       )}
 
-      {/* 사진 교체 패널 */}
-      {editMode && isActive && showReplace && (
+      {/* 사진 교체 패널 (cropping 모드) */}
+      {editMode && isActive && mode === 'cropping' && showReplace && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -457,7 +518,7 @@ export default function InlineFreeImage({
             width: 320, maxHeight: 380, overflow: 'auto',
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
-            padding: 12, zIndex: 40,
+            padding: 12, zIndex: 50,
           }}
         >
           <div style={{
@@ -482,7 +543,7 @@ export default function InlineFreeImage({
                 const r = new FileReader();
                 r.onload = (ev) => {
                   if (ev.target?.result) {
-                    onUpdate({ src: ev.target.result });
+                    onUpdate({ src: ev.target.result, crop: null });
                     setShowReplace(false);
                   }
                 };
@@ -492,12 +553,12 @@ export default function InlineFreeImage({
           {replaceImages.length > 0 && (
             <>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>
-                생성된 사진 {replaceImages.length}장에서 선택
+                또는 생성된 사진 {replaceImages.length}장에서 선택
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                 {replaceImages.map((src, idx) => (
                   <button key={idx}
-                    onClick={() => { onUpdate({ src }); setShowReplace(false); }}
+                    onClick={() => { onUpdate({ src, crop: null }); setShowReplace(false); }}
                     style={{
                       border: '1px solid #e2ddd4', borderRadius: 6, padding: 0,
                       overflow: 'hidden', cursor: 'pointer', aspectRatio: '1 / 1',
@@ -517,16 +578,28 @@ export default function InlineFreeImage({
   );
 }
 
-function tBtn(bg) {
+// ── 공통 버튼 스타일 (FreeImage 의 btnLabel 과 통일) ──
+function btnLabel(color) {
   return {
-    backgroundColor: bg, color: '#fff', border: 'none',
-    padding: '4px 8px', borderRadius: 4,
+    backgroundColor: color, color: '#fff', border: 'none',
+    padding: '6px 10px', borderRadius: 5,
     fontSize: 11, fontWeight: 800, cursor: 'pointer',
     boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-    minWidth: 26, lineHeight: 1.1,
+    minWidth: 28, lineHeight: 1.2, whiteSpace: 'nowrap',
   };
 }
-const sep = { width: 1, height: 16, backgroundColor: '#475569' };
+const sep = { width: 1, height: 18, backgroundColor: '#475569' };
+
+function alignBtn(active) {
+  return {
+    flex: 1,
+    backgroundColor: active ? '#3b82f6' : '#f3f4f6',
+    color: active ? '#fff' : '#374151',
+    border: '1px solid #e5e7eb',
+    padding: '5px 6px', borderRadius: 4,
+    fontSize: 10, fontWeight: 700, cursor: 'pointer',
+  };
+}
 
 function Slider({ label, unit, min, max, step, value, defaultValue, onChange, color }) {
   const isMod = value !== defaultValue;
