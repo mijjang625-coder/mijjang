@@ -105,30 +105,35 @@ export default function P3Target({
             position: 'relative', width: 560, height: 560,
             pointerEvents: 'auto',
             zIndex: mainZ,
+            // 편집모드일 때 툴바가 잘리지 않도록 visible
+            overflow: editMode ? 'visible' : 'hidden',
           }}>
+            {/* 원형 테두리 + 그림자만 담당하는 데코 레이어 — 사진 위에 겹침 */}
             <div
               style={{
-                width: '100%', height: '100%',
-                borderRadius: '50%', overflow: editMode ? 'visible' : 'hidden',
-                backgroundColor: '#fff', border: `5px solid ${BRAND.colors.main}`,
+                position: 'absolute', inset: 0,
+                borderRadius: '50%',
+                border: `5px solid ${BRAND.colors.main}`,
                 boxShadow: '0 8px 24px rgba(47, 42, 38, 0.08)',
+                pointerEvents: 'none',
+                zIndex: 2,
               }}
-            >
-              <EditableImage
-                id={mainImgId}
-                src={image}
-                aspect="1 / 1"
-                radius={0}
-                editMode={editMode}
-                override={imageOverrides[mainImgId] || {}}
-                onChange={(partial) => onImageOverrideChange(mainImgId, partial)}
-                availableImages={(allImages || []).filter(Boolean)}
-                isActive={editMode ? mainActive : null}
-                onActivate={() => layer.activateLayer('main', mainImgId)}
-                hasActiveOther={editMode && layer.hasActiveLayer && !mainActive}
-                onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: mainImgId }, action)}
-              />
-            </div>
+            />
+            {/* 사진 자체는 EditableImage가 radius 50%로 원형 클립 */}
+            <EditableImage
+              id={mainImgId}
+              src={image}
+              aspect="1 / 1"
+              radius="50%"
+              editMode={editMode}
+              override={imageOverrides[mainImgId] || {}}
+              onChange={(partial) => onImageOverrideChange(mainImgId, partial)}
+              availableImages={(allImages || []).filter(Boolean)}
+              isActive={editMode ? mainActive : null}
+              onActivate={() => layer.activateLayer('main', mainImgId)}
+              hasActiveOther={editMode && layer.hasActiveLayer && !mainActive}
+              onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: mainImgId }, action)}
+            />
             {/* 포인트 배지 */}
             {badgePoint && (
               <div

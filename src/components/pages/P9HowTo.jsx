@@ -2,10 +2,18 @@ import { BRAND } from '../../lib/theme.js';
 import { PageFrame } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
+import InlineFreeImage from '../InlineFreeImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
+import SlotInsertButton from './SlotInsertButton.jsx';
 
 // P9: 사용법 — STEP 1~3 + 활용 TIP
+//
+// 인라인 끼워넣기 슬롯 (P2 와 동일 패턴):
+//   slot='top'           → STEP 1 위
+//   slot='between-0-1'   → STEP 1↔2 사이
+//   slot='between-1-2'   → STEP 2↔3 사이
+//   slot='bottom'        → STEP 3 아래 (TIP 위)
 export default function P9HowTo({
   copy = {},
   images = [],
@@ -17,6 +25,7 @@ export default function P9HowTo({
   onImageOverrideChange = () => {},
   freeImages = [],
   onAddFreeImage = () => {},
+  onAddFreeImageToSlot = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
   onChangeLayer = () => {},
@@ -47,6 +56,11 @@ export default function P9HowTo({
   const mainLayers = steps.slice(0, 3).map((_, i) => ({
     id: `P9.steps.${i}.image`, defaultName: `🖼 STEP ${i + 1} 사진`, defaultZ: i + 1,
   }));
+
+  // 자유 위치 사진(slot=null) vs 인라인(slot != null)
+  const freePositioned = freeImages.filter((it) => !it.slot);
+  const inlineImagesAll = freeImages.filter((it) => !!it.slot);
+
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
     (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
@@ -54,13 +68,84 @@ export default function P9HowTo({
   );
   const layer = useFreeImageLayer({
     pageKey: 'P9', mainLayers, image: images[0], allImages, baseHeight: Math.max(1900, shapesBottom + 80),
-    editMode, freeImages, imageOverrides, layerNames,
+    editMode,
+    freeImages: freePositioned,
+    inlineImages: inlineImagesAll,
+    imageOverrides, layerNames,
     onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
     shapes,
     onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
     activeLayerId, onSetActiveLayer,
   });
+
+  // 슬롯별 사진 그룹핑
+  const SLOT_ORDER = ['top', 'between-0-1', 'between-1-2', 'bottom'];
+  const slotImages = {
+    top: freeImages.filter((it) => it.slot === 'top'),
+    'between-0-1': freeImages.filter((it) => it.slot === 'between-0-1'),
+    'between-1-2': freeImages.filter((it) => it.slot === 'between-1-2'),
+    bottom: freeImages.filter((it) => it.slot === 'bottom'),
+  };
+
+  const onReorderInline = (idA, idB) => {
+    const a = freeImages.find((x) => x.id === idA);
+    const b = freeImages.find((x) => x.id === idB);
+    if (!a || !b) return;
+    onUpdateFreeImage(idA, { sortKey: (b.sortKey ?? 0) - 0.5 });
+    onUpdateFreeImage(idB, { sortKey: (a.sortKey ?? 0) + 0.5 });
+  };
+
+  const moveInline = (item, dir) => {
+    const list = slotImages[item.slot] || [];
+    const idx = list.findIndex((x) => x.id === item.id);
+    if (dir === -1 && idx > 0) { onReorderInline(item.id, list[idx - 1].id); return; }
+    if (dir === 1 && idx < list.length - 1) { onReorderInline(item.id, list[idx + 1].id); return; }
+    const slotIdx = SLOT_ORDER.indexOf(item.slot);
+    const newSlotIdx = slotIdx + dir;
+    if (newSlotIdx < 0 || newSlotIdx >= SLOT_ORDER.length) return;
+    onUpdateFreeImage(item.id, { slot: SLOT_ORDER[newSlotIdx] });
+  };
+
+  const sortSlot = (arr) =>
+    arr.slice().sort((x, y) => {
+      const xk = x.sortKey ?? 0;
+      const yk = y.sortKey ?? 0;
+      if (xk !== yk) return xk - yk;
+      return (x.id || '').localeCompare(y.id || '');
+    });
+
+  const renderSlot = (slotKey) => {
+    const list = sortSlot(slotImages[slotKey] || []);
+    return (
+      <>
+        {list.map((item, idx) => {
+          const isActive = activeLayerId === `inline:${item.id}`;
+          return (
+            <InlineFreeImage
+              key={item.id}
+              item={item}
+              editMode={editMode}
+              isActive={isActive}
+              onActivate={() => onSetActiveLayer(`inline:${item.id}`)}
+              onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
+              onDelete={() => onDeleteFreeImage(item.id)}
+              onMoveUp={() => moveInline(item, -1)}
+              onMoveDown={() => moveInline(item, +1)}
+              canMoveUp={!(slotKey === 'top' && idx === 0)}
+              canMoveDown={!(slotKey === 'bottom' && idx === list.length - 1)}
+              replaceImages={(allImages || []).filter(Boolean)}
+              onChangeLayer={(action) =>
+                layer.handleLayerAction({ kind: 'inline', id: item.id }, action)
+              }
+              zIndexLabel={item.zIndex ?? null}
+            />
+          );
+        })}
+        {editMode && <SlotInsertButton slot={slotKey} onInsert={onAddFreeImageToSlot} allImages={allImages} />}
+      </>
+    );
+  };
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
@@ -94,6 +179,9 @@ export default function P9HowTo({
         </div>
 
         <div style={{ padding: '20px 40px 20px' }}>
+          {/* 슬롯: STEP 1 위 */}
+          {renderSlot('top')}
+
           {steps.slice(0, 3).map((s, i, arr) => {
             const imgId = `P9.steps.${i}.image`;
             const isImgActive = layer.isLayerActive('main', imgId);
@@ -161,9 +249,15 @@ export default function P9HowTo({
                     </svg>
                   </div>
                 )}
+                {/* STEP 사이 슬롯 */}
+                {i === 0 && renderSlot('between-0-1')}
+                {i === 1 && renderSlot('between-1-2')}
               </div>
             );
           })}
+
+          {/* 슬롯: STEP 3 아래 (TIP 위) */}
+          {renderSlot('bottom')}
         </div>
 
         {tips.length > 0 && (

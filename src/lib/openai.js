@@ -283,6 +283,20 @@ export async function generateCoupangPage({
 
   const briefText = serializeUserBrief(brief, imageCount);
 
+  // P10 전용 보조 안내 — schema가 크므로 모델이 빠뜨리지 않도록 강조
+  let p10Hint = '';
+  if (pageNumber === 'P10') {
+    p10Hint = `
+[P10 필수 응답 항목 — 절대 누락 금지]
+copy 안에 반드시 아래 5개 키가 모두 있어야 합니다:
+1) components: { title, bullets[3~4개], photoHint }
+2) shippingInfo: 배송 안내 3개 (이모지+제목+한줄설명)
+3) csInfo: A/S 안내 3개 (이모지+제목+한줄설명)
+4) faq: 5개 [{q, a}] — 키 이름은 "faq" (faqs 아님!)
+5) compliance: 7개 필드 객체 (modelName/sizeWeight/color/material/manufacturer/origin/asContact)
+* needsMoreInfo는 false로 두고, 정보 부족하면 "상세페이지 참조"로 안전하게 채우세요.`;
+  }
+
   // P5 비교표용 일반 제품 정보 확장
   let p5ExtraBrief = '';
   if (pageNumber === 'P5' && brief) {
@@ -316,7 +330,7 @@ ${historyBlock}
 ${JSON.stringify(previousCopy, null, 2)}
 
 📋 참고용 제품 브리프 (수정 요청과 충돌 시 무시 가능):
-${briefText}${p5ExtraBrief}
+${briefText}${p5ExtraBrief}${p10Hint}
 
 🎯 수정 작업 규칙 (반드시 준수):
 1. **위 '최우선 지시'를 최상위 우선순위로 반영**하세요.
@@ -337,7 +351,7 @@ ${briefText}${p5ExtraBrief}
 
 아래는 사용자가 제공한 제품 브리프입니다.
 --- 제품 브리프 ---
-${briefText}${p5ExtraBrief}
+${briefText}${p5ExtraBrief}${p10Hint}
 --- 제품 브리프 끝 ---
 
 ${previousPagesSummary ? `이전 페이지 요약:\n${previousPagesSummary}\n\n` : ''}
@@ -387,11 +401,42 @@ ${previousPagesSummary ? `이전 페이지 요약:\n${previousPagesSummary}\n\n`
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('OpenAI 응답이 비어있습니다.');
 
+  let parsed;
   try {
-    return JSON.parse(content);
-  } catch {
+    parsed = JSON.parse(content);
+  } catch (e) {
+    console.error('[generateCoupangPage] JSON parse 실패', { pageNumber, content, error: e });
     throw new Error('OpenAI 응답을 JSON으로 파싱할 수 없습니다.');
   }
+
+  // 🛡️ P10 안전 보강 — 응답이 부분적이거나 needsMoreInfo여도 빈 데이터로 깨지지 않도록
+  if (pageNumber === 'P10') {
+    parsed.copy = parsed.copy || {};
+    const c = parsed.copy;
+    if (!c.components || typeof c.components !== 'object') {
+      c.components = { title: '구성품 안내', bullets: [], photoHint: '' };
+    }
+    if (!Array.isArray(c.components.bullets)) c.components.bullets = [];
+    // faq vs faqs 키 호환 (모델이 가끔 'faqs'로 잘못 응답)
+    if (!Array.isArray(c.faq)) {
+      if (Array.isArray(c.faqs)) {
+        c.faq = c.faqs;
+      } else {
+        c.faq = [];
+      }
+    }
+    if (!Array.isArray(c.shippingInfo)) c.shippingInfo = [];
+    if (!Array.isArray(c.csInfo)) c.csInfo = [];
+    if (!c.compliance || typeof c.compliance !== 'object') c.compliance = {};
+    // needsMoreInfo가 true여도 P10은 무시하고 강제 표시 (FAQ는 default로 채워짐)
+    if (parsed.needsMoreInfo) {
+      console.warn('[generateCoupangPage] P10 needsMoreInfo=true 받음 — 무시하고 강제 표시');
+      parsed.needsMoreInfo = false;
+      parsed.missingItems = [];
+    }
+  }
+
+  return parsed;
 }
 
 /**
