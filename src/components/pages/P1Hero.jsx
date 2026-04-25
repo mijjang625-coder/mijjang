@@ -116,7 +116,7 @@ export default function P1Hero({
             </EditableText>
           </div>
         )}
-        <div style={{ marginTop: 36 }}>
+        <div data-edit-image style={{ marginTop: 36, pointerEvents: 'auto' }}>
           <EditableImage
             id="P1.heroImage"
             src={image}

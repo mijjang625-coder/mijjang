@@ -46,7 +46,10 @@ body {
 .p1-content-layer input,
 .p1-content-layer [contenteditable],
 .p1-content-layer [data-edit-text],
+.p1-content-layer [data-edit-image],
+.p1-content-layer [data-edit-image] *,
 .p1-content-layer [data-toolbar],
+.p1-content-layer [data-toolbar] *,
 .p1-content-layer [data-handle] {
   pointer-events: auto;
 }
