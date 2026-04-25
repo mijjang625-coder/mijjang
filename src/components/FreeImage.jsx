@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 /**
  * FreeImage — 자유 배치 이미지 (페이지 캠버스 위에서 절대 위치)
