@@ -47,6 +47,11 @@ const PageRenderer = forwardRef(function PageRenderer(
     onOverrideChange = () => {},
     imageOverrides = {},
     onImageOverrideChange = () => {},
+    freeImages = [],
+    onAddFreeImage = () => {},
+    onUpdateFreeImage = () => {},
+    onDeleteFreeImage = () => {},
+    onChangeLayer = () => {},
   },
   ref,
 ) {
@@ -57,6 +62,11 @@ const PageRenderer = forwardRef(function PageRenderer(
     onOverrideChange,
     imageOverrides,
     onImageOverrideChange,
+    freeImages,
+    onAddFreeImage,
+    onUpdateFreeImage,
+    onDeleteFreeImage,
+    onChangeLayer,
   };
 
   // 순환 접근 — 사진이 부족하면 % 로 돌려 재사용

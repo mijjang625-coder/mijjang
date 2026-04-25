@@ -213,6 +213,7 @@ export async function saveProject(state) {
     pageVariants: state.pageVariants || {},
     textOverrides: state.textOverrides || {},
     imageOverrides: state.imageOverrides || {},
+    freeImages: state.freeImages || {},
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
     savedAt: Date.now(),
@@ -300,6 +301,7 @@ export function exportProjectToJSON(state) {
     pageVariants: state.pageVariants || {},
     textOverrides: state.textOverrides || {},
     imageOverrides: state.imageOverrides || {},
+    freeImages: state.freeImages || {},
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
   };

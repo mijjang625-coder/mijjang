@@ -138,6 +138,76 @@ export default function App() {
   // { P1: { "heroImage": { scale }, ... } }
   const [imageOverrides, setImageOverrides] = useState({});
 
+  // 페이지별 자유 배치 이미지 (사용자가 추가한 사진들)
+  // { P1: [{ id, src, x, y, w, h, crop, zIndex }, ...] }
+  const [freeImages, setFreeImages] = useState({});
+
+  // 자유 이미지 추가
+  const addFreeImage = (pageNum, src) => {
+    setFreeImages((prev) => {
+      const list = prev[pageNum] || [];
+      const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+      // 페이지 중앙 근처에 200×200 박스로 배치 (페이지 폭 780)
+      const offsetIdx = list.length;
+      const newItem = {
+        id,
+        src,
+        x: 290 + (offsetIdx % 4) * 20,  // 살짝 어긋나게 배치
+        y: 100 + (offsetIdx % 4) * 20,
+        w: 200,
+        h: 200,
+        crop: null,
+        zIndex: 100 + list.length,  // 새로 추가된 게 위에 오도록
+      };
+      return { ...prev, [pageNum]: [...list, newItem] };
+    });
+  };
+
+  // 자유 이미지 업데이트
+  const updateFreeImage = (pageNum, id, partial) => {
+    setFreeImages((prev) => {
+      const list = prev[pageNum] || [];
+      return {
+        ...prev,
+        [pageNum]: list.map((it) => (it.id === id ? { ...it, ...partial } : it)),
+      };
+    });
+  };
+
+  // 자유 이미지 삭제
+  const deleteFreeImage = (pageNum, id) => {
+    setFreeImages((prev) => {
+      const list = prev[pageNum] || [];
+      return {
+        ...prev,
+        [pageNum]: list.filter((it) => it.id !== id),
+      };
+    });
+  };
+
+  // 레이어 관리 헬퍼: zIndex 변경
+  const changeLayer = (pageNum, id, action) => {
+    // action: 'front' | 'back' | 'forward' | 'backward'
+    setFreeImages((prev) => {
+      const list = (prev[pageNum] || []).slice();
+      if (list.length === 0) return prev;
+      const allZ = list.map((it) => it.zIndex || 100);
+      const maxZ = Math.max(...allZ);
+      const minZ = Math.min(...allZ);
+      const target = list.find((it) => it.id === id);
+      if (!target) return prev;
+      let newZ = target.zIndex || 100;
+      if (action === 'front') newZ = maxZ + 1;
+      else if (action === 'back') newZ = minZ - 1;
+      else if (action === 'forward') newZ = (target.zIndex || 100) + 1;
+      else if (action === 'backward') newZ = (target.zIndex || 100) - 1;
+      return {
+        ...prev,
+        [pageNum]: list.map((it) => (it.id === id ? { ...it, zIndex: newZ } : it)),
+      };
+    });
+  };
+
   // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
   const updateTextOverride = (pageNum, textId, partial) => {
     setTextOverrides((prev) => {
@@ -230,6 +300,7 @@ export default function App() {
           if (saved.pageVariants) setPageVariants(saved.pageVariants);
           if (saved.textOverrides) setTextOverrides(saved.textOverrides);
           if (saved.imageOverrides) setImageOverrides(saved.imageOverrides);
+          if (saved.freeImages) setFreeImages(saved.freeImages);
           if (saved.p5Version) setP5Version(saved.p5Version);
           if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
           setLastSavedAt(getLastSaved());
@@ -266,10 +337,10 @@ export default function App() {
     if (!hydrated) return; // 첫 hydration 전에는 저장하지 않음 (덮어쓰기 방지)
     debouncedSaveRef.current({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, p5Version, revisionHistory,
     });
   }, [hydrated, brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, p5Version, revisionHistory]);
+      textOverrides, imageOverrides, freeImages, p5Version, revisionHistory]);
 
   // 수동 내보내기 (JSON 파일로 다운로드)
   const handleExportProject = useCallback(() => {
@@ -278,9 +349,9 @@ export default function App() {
     const filename = `coupang-${productName}-${stamp}.json`;
     downloadProjectJSON({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, p5Version, revisionHistory,
     }, filename);
-  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, p5Version, revisionHistory]);
+  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, p5Version, revisionHistory]);
 
   // 수동 불러오기 (JSON 파일 입력)
   const fileInputRef = useRef(null);
@@ -296,6 +367,7 @@ export default function App() {
       setPageVariants(data.pageVariants || {});
       setTextOverrides(data.textOverrides || {});
       setImageOverrides(data.imageOverrides || {});
+      setFreeImages(data.freeImages || {});
       setP5Version(data.p5Version || 'text');
       setRevisionHistory(data.revisionHistory || {});
       alert('✅ 프로젝트를 불러왔습니다.');
@@ -319,6 +391,7 @@ export default function App() {
     setPageVariants({});
     setTextOverrides({});
     setImageOverrides({});
+    setFreeImages({});
     setP5Version('text');
     setRevisionHistory({});
     setExtractResult(null);
@@ -1592,6 +1665,11 @@ export default function App() {
                   onOverrideChange={(textId, partial) => updateTextOverride(currentPage, textId, partial)}
                   imageOverrides={imageOverrides[currentPage] || {}}
                   onImageOverrideChange={(imageId, partial) => updateImageOverride(currentPage, imageId, partial)}
+                  freeImages={freeImages[currentPage] || []}
+                  onAddFreeImage={(src) => addFreeImage(currentPage, src)}
+                  onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
+                  onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
+                  onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
                 />
               ) : (
                 <div className="text-xs text-slate-400 py-20 text-center">

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame, Img, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
+import FreeImage from '../FreeImage.jsx';
 
 // P1: 메인 히어로 + 강점 카드 3개
 // editMode / overrides / onOverrideChange: 인라인 편집 지원
@@ -15,6 +17,11 @@ export default function P1Hero({
   onOverrideChange = () => {},
   imageOverrides = {},
   onImageOverrideChange = () => {},
+  freeImages = [],
+  onAddFreeImage = () => {},
+  onUpdateFreeImage = () => {},
+  onDeleteFreeImage = () => {},
+  onChangeLayer = () => {},
 }) {
   const {
     mainHeadline = '제품의 핵심을 한 줄로',
@@ -34,8 +41,35 @@ export default function P1Hero({
     onChange: (partial) => onOverrideChange(id, partial),
   });
 
+  // 사진 추가 패널 (썸네일 그리드 + 파일 업로드)
+  const [showPicker, setShowPicker] = useState(false);
+  const validImages = (allImages || []).filter(Boolean);
+
+  // 파일 업로드 → base64 DataURL → onAddFreeImage
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) onAddFreeImage(ev.target.result);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = ''; // 같은 파일 재선택 가능하게
+    setShowPicker(false);
+  };
+
+  // 자유 이미지의 최하단 좌표 → 페이지 minHeight 자동 연장
+  const baseHeight = 1200;
+  const freeBottom = (freeImages || []).reduce(
+    (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
+    0
+  );
+  const pageHeight = Math.max(baseHeight, freeBottom + 80); // 하단 80px 여유
+
   return (
-    <PageFrame height={1200} bg={BRAND.colors.white}>
+    <PageFrame height={pageHeight} bg={BRAND.colors.white}>
       {/* 상단 70% — 메인 타이틀 120% 확대 */}
       <div style={{ padding: '60px 50px 30px', textAlign: 'center' }}>
         <EditableText
@@ -186,6 +220,180 @@ export default function P1Hero({
           </div>
         )}
       </div>
+
+      {/* ─── 자유 배치 이미지 캠버스 (절대 위치) ─── */}
+      {(freeImages || []).map((item) => (
+        <FreeImage
+          key={item.id}
+          item={item}
+          editMode={editMode}
+          canvasWidth={780}
+          onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
+          onDelete={() => onDeleteFreeImage(item.id)}
+          onChangeLayer={(action) => onChangeLayer(item.id, action)}
+        />
+      ))}
+
+      {/* ─── 사진 추가 플로팅 버튼 (편집모드에서만) ─── */}
+      {editMode && (
+        <>
+          <button
+            onClick={() => setShowPicker((s) => !s)}
+            style={{
+              position: 'absolute',
+              right: 16,
+              top: 16,
+              zIndex: 9999,
+              backgroundColor: '#3b82f6',
+              color: '#fff',
+              border: '2px solid #fff',
+              padding: '10px 14px',
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            title="페이지에 사진을 자유롭게 추가합니다"
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }}>＋</span>
+            <span>사진 추가</span>
+            {(freeImages || []).length > 0 && (
+              <span
+                style={{
+                  backgroundColor: '#fff',
+                  color: '#3b82f6',
+                  borderRadius: 999,
+                  padding: '1px 7px',
+                  fontSize: 10,
+                  fontWeight: 900,
+                  marginLeft: 4,
+                }}
+              >
+                {freeImages.length}
+              </span>
+            )}
+          </button>
+
+          {showPicker && (
+            <div
+              style={{
+                position: 'absolute',
+                right: 16,
+                top: 60,
+                zIndex: 9998,
+                width: 320,
+                maxHeight: 480,
+                overflow: 'auto',
+                backgroundColor: '#fff',
+                border: '1px solid #e2ddd4',
+                borderRadius: 12,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+                padding: 14,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {/* 헤더 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#2F2A26' }}>📸 사진 추가</div>
+                <button
+                  onClick={() => setShowPicker(false)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#64748b',
+                    fontSize: 16,
+                    cursor: 'pointer',
+                    padding: 2,
+                  }}
+                  title="닫기"
+                >✕</button>
+              </div>
+
+              {/* 파일 업로드 */}
+              <label
+                style={{
+                  display: 'block',
+                  border: '2px dashed #93c5fd',
+                  backgroundColor: '#eff6ff',
+                  borderRadius: 8,
+                  padding: '14px 12px',
+                  textAlign: 'center',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#1d4ed8',
+                  cursor: 'pointer',
+                  marginBottom: 10,
+                }}
+              >
+                ⬆️ 내 컴퓨터에서 업로드 (여러 장 가능)
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              {/* AI 생성된 23장 갤러리 */}
+              {validImages.length > 0 ? (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>
+                    또는 생성된 사진 {validImages.length}장에서 선택
+                  </div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: 6,
+                    }}
+                  >
+                    {validImages.map((src, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          onAddFreeImage(src);
+                          setShowPicker(false);
+                        }}
+                        style={{
+                          border: '1px solid #e2ddd4',
+                          borderRadius: 6,
+                          padding: 0,
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          aspectRatio: '1 / 1',
+                          backgroundColor: '#f3f4f6',
+                        }}
+                        title={`사진 ${idx + 1} 추가`}
+                      >
+                        <img
+                          src={src}
+                          alt=""
+                          crossOrigin="anonymous"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '8px 0' }}>
+                  (생성된 사진이 없습니다 — 사진을 먼저 생성하면 여기 표시됩니다)
+                </div>
+              )}
+
+              {/* 안내 */}
+              <div style={{ marginTop: 10, fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
+                💡 추가 후 페이지 위에서 자유롭게 드래그·리사이즈, 더블클릭=크롭, 툴바=레이어/삭제
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </PageFrame>
   );
 }
