@@ -46,14 +46,9 @@ export default function EditableText({
   const mergedStyle = { ...defaultStyle, ...(override?.style || {}) };
   const offset = override?.offset || { x: 0, y: 0 };
 
-  // 편집모드 아니면 기본 렌더 (평문)
-  if (!editMode) {
-    return (
-      <Tag className={className} style={{ ...mergedStyle, ...style }}>
-        {mergedText || placeholder}
-      </Tag>
-    );
-  }
+  // ⚠️ Hook 규칙 — useEffect는 early return 보다 먼저 호출되어야 함
+  //    (editMode 토글 시 Hook 개수가 바뀌면 React가 크래시함)
+  //    early return은 모든 Hook 호출 뒤로 이동.
 
   // 툴바 위치 계산 — viewport 기준 (position: fixed)
   const updateToolbarPos = () => {
@@ -180,6 +175,15 @@ export default function EditableText({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ 모든 Hook 호출 뒤에서 early return — Hook 규칙 준수
+  if (!editMode) {
+    return (
+      <Tag className={className} style={{ ...mergedStyle, ...style }}>
+        {mergedText || placeholder}
+      </Tag>
+    );
+  }
 
   // 툴바에서 스타일 변경
   const applyStyle = (partial) => {
