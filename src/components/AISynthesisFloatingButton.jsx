@@ -11,6 +11,7 @@ import AISynthesisPanel from './AISynthesisPanel.jsx';
  * Props:
  *   editMode       — 편집 모드 여부 (false면 안 보임)
  *   apiKey         — OpenAI API 키
+ *   falApiKey      — fal.ai API 키 (nano-banana 모델 사용 시)
  *   productName    — 제품명
  *   uploadedImages — 사진 라이브러리
  *   onAddImages(urls) — 생성된 사진을 라이브러리에 추가
@@ -18,6 +19,7 @@ import AISynthesisPanel from './AISynthesisPanel.jsx';
 export default function AISynthesisFloatingButton({
   editMode = false,
   apiKey = '',
+  falApiKey = '',
   productName = '',
   uploadedImages = [],
   activeImageSrc = null,   // 🆕 현재 클릭/활성화된 사진의 실제 URL
@@ -145,6 +147,7 @@ export default function AISynthesisFloatingButton({
             }}>
               <AISynthesisPanel
                 apiKey={apiKey}
+                falApiKey={falApiKey}
                 productName={productName}
                 uploadedImages={uploadedImages}
                 initialSourceUrl={activeImageSrc}

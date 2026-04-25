@@ -3,6 +3,7 @@ import {
   synthesizeBatch,
   BACKGROUND_PRESETS,
   MOOD_PRESETS,
+  SYNTHESIS_MODELS,
 } from '../lib/imageSynthesis.js';
 
 /**
@@ -20,12 +21,26 @@ import {
  */
 export default function AISynthesisPanel({
   apiKey,
+  falApiKey = '',
   productName = '',
   uploadedImages = [],
   initialSourceUrl = null,
   currentPage = '',
   onAddImages = () => {},
 }) {
+  // 🆕 모델 선택 (기본: nano-banana-2 — 가성비 최고)
+  // localStorage 에서 마지막 선택 복원
+  const [modelKey, setModelKey] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ai_synthesis_model');
+      if (saved && SYNTHESIS_MODELS[saved]) return saved;
+    } catch (_) {}
+    return 'nano-banana-2';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('ai_synthesis_model', modelKey); } catch (_) {}
+  }, [modelKey]);
+  const provider = modelKey === 'openai' ? 'openai' : 'fal';
   // ───────── 상태 ─────────
   const [mode, setMode] = useState('background');
 
@@ -108,9 +123,17 @@ export default function AISynthesisPanel({
     setError('');
     setResults([]);
 
-    if (!apiKey || !apiKey.trim()) {
-      setError('OpenAI API 키를 사이드바에 먼저 입력해 주세요.');
-      return;
+    // 모델별 API 키 검증
+    if (provider === 'fal') {
+      if (!falApiKey || !falApiKey.trim()) {
+        setError('fal.ai API 키를 사이드바에 먼저 입력해 주세요. (Nano Banana 모델 사용 시 필요)');
+        return;
+      }
+    } else {
+      if (!apiKey || !apiKey.trim()) {
+        setError('OpenAI API 키를 사이드바에 먼저 입력해 주세요.');
+        return;
+      }
     }
     if (sourceIdx >= 0 && !uploadedImages[sourceIdx]) {
       setError('기준 사진을 선택하거나 "단품 사진 없이"를 선택해 주세요.');
@@ -127,7 +150,7 @@ export default function AISynthesisPanel({
 
     const realCount = mode === 'beforeAfter' ? 2 : count;
     setBusy(true);
-    setProgress(`${realCount}장 생성 시작...`);
+    setProgress(`${realCount}장 생성 시작... (${SYNTHESIS_MODELS[modelKey]?.label || modelKey})`);
 
     try {
       // 기준 사진 URL 결정:
@@ -141,6 +164,9 @@ export default function AISynthesisPanel({
 
       const items = await synthesizeBatch({
         apiKey,
+        falApiKey,
+        provider,
+        modelKey,
         mode,
         productName,
         backgroundKey,
@@ -199,6 +225,54 @@ export default function AISynthesisPanel({
           단품 사진 한 장만 있으면 → 다양한 배경 · 사용 장면 · Before/After 컷을 AI가 자동으로 만들어줍니다.
           생성된 사진은 바로 위 "제품 사진 업로드" 라이브러리에 추가할 수 있어요.
         </div>
+      </div>
+
+      {/* 🆕 0) AI 모델 선택 */}
+      <div>
+        <div className="text-[12px] font-bold mb-1.5" style={{ color: '#2F2A26' }}>
+          0. AI 모델 선택
+          <span className="ml-2 text-[10px] font-normal text-slate-500">
+            (제품 일관성 · 자연스러움이 가장 중요한 부분)
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-1.5">
+          {Object.entries(SYNTHESIS_MODELS).map(([key, info]) => {
+            const active = modelKey === key;
+            const needsFalKey = key !== 'openai';
+            const keyMissing = needsFalKey ? !falApiKey?.trim() : !apiKey?.trim();
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setModelKey(key)}
+                className="text-left p-2 rounded-lg transition border-2 flex items-center justify-between gap-2"
+                style={{
+                  borderColor: active ? '#E87A2B' : '#e2ddd4',
+                  backgroundColor: active ? '#FFF8F0' : '#fff',
+                }}
+              >
+                <div className="flex-1">
+                  <div className="text-[12px] font-bold" style={{ color: active ? '#C2410C' : '#2F2A26' }}>
+                    {info.label}
+                    {keyMissing && (
+                      <span className="ml-1 text-[9px] font-bold text-red-500">⚠️ API 키 필요</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    품질 {info.quality} · {info.cost}
+                  </div>
+                </div>
+                {active && <span style={{ color: '#E87A2B', fontWeight: 800 }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+        {provider === 'fal' && !falApiKey?.trim() && (
+          <div className="mt-1.5 text-[10px] text-red-600 leading-relaxed p-2 rounded bg-red-50 border border-red-200">
+            🔑 사이드바 "1. OpenAI 설정" 섹션에서 <b>fal.ai API Key</b>를 먼저 입력해 주세요.<br />
+            발급: <a href="https://fal.ai/dashboard/keys" target="_blank" rel="noreferrer" className="underline font-bold">fal.ai/dashboard/keys</a>
+          </div>
+        )}
       </div>
 
       {/* 1) 모드 선택 */}

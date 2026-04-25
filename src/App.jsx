@@ -113,6 +113,7 @@ const DEFAULT_BRIEF = {
 export default function App() {
   // API 설정
   const [apiKey, setApiKey] = useState('');
+  const [falApiKey, setFalApiKey] = useState(''); // fal.ai (nano-banana-2/pro 합성용)
   const [model, setModel] = useState('gpt-4o-mini');
 
   // 브리프 + 이미지
@@ -576,10 +577,13 @@ export default function App() {
   useEffect(() => {
     const saved = localStorage.getItem('openai_api_key');
     if (saved) setApiKey(saved);
+    const savedFal = localStorage.getItem('fal_api_key');
+    if (savedFal) setFalApiKey(savedFal);
     const savedModel = localStorage.getItem('openai_model');
     if (savedModel) setModel(savedModel);
   }, []);
   useEffect(() => { if (apiKey) localStorage.setItem('openai_api_key', apiKey); }, [apiKey]);
+  useEffect(() => { if (falApiKey) localStorage.setItem('fal_api_key', falApiKey); }, [falApiKey]);
   useEffect(() => { if (model) localStorage.setItem('openai_model', model); }, [model]);
 
   // ─── 프로젝트 자동 저장/복원 ─────────────────────────
@@ -1322,8 +1326,9 @@ export default function App() {
           style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
         >
           <Section title="1. OpenAI 설정" emoji="🔑" collapsible defaultCollapsed={!!apiKey}>
-            <Field label="API Key" required>
+            <Field label="OpenAI API Key" required>
               <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className="input" />
+              <div className="text-[10px] text-slate-500 mt-1">텍스트 생성/수정용 (필수)</div>
             </Field>
             <Field label="모델">
               <select value={model} onChange={(e) => setModel(e.target.value)} className="input">
@@ -1332,6 +1337,14 @@ export default function App() {
                 <option value="gpt-4.1-mini">gpt-4.1-mini</option>
                 <option value="gpt-4.1">gpt-4.1</option>
               </select>
+            </Field>
+            <Field label="fal.ai API Key">
+              <input type="password" value={falApiKey} onChange={(e) => setFalApiKey(e.target.value)} placeholder="fal_..." className="input" />
+              <div className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                🍌 <b>AI 사진 합성용</b> (Nano Banana 2/Pro)<br />
+                fal.ai에서 발급 → <a href="https://fal.ai/dashboard/keys" target="_blank" rel="noreferrer" className="text-blue-600 underline">fal.ai/dashboard/keys</a><br />
+                💰 nano-banana-2 약 110원/장, pro 약 195원/장
+              </div>
             </Field>
           </Section>
 
@@ -2874,6 +2887,7 @@ Q5. / A5.
       <AISynthesisFloatingButton
         editMode={editMode}
         apiKey={apiKey}
+        falApiKey={falApiKey}
         productName={brief.productName}
         uploadedImages={images}
         activeImageSrc={activeImageSrc}

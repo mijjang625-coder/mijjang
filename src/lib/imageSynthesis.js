@@ -19,6 +19,35 @@
 const OPENAI_IMAGE_EDIT_URL = 'https://api.openai.com/v1/images/edits';
 const OPENAI_IMAGE_GEN_URL = 'https://api.openai.com/v1/images/generations';
 
+// fal.ai 모델별 엔드포인트 (queue API)
+// queue.fal.run/{model-id} 로 POST 후 status_url / response_url 폴링
+const FAL_QUEUE_BASE = 'https://queue.fal.run';
+const FAL_MODELS = {
+  'nano-banana-2': {
+    edit: 'fal-ai/nano-banana-2/edit',
+    generate: 'fal-ai/nano-banana-2',
+    label: '🍌 Nano Banana 2 (추천)',
+    cost: '약 110원/장',
+    quality: '⭐⭐⭐⭐½',
+  },
+  'nano-banana-pro': {
+    edit: 'fal-ai/nano-banana-pro/edit',
+    generate: 'fal-ai/nano-banana-pro',
+    label: '🍌 Nano Banana Pro (최고 품질)',
+    cost: '약 195원/장',
+    quality: '⭐⭐⭐⭐⭐',
+  },
+  'openai': {
+    edit: null, // OpenAI는 별도 함수 사용
+    generate: null,
+    label: '🤖 OpenAI gpt-image-1 (저렴)',
+    cost: '약 55원/장',
+    quality: '⭐⭐⭐',
+  },
+};
+
+export const SYNTHESIS_MODELS = FAL_MODELS;
+
 // ─────────────────────────────────────────────────────────────
 // 배경 프리셋 — 청소솔/생활용품 특화
 // ─────────────────────────────────────────────────────────────
@@ -250,6 +279,132 @@ async function callImageGen({ apiKey, prompt, size = '1024x1024' }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// fal.ai 호출 (queue 기반: submit → polling → result)
+// ─────────────────────────────────────────────────────────────
+
+async function falSubmit({ apiKey, modelPath, input }) {
+  const res = await fetch(`${FAL_QUEUE_BASE}/${modelPath}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    let msg = errText;
+    try {
+      const j = JSON.parse(errText);
+      msg = j?.detail || j?.error || errText;
+    } catch (_) {}
+    throw new Error(`fal.ai 요청 오류 (${res.status}): ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
+  }
+  const data = await res.json();
+  // { request_id, status_url, response_url, ... }
+  return data;
+}
+
+async function falPollResult({ apiKey, statusUrl, responseUrl, maxWaitMs = 120000, intervalMs = 1500 }) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const res = await fetch(statusUrl, {
+      headers: { Authorization: `Key ${apiKey}` },
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`fal.ai 상태 조회 오류 (${res.status}): ${errText}`);
+    }
+    const status = await res.json();
+    if (status?.status === 'COMPLETED') {
+      // 결과 가져오기
+      const r = await fetch(responseUrl, {
+        headers: { Authorization: `Key ${apiKey}` },
+      });
+      if (!r.ok) {
+        const errText = await r.text();
+        throw new Error(`fal.ai 결과 조회 오류 (${r.status}): ${errText}`);
+      }
+      return r.json();
+    }
+    if (status?.status === 'FAILED' || status?.status === 'ERROR') {
+      throw new Error(`fal.ai 생성 실패: ${JSON.stringify(status)}`);
+    }
+    // IN_QUEUE / IN_PROGRESS
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error('fal.ai 응답 시간 초과 (2분)');
+}
+
+// 외부 이미지 URL을 data URL로 변환 (CORS 안전한 fetch)
+async function urlToDataUrl(url) {
+  if (url.startsWith('data:')) return url;
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function callFalEdit({ apiKey, modelKey, prompt, sourceImageDataUrl, size = '1024x1024' }) {
+  const modelPath = FAL_MODELS[modelKey]?.edit;
+  if (!modelPath) throw new Error(`fal.ai 모델 경로 없음: ${modelKey}`);
+
+  // size → aspect_ratio 변환
+  const aspectRatio = size === '1024x1536' ? '2:3' : size === '1536x1024' ? '3:2' : '1:1';
+
+  const input = {
+    prompt,
+    image_urls: [sourceImageDataUrl], // base64 data URL 그대로 전달 가능
+    num_images: 1,
+    aspect_ratio: aspectRatio,
+    output_format: 'png',
+    resolution: '1K',
+  };
+
+  const submitted = await falSubmit({ apiKey, modelPath, input });
+  const result = await falPollResult({
+    apiKey,
+    statusUrl: submitted.status_url,
+    responseUrl: submitted.response_url,
+  });
+
+  const imgUrl = result?.images?.[0]?.url;
+  if (!imgUrl) throw new Error('fal.ai 이미지 응답이 비어 있습니다.');
+  // 외부 URL을 data URL로 변환해서 일관된 인터페이스 유지
+  return urlToDataUrl(imgUrl);
+}
+
+async function callFalGen({ apiKey, modelKey, prompt, size = '1024x1024' }) {
+  const modelPath = FAL_MODELS[modelKey]?.generate;
+  if (!modelPath) throw new Error(`fal.ai 모델 경로 없음: ${modelKey}`);
+
+  const aspectRatio = size === '1024x1536' ? '2:3' : size === '1536x1024' ? '3:2' : '1:1';
+
+  const input = {
+    prompt,
+    num_images: 1,
+    aspect_ratio: aspectRatio,
+    output_format: 'png',
+    resolution: '1K',
+  };
+
+  const submitted = await falSubmit({ apiKey, modelPath, input });
+  const result = await falPollResult({
+    apiKey,
+    statusUrl: submitted.status_url,
+    responseUrl: submitted.response_url,
+  });
+
+  const imgUrl = result?.images?.[0]?.url;
+  if (!imgUrl) throw new Error('fal.ai 이미지 응답이 비어 있습니다.');
+  return urlToDataUrl(imgUrl);
+}
+
+// ─────────────────────────────────────────────────────────────
 // 외부 노출 API
 // ─────────────────────────────────────────────────────────────
 
@@ -257,7 +412,10 @@ async function callImageGen({ apiKey, prompt, size = '1024x1024' }) {
  * 단일 이미지 합성
  *
  * @param {Object} opts
- * @param {string} opts.apiKey       OpenAI API 키
+ * @param {string} opts.apiKey       OpenAI API 키 (provider='openai'일 때)
+ * @param {string} opts.falApiKey    fal.ai API 키 (provider='fal'일 때)
+ * @param {string} opts.provider     'openai' | 'fal' (기본: 'fal')
+ * @param {string} opts.modelKey     'nano-banana-2' | 'nano-banana-pro' | 'openai' (기본: 'nano-banana-2')
  * @param {string} opts.mode         'background' | 'usage' | 'handHeld' | 'beforeAfter' | 'multiAngle'
  * @param {string} opts.productName  제품명 (예: "욕실 청소솔")
  * @param {string} opts.backgroundKey 'bathroom' | 'kitchen' | ... | 'custom'
@@ -271,6 +429,9 @@ async function callImageGen({ apiKey, prompt, size = '1024x1024' }) {
 export async function synthesizeImage(opts) {
   const {
     apiKey,
+    falApiKey,
+    provider = 'fal',
+    modelKey = 'nano-banana-2',
     mode,
     productName,
     backgroundKey,
@@ -281,7 +442,6 @@ export async function synthesizeImage(opts) {
     size = '1024x1024',
   } = opts;
 
-  if (!apiKey) throw new Error('OpenAI API 키가 필요합니다.');
   if (!mode) throw new Error('합성 모드를 선택해 주세요.');
 
   const prompt = buildPrompt({
@@ -294,10 +454,23 @@ export async function synthesizeImage(opts) {
   });
 
   let url;
-  if (sourceImageDataUrl) {
-    url = await callImageEdit({ apiKey, prompt, sourceImageDataUrl, size });
+
+  // fal.ai 모델 (nano-banana-2, nano-banana-pro)
+  if (provider === 'fal' && (modelKey === 'nano-banana-2' || modelKey === 'nano-banana-pro')) {
+    if (!falApiKey) throw new Error('fal.ai API 키가 필요합니다. 사이드바에서 입력해 주세요.');
+    if (sourceImageDataUrl) {
+      url = await callFalEdit({ apiKey: falApiKey, modelKey, prompt, sourceImageDataUrl, size });
+    } else {
+      url = await callFalGen({ apiKey: falApiKey, modelKey, prompt, size });
+    }
   } else {
-    url = await callImageGen({ apiKey, prompt, size });
+    // OpenAI gpt-image-1
+    if (!apiKey) throw new Error('OpenAI API 키가 필요합니다.');
+    if (sourceImageDataUrl) {
+      url = await callImageEdit({ apiKey, prompt, sourceImageDataUrl, size });
+    } else {
+      url = await callImageGen({ apiKey, prompt, size });
+    }
   }
 
   return { url, prompt };
