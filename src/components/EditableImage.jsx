@@ -96,6 +96,8 @@ export default function EditableImage({
   const [draggingFrame, setDraggingFrame] = useState(null);
   const [draggingCrop, setDraggingCrop] = useState(null);
   const [showSwapPanel, setShowSwapPanel] = useState(false);
+  // 🎨 색상 조정 패널 (idle 모드에서)
+  const [showAdjust, setShowAdjust] = useState(false);
   const [snapLines, setSnapLines] = useState({ v: null, h: null });
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });    // wrapper 측정값
   const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });      // 이미지 원본 비율
@@ -106,6 +108,17 @@ export default function EditableImage({
   // 레이어 z-index (P1 정책: 콘텐츠=500, 1~499=뒤, 501~999=앞)
   const customZ = override?.zIndex;
   const CONTENT_Z = 500;
+
+  // 🎨 색상 조정 (FreeImage / InlineFreeImage 와 동일 시스템)
+  const adjust = override?.adjust || null;
+  const adj = {
+    brightness: adjust?.brightness ?? 100,
+    contrast:   adjust?.contrast   ?? 100,
+    saturate:   adjust?.saturate   ?? 100,
+    hue:        adjust?.hue        ?? 0,
+  };
+  const cssFilter = `brightness(${adj.brightness}%) contrast(${adj.contrast}%) saturate(${adj.saturate}%) hue-rotate(${adj.hue}deg)`;
+  const isAdjusted = adj.brightness !== 100 || adj.contrast !== 100 || adj.saturate !== 100 || adj.hue !== 0;
 
   // 메인사진 레이어 변경
   // onLayerAction이 지정되어 있으면 부모(P1Hero)의 정규화 시스템에 위임,
@@ -419,6 +432,14 @@ export default function EditableImage({
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
 
+  // 비활성화될 때 색상/교체 패널 자동 닫기
+  useEffect(() => {
+    if (isActive === false) {
+      setShowAdjust(false);
+      setShowSwapPanel(false);
+    }
+  }, [isActive]);
+
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
   if (!editMode) {
     const hasFrame = !!frame;
@@ -467,6 +488,7 @@ export default function EditableImage({
               objectFit: 'cover',
               display: 'block',
               userSelect: 'none',
+              filter: cssFilter,
             }}
           />
         </div>
@@ -570,6 +592,7 @@ export default function EditableImage({
             display: 'block',
             userSelect: 'none',
             pointerEvents: mode === 'cropping' ? 'auto' : 'none',
+            filter: cssFilter,
           }}
         />
 
@@ -619,7 +642,7 @@ export default function EditableImage({
           );
         })}
 
-      {/* 좌상단 툴바 (idle) — 자유이미지와 동일 레이아웃, isActive 우선 */}
+      {/* 좌상단 툴바 (idle) — InlineFreeImage 와 동일한 압축 디자인 (아이콘 위주) */}
       {showUI && (
         <div
           data-toolbar
@@ -639,6 +662,7 @@ export default function EditableImage({
             pointerEvents: 'auto',
           }}
         >
+          {/* 🔍 크롭 */}
           <button
             onClick={(e) => { e.stopPropagation(); setMode('cropping'); }}
             onMouseDown={(e) => e.stopPropagation()}
@@ -646,58 +670,129 @@ export default function EditableImage({
             style={toolbarBtnStyle('#3b82f6')}
           >🔍 크롭</button>
           <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+
+          {/* 레이어 순서 — 압축형 아이콘 */}
           <button
             onClick={(e) => { e.stopPropagation(); changeMainLayer('front'); }}
             onMouseDown={(e) => e.stopPropagation()}
-            style={toolbarBtnStyle('#475569')} title="맨 앞으로"
-          >▲▲ 맨앞</button>
+            style={toolbarIconStyle('#475569')} title="맨 앞으로"
+          >▲▲</button>
           <button
             onClick={(e) => { e.stopPropagation(); changeMainLayer('forward'); }}
             onMouseDown={(e) => e.stopPropagation()}
-            style={toolbarBtnStyle('#64748b')} title="한 단계 앞으로"
-          >▲ 앞</button>
+            style={toolbarIconStyle('#64748b')} title="한 단계 앞으로"
+          >▲</button>
           <button
             onClick={(e) => { e.stopPropagation(); changeMainLayer('backward'); }}
             onMouseDown={(e) => e.stopPropagation()}
-            style={toolbarBtnStyle('#64748b')} title="한 단계 뒤로"
-          >▼ 뒤</button>
+            style={toolbarIconStyle('#64748b')} title="한 단계 뒤로"
+          >▼</button>
           <button
             onClick={(e) => { e.stopPropagation(); changeMainLayer('back'); }}
             onMouseDown={(e) => e.stopPropagation()}
-            style={toolbarBtnStyle('#475569')} title="맨 뒤로"
-          >▼▼ 맨뒤</button>
+            style={toolbarIconStyle('#475569')} title="맨 뒤로"
+          >▼▼</button>
           <span style={{
             backgroundColor: '#fbbf24', color: '#1e293b',
-            padding: '2px 6px', borderRadius: 4,
-            fontSize: 10, fontWeight: 900,
+            padding: '2px 5px', borderRadius: 4,
+            fontSize: 9, fontWeight: 900,
           }}>z{customZ ?? 1}</span>
-          {(hasFrame || crop || override?.src || customZ !== undefined) && (
-            <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+
+          {/* 🎨 색상 — InlineFreeImage 와 동일 */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowAdjust((s) => !s); setShowSwapPanel(false); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={toolbarBtnStyle(showAdjust ? '#7c3aed' : (isAdjusted ? '#a855f7' : '#475569'))}
+            title="색상·밝기·채도 조정"
+          >🎨 색상{isAdjusted ? ' •' : ''}</button>
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+
+          {/* ↺ 리셋 — 프레임/크롭/사진 모두 한번에 */}
+          {(hasFrame || crop || override?.src) && (
+            <>
+              {hasFrame && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onChange({ frame: null }); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="프레임 크기/위치 초기화"
+                  style={toolbarIconStyle('#7c2d12')}
+                >↺📐</button>
+              )}
+              {crop && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onChange({ crop: null }); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="크롭 초기화"
+                  style={toolbarIconStyle('#7c2d12')}
+                >↺🔍</button>
+              )}
+              {override?.src && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onChange({ src: null, crop: null }); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="원본 사진으로 복원"
+                  style={toolbarIconStyle('#7c2d12')}
+                >↺🖼</button>
+              )}
+            </>
           )}
-          {hasFrame && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onChange({ frame: null }); }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="프레임 크기/위치 초기화"
-              style={toolbarBtnStyle('#7c2d12')}
-            >↺ 프레임</button>
-          )}
-          {crop && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onChange({ crop: null }); }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="크롭 초기화 (자동 cover로 복원)"
-              style={toolbarBtnStyle('#7c2d12')}
-            >↺ 크롭</button>
-          )}
-          {override?.src && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onChange({ src: null, crop: null }); }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="원본 사진으로 복원"
-              style={toolbarBtnStyle('#dc2626')}
-            >↺ 사진</button>
-          )}
+        </div>
+      )}
+
+      {/* 🎨 색상 조정 패널 — idle + showAdjust ON */}
+      {showUI && showAdjust && (
+        <div
+          data-toolbar
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            left: fx,
+            top: fy + 8,
+            width: 280,
+            backgroundColor: '#fff',
+            border: '1px solid #e2ddd4',
+            borderRadius: 10,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
+            padding: 12,
+            zIndex: 50,
+            pointerEvents: 'auto',
+          }}
+        >
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            alignItems: 'center', marginBottom: 10,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#2F2A26' }}>🎨 색상 조정</div>
+            <button onClick={() => setShowAdjust(false)}
+              style={{ border: 'none', background: 'transparent', color: '#64748b', fontSize: 14, cursor: 'pointer' }}>✕</button>
+          </div>
+          <AdjustSlider label="🌞 밝기" unit="%" min={0} max={200} step={1}
+            value={adj.brightness} defaultValue={100} color="#f59e0b"
+            onChange={(v) => onChange({ adjust: { ...adj, brightness: v } })} />
+          <AdjustSlider label="◐ 대비" unit="%" min={0} max={200} step={1}
+            value={adj.contrast} defaultValue={100} color="#475569"
+            onChange={(v) => onChange({ adjust: { ...adj, contrast: v } })} />
+          <AdjustSlider label="🎨 채도" unit="%" min={0} max={200} step={1}
+            value={adj.saturate} defaultValue={100} color="#ec4899"
+            onChange={(v) => onChange({ adjust: { ...adj, saturate: v } })} />
+          <AdjustSlider label="🌈 색조" unit="°" min={-180} max={180} step={1}
+            value={adj.hue} defaultValue={0} color="#8b5cf6"
+            onChange={(v) => onChange({ adjust: { ...adj, hue: v } })} />
+
+          <div style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: '#64748b' }}>✨ 프리셋</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginTop: 4 }}>
+            <PresetBtn label="원본" onClick={() => onChange({ adjust: null })} />
+            <PresetBtn label="선명" onClick={() => onChange({ adjust: { brightness: 105, contrast: 115, saturate: 120, hue: 0 } })} />
+            <PresetBtn label="밝게" onClick={() => onChange({ adjust: { brightness: 120, contrast: 100, saturate: 105, hue: 0 } })} />
+            <PresetBtn label="어둡게" onClick={() => onChange({ adjust: { brightness: 85, contrast: 110, saturate: 100, hue: 0 } })} />
+            <PresetBtn label="흑백" onClick={() => onChange({ adjust: { brightness: 100, contrast: 110, saturate: 0, hue: 0 } })} />
+            <PresetBtn label="따뜻" onClick={() => onChange({ adjust: { brightness: 105, contrast: 100, saturate: 115, hue: -10 } })} />
+            <PresetBtn label="차갑" onClick={() => onChange({ adjust: { brightness: 100, contrast: 100, saturate: 110, hue: 15 } })} />
+            <PresetBtn label="빈티지" onClick={() => onChange({ adjust: { brightness: 95, contrast: 90, saturate: 80, hue: 10 } })} />
+            <PresetBtn label="비비드" onClick={() => onChange({ adjust: { brightness: 100, contrast: 120, saturate: 145, hue: 0 } })} />
+          </div>
         </div>
       )}
 
@@ -914,4 +1009,59 @@ function toolbarBtnStyle(color) {
     boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
     whiteSpace: 'nowrap',
   };
+}
+
+// 아이콘 전용 (압축형) — InlineFreeImage 와 동일
+function toolbarIconStyle(color) {
+  return {
+    backgroundColor: color,
+    color: '#fff',
+    border: 'none',
+    padding: '5px 7px',
+    borderRadius: 4,
+    fontSize: 11,
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+    minWidth: 24,
+    lineHeight: 1.1,
+    whiteSpace: 'nowrap',
+  };
+}
+
+// 색상 조정용 슬라이더
+function AdjustSlider({ label, unit, min, max, step, value, defaultValue, onChange, color }) {
+  const isMod = value !== defaultValue;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{label}</span>
+        <button onClick={() => onChange(defaultValue)}
+          style={{ border: 'none', background: 'transparent', color: isMod ? color : '#9ca3af',
+                   fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+          title="더블클릭으로 리셋">
+          {value}{unit}{isMod ? ' ↺' : ''}
+        </button>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onDoubleClick={() => onChange(defaultValue)}
+        style={{ width: '100%', accentColor: color }} />
+    </div>
+  );
+}
+
+// 색상 프리셋 버튼
+function PresetBtn({ label, onClick }) {
+  return (
+    <button onClick={onClick}
+      style={{
+        padding: '5px 4px', backgroundColor: '#f3f4f6',
+        color: '#374151', border: '1px solid #e5e7eb',
+        borderRadius: 4, fontSize: 10, fontWeight: 700,
+        cursor: 'pointer',
+      }}>
+      {label}
+    </button>
+  );
 }
