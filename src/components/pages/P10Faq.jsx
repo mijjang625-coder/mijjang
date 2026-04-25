@@ -2,6 +2,7 @@ import { BRAND } from '../../lib/theme.js';
 import { PageFrame, Img, SectionTitle, Divider, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
+import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // 배송/A.S. 카드 패널 — 중복 제거용 헬퍼
 function InfoPanel({ sectionTitle, items, bg }) {
@@ -72,10 +73,24 @@ function InfoPanel({ sectionTitle, items, bg }) {
 export default function P10Faq({
   copy = {},
   componentImage,
+  allImages = [],
   variant = 0,
   editMode = false,
   overrides = {},
   onOverrideChange = () => {},
+  imageOverrides = {},
+  onImageOverrideChange = () => {},
+  freeImages = [],
+  onAddFreeImage = () => {},
+  onUpdateFreeImage = () => {},
+  onDeleteFreeImage = () => {},
+  onChangeLayer = () => {},
+  onChangeLayerKind = null,
+  onReorderLayers = () => {},
+  layerNames = {},
+  onSetLayerName = () => {},
+  activeLayerId = null,
+  onSetActiveLayer = () => {},
 }) {
   const editPropsFor = (id) => ({
     id,
@@ -134,8 +149,20 @@ export default function P10Faq({
   const ship = shipRaw.length > 0 ? shipRaw : defaultShipping;
   const cs = csRaw.length > 0 ? csRaw : defaultCs;
 
+  const mainImgId = 'P10.componentImage';
+  const mainLayers = [{ id: mainImgId, defaultName: '🖼 구성품 사진', defaultZ: 1 }];
+  const layer = useFreeImageLayer({
+    pageKey: 'P10', mainLayers, image: componentImage, allImages, baseHeight: 2600,
+    editMode, freeImages, imageOverrides, layerNames,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
+    onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
+    activeLayerId, onSetActiveLayer,
+  });
+  const mainActive = layer.isLayerActive('main', mainImgId);
+
   return (
-    <PageFrame height={2600} bg={BRAND.colors.white}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white}>
+    <div style={{ position: 'relative' }}>
       {/* ─────────── 1. 구성품 안내 (강조) ─────────── */}
       <div style={{ padding: '50px 40px 30px' }}>
         <div style={{ textAlign: 'center' }}>
@@ -169,15 +196,24 @@ export default function P10Faq({
           </EditableText>
         </div>
 
-        <div style={{ marginTop: 26 }}>
+        <div style={{
+          marginTop: 26, position: 'relative',
+          pointerEvents: editMode ? 'none' : 'auto',
+          zIndex: imageOverrides[mainImgId]?.zIndex ?? 1,
+        }}>
           <EditableImage
-            id="P10.componentImage"
+            id={mainImgId}
             src={componentImage}
             aspect="16 / 10"
             radius={16}
             editMode={editMode}
-            override={overrides['P10.componentImage'] || {}}
-            onChange={(partial) => onOverrideChange('P10.componentImage', partial)}
+            override={imageOverrides[mainImgId] || {}}
+            onChange={(partial) => onImageOverrideChange(mainImgId, partial)}
+            availableImages={(allImages || []).filter(Boolean)}
+            isActive={editMode ? mainActive : null}
+            onActivate={() => layer.activateLayer('main', mainImgId)}
+            hasActiveOther={editMode && layer.hasActiveLayer && !mainActive}
+            onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: mainImgId }, action)}
           />
         </div>
 
@@ -445,6 +481,10 @@ export default function P10Faq({
           문의 사항이 있으시면 구매 페이지의 문의하기로 편하게 남겨주세요.
         </div>
       </div>
+    </div>
+
+    {layer.renderFreeImages()}
+    {layer.renderOverlay()}
     </PageFrame>
   );
 }

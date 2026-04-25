@@ -1,92 +1,128 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img } from './Shared.jsx';
+import { PageFrame } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
+import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // P7: 감성 라이프스타일 (세로 3모듈)
 export default function P7Lifestyle({
   copy = {},
   images = [],
+  allImages = [],
   editMode = false,
   overrides = {},
   onOverrideChange = () => {},
+  imageOverrides = {},
+  onImageOverrideChange = () => {},
+  freeImages = [],
+  onAddFreeImage = () => {},
+  onUpdateFreeImage = () => {},
+  onDeleteFreeImage = () => {},
+  onChangeLayer = () => {},
+  onChangeLayerKind = null,
+  onReorderLayers = () => {},
+  layerNames = {},
+  onSetLayerName = () => {},
+  activeLayerId = null,
+  onSetActiveLayer = () => {},
 }) {
   const { title = '일상에 자연스럽게', subTitle = '', modules = [] } = copy;
   const editPropsFor = (id) => ({
-    id,
-    editMode,
+    id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
   });
 
+  const mainLayers = modules.slice(0, 3).map((_, i) => ({
+    id: `P7.images.${i}`, defaultName: `🖼 라이프 사진 ${i + 1}`, defaultZ: i + 1,
+  }));
+  const layer = useFreeImageLayer({
+    pageKey: 'P7', mainLayers, image: images[0], allImages, baseHeight: 2000,
+    editMode, freeImages, imageOverrides, layerNames,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
+    onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
+    activeLayerId, onSetActiveLayer,
+  });
+
   return (
-    <PageFrame height={2000} bg={BRAND.colors.white}>
-      <div style={{ padding: '60px 40px 20px', textAlign: 'center' }}>
-        <EditableText
-          {...editPropsFor('P7.title')}
-          as="h2"
-          defaultStyle={{
-            fontSize: 38,
-            fontWeight: 800,
-            color: BRAND.colors.text,
-            margin: 0,
-            textAlign: 'center',
-            letterSpacing: '-0.03em',
-            lineHeight: 1.3,
-          }}
-        >
-          {title}
-        </EditableText>
-        {(subTitle || editMode) && (
-          <div style={{ marginTop: 14 }}>
-            <EditableText
-              {...editPropsFor('P7.subTitle')}
-              as="p"
-              defaultStyle={{
-                fontSize: 24,
-                fontWeight: 500,
-                color: BRAND.colors.text,
-                margin: 0,
-                textAlign: 'center',
-                lineHeight: 1.6,
-              }}
-              placeholder={editMode ? '(서브 카피)' : ''}
-            >
-              {subTitle}
-            </EditableText>
-          </div>
-        )}
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white}>
+      <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
+        <div style={{ padding: '60px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+          <EditableText
+            {...editPropsFor('P7.title')}
+            as="h2"
+            defaultStyle={{
+              fontSize: 38, fontWeight: 800, color: BRAND.colors.text,
+              margin: 0, textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.3,
+            }}
+          >
+            {title}
+          </EditableText>
+          {(subTitle || editMode) && (
+            <div style={{ marginTop: 14 }}>
+              <EditableText
+                {...editPropsFor('P7.subTitle')}
+                as="p"
+                defaultStyle={{
+                  fontSize: 24, fontWeight: 500, color: BRAND.colors.text,
+                  margin: 0, textAlign: 'center', lineHeight: 1.6,
+                }}
+                placeholder={editMode ? '(서브 카피)' : ''}
+              >
+                {subTitle}
+              </EditableText>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
+          {modules.slice(0, 3).map((m, i) => {
+            const imgId = `P7.images.${i}`;
+            const isImgActive = layer.isLayerActive('main', imgId);
+            const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
+            return (
+              <div key={i}>
+                <div style={{
+                  position: 'relative',
+                  pointerEvents: editMode ? 'none' : 'auto',
+                  zIndex: z,
+                  borderRadius: 18,
+                }}>
+                  <EditableImage
+                    id={imgId}
+                    src={images[i]}
+                    aspect="4 / 3"
+                    radius={16}
+                    editMode={editMode}
+                    override={imageOverrides[imgId] || {}}
+                    onChange={(partial) => onImageOverrideChange(imgId, partial)}
+                    availableImages={(allImages || []).filter(Boolean)}
+                    isActive={editMode ? isImgActive : null}
+                    onActivate={() => layer.activateLayer('main', imgId)}
+                    hasActiveOther={editMode && layer.hasActiveLayer && !isImgActive}
+                    onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: imgId }, action)}
+                  />
+                </div>
+                <div style={{ pointerEvents: editMode ? 'auto' : 'inherit' }}>
+                  <EditableText
+                    {...editPropsFor(`P7.modules.${i}.caption`)}
+                    as="div"
+                    defaultStyle={{
+                      marginTop: 18, textAlign: 'center', fontSize: 26,
+                      fontWeight: 700, color: BRAND.colors.text, letterSpacing: '-0.02em',
+                    }}
+                  >
+                    {m.caption}
+                  </EditableText>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
-        {modules.slice(0, 3).map((m, i) => (
-          <div key={i}>
-            <EditableImage
-              id={`P7.images.${i}`}
-              src={images[i]}
-              aspect="4 / 3"
-              radius={16}
-              editMode={editMode}
-              override={overrides[`P7.images.${i}`] || {}}
-              onChange={(partial) => onOverrideChange(`P7.images.${i}`, partial)}
-            />
-            <EditableText
-              {...editPropsFor(`P7.modules.${i}.caption`)}
-              as="div"
-              defaultStyle={{
-                marginTop: 18,
-                textAlign: 'center',
-                fontSize: 26,
-                fontWeight: 700,
-                color: BRAND.colors.text,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {m.caption}
-            </EditableText>
-          </div>
-        ))}
-      </div>
+      {layer.renderFreeImages()}
+      {layer.renderOverlay()}
     </PageFrame>
   );
 }

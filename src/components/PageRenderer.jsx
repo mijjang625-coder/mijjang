@@ -79,6 +79,7 @@ const PageRenderer = forwardRef(function PageRenderer(
     onSetLayerName,
     activeLayerId,
     onSetActiveLayer,
+    allImages: images, // 모든 페이지의 사진 추가 패널에 전체 갤러리 노출
   };
 
   // 순환 접근 — 사진이 부족하면 % 로 돌려 재사용

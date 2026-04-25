@@ -1,19 +1,34 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, CheckIcon, Divider } from './Shared.jsx';
+import { PageFrame, CheckIcon, Divider } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
+import EditableImage from '../EditableImage.jsx';
+import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // P6: 소재 & 사이즈 실증
 export default function P6Material({
   copy = {},
   materialImage,
   sizeImage,
+  allImages = [],
   editMode = false,
   overrides = {},
   onOverrideChange = () => {},
+  imageOverrides = {},
+  onImageOverrideChange = () => {},
+  freeImages = [],
+  onAddFreeImage = () => {},
+  onUpdateFreeImage = () => {},
+  onDeleteFreeImage = () => {},
+  onChangeLayer = () => {},
+  onChangeLayerKind = null,
+  onReorderLayers = () => {},
+  layerNames = {},
+  onSetLayerName = () => {},
+  activeLayerId = null,
+  onSetActiveLayer = () => {},
 }) {
   const editPropsFor = (id) => ({
-    id,
-    editMode,
+    id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
   });
@@ -22,10 +37,27 @@ export default function P6Material({
     size = { title: '', provingMessage: '', specs: [] },
   } = copy;
 
+  const matId = 'P6.materialImage';
+  const sizeId = 'P6.sizeImage';
+  const mainLayers = [
+    { id: matId, defaultName: '🖼 소재 사진', defaultZ: 1 },
+    { id: sizeId, defaultName: '🖼 사이즈 사진', defaultZ: 2 },
+  ];
+  const layer = useFreeImageLayer({
+    pageKey: 'P6', mainLayers, image: materialImage, allImages, baseHeight: 1150,
+    editMode, freeImages, imageOverrides, layerNames,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
+    onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
+    activeLayerId, onSetActiveLayer,
+  });
+  const matActive = layer.isLayerActive('main', matId);
+  const sizeActive = layer.isLayerActive('main', sizeId);
+
   return (
-    <PageFrame height={1150} bg={BRAND.colors.white}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white}>
+    <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
       {/* 상단 — 소재 */}
-      <div style={{ padding: '50px 40px 30px' }}>
+      <div style={{ padding: '50px 40px 30px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <EditableText
           {...editPropsFor('P6.material.title')}
           as="h2"
@@ -41,8 +73,25 @@ export default function P6Material({
         >
           {material.title || '믿을 수 있는 소재'}
         </EditableText>
-        <div style={{ marginTop: 24 }}>
-          <Img src={materialImage} aspect="16 / 10" radius={14} />
+        <div style={{
+          marginTop: 24, position: 'relative',
+          pointerEvents: editMode ? 'none' : 'auto',
+          zIndex: imageOverrides[matId]?.zIndex ?? 1,
+        }}>
+          <EditableImage
+            id={matId}
+            src={materialImage}
+            aspect="16 / 10"
+            radius={14}
+            editMode={editMode}
+            override={imageOverrides[matId] || {}}
+            onChange={(partial) => onImageOverrideChange(matId, partial)}
+            availableImages={(allImages || []).filter(Boolean)}
+            isActive={editMode ? matActive : null}
+            onActivate={() => layer.activateLayer('main', matId)}
+            hasActiveOther={editMode && layer.hasActiveLayer && !matActive}
+            onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: matId }, action)}
+          />
         </div>
         {/* 소재 상세설명 — 정확히 2줄 고정, 폰트 80% 축소 (24 → 19pt) */}
         <div style={{ marginTop: 20 }}>
@@ -110,12 +159,12 @@ export default function P6Material({
         )}
       </div>
 
-      <div style={{ padding: '0 40px' }}>
+      <div style={{ padding: '0 40px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <Divider color={BRAND.colors.main} />
       </div>
 
       {/* 하단 — 사이즈 */}
-      <div style={{ padding: '30px 40px 50px' }}>
+      <div style={{ padding: '30px 40px 50px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <EditableText
           {...editPropsFor('P6.size.title')}
           as="h2"
@@ -131,8 +180,25 @@ export default function P6Material({
         >
           {size.title || '실제 크기 확인'}
         </EditableText>
-        <div style={{ marginTop: 22 }}>
-          <Img src={sizeImage} aspect="16 / 10" radius={14} />
+        <div style={{
+          marginTop: 22, position: 'relative',
+          pointerEvents: editMode ? 'none' : 'auto',
+          zIndex: imageOverrides[sizeId]?.zIndex ?? 2,
+        }}>
+          <EditableImage
+            id={sizeId}
+            src={sizeImage}
+            aspect="16 / 10"
+            radius={14}
+            editMode={editMode}
+            override={imageOverrides[sizeId] || {}}
+            onChange={(partial) => onImageOverrideChange(sizeId, partial)}
+            availableImages={(allImages || []).filter(Boolean)}
+            isActive={editMode ? sizeActive : null}
+            onActivate={() => layer.activateLayer('main', sizeId)}
+            hasActiveOther={editMode && layer.hasActiveLayer && !sizeActive}
+            onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: sizeId }, action)}
+          />
         </div>
         <div style={{ marginTop: 20, textAlign: 'center' }}>
           <span
@@ -198,6 +264,10 @@ export default function P6Material({
           ))}
         </div>
       </div>
+    </div>
+
+    {layer.renderFreeImages()}
+    {layer.renderOverlay()}
     </PageFrame>
   );
 }

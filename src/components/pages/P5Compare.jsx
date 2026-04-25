@@ -1,6 +1,8 @@
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
+import EditableImage from '../EditableImage.jsx';
+import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // 일반 제품용 자동 생성 실루엣 이미지 (무채색 + 블러 효과, 텍스트 없음)
 // SVG data URL — 외부 네트워크 없이 항상 렌더링됨
@@ -30,10 +32,24 @@ export default function P5Compare({
   copy = {},
   ourImage,
   generalImage,
+  allImages = [],
   version = 'text',
   editMode = false,
   overrides = {},
   onOverrideChange = () => {},
+  imageOverrides = {},
+  onImageOverrideChange = () => {},
+  freeImages = [],
+  onAddFreeImage = () => {},
+  onUpdateFreeImage = () => {},
+  onDeleteFreeImage = () => {},
+  onChangeLayer = () => {},
+  onChangeLayerKind = null,
+  onReorderLayers = () => {},
+  layerNames = {},
+  onSetLayerName = () => {},
+  activeLayerId = null,
+  onSetActiveLayer = () => {},
 }) {
   const editPropsFor = (id) => ({
     id,
@@ -41,6 +57,19 @@ export default function P5Compare({
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
   });
+
+  const mainImgId = 'P5.ourImage';
+  const mainLayers = version === 'photo'
+    ? [{ id: mainImgId, defaultName: '🖼 우리 제품 사진', defaultZ: 1 }]
+    : [];
+  const layer = useFreeImageLayer({
+    pageKey: 'P5', mainLayers, image: ourImage, allImages, baseHeight: 900,
+    editMode, freeImages, imageOverrides, layerNames,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
+    onChangeLayer, onChangeLayerKind, onReorderLayers, onSetLayerName,
+    activeLayerId, onSetActiveLayer,
+  });
+  const mainActive = layer.isLayerActive('main', mainImgId);
   const {
     headline = '왜 이 제품을 선택해야 할까요?',
     sub = '',
@@ -146,8 +175,9 @@ export default function P5Compare({
   );
 
   return (
-    <PageFrame height={900} bg={BRAND.colors.white}>
-      <div style={{ padding: '50px 40px 24px', textAlign: 'center' }}>
+    <PageFrame height={layer.pageHeight} bg={BRAND.colors.white}>
+      <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
+      <div style={{ padding: '50px 40px 24px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <EditableText
           {...editPropsFor('P5.headline')}
           as="h2"
@@ -184,7 +214,7 @@ export default function P5Compare({
         )}
       </div>
 
-      <div style={{ padding: '10px 30px 50px' }}>
+      <div style={{ padding: '10px 30px 50px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <div
           style={{
             border: `1px solid ${BRAND.colors.neutral}`,
@@ -237,13 +267,24 @@ export default function P5Compare({
                     overflow: 'hidden',
                     backgroundColor: '#fff',
                     boxShadow: '0 2px 8px rgba(200,182,166,0.25)',
+                    position: 'relative',
+                    pointerEvents: editMode ? 'none' : 'auto',
+                    zIndex: imageOverrides[mainImgId]?.zIndex ?? 1,
                   }}
                 >
-                  <img
+                  <EditableImage
+                    id={mainImgId}
                     src={ourImage}
-                    alt=""
-                    crossOrigin="anonymous"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    aspect="1 / 1"
+                    radius={0}
+                    editMode={editMode}
+                    override={imageOverrides[mainImgId] || {}}
+                    onChange={(partial) => onImageOverrideChange(mainImgId, partial)}
+                    availableImages={(allImages || []).filter(Boolean)}
+                    isActive={editMode ? mainActive : null}
+                    onActivate={() => layer.activateLayer('main', mainImgId)}
+                    hasActiveOther={editMode && layer.hasActiveLayer && !mainActive}
+                    onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: mainImgId }, action)}
                   />
                 </div>
               </div>
@@ -327,6 +368,10 @@ export default function P5Compare({
           ))}
         </div>
       </div>
+      </div>
+
+      {layer.renderFreeImages()}
+      {layer.renderOverlay()}
     </PageFrame>
   );
 }
