@@ -728,23 +728,35 @@ export async function extractProductInfoFromText({
   apiKey,
   model = 'gpt-4o-mini',
   pastedText,
+  userNotes = '',
 }) {
   if (!apiKey) throw new Error('OpenAI API 키가 필요합니다.');
-  if (!pastedText || pastedText.trim().length < 50) {
-    throw new Error('붙여넣은 내용이 너무 짧습니다. 상품 페이지를 Ctrl+A → Ctrl+C로 전체 복사해주세요.');
+  const hasPasted = pastedText && pastedText.trim().length >= 50;
+  const hasNotes = userNotes && userNotes.trim().length > 0;
+  if (!hasPasted && !hasNotes) {
+    throw new Error('붙여넣은 내용이나 메모를 입력해주세요. (페이지 내용은 최소 50자)');
   }
 
-  const pageContent = truncate(pastedText);
-  const contentLength = pastedText.length;
+  const pageContent = hasPasted ? truncate(pastedText) : '(페이지 내용 없음 — 사용자 메모만 제공됨)';
+  const notesContent = hasNotes ? truncate(userNotes, 8000) : '';
+  const contentLength = (pastedText?.length || 0) + (userNotes?.length || 0);
 
   const systemPrompt = `당신은 이커머스 상품 페이지 분석 전문가입니다.
-사용자가 복사해서 붙여넣은 상품 페이지 텍스트를 읽고
-한국 쿠팡 상세페이지 제작을 위해 필요한 정보를 추출합니다.
+사용자가 제공한 두 가지 정보를 종합해 한국 쿠팡 상세페이지 제작용 정보를 추출합니다:
 
-규칙:
+[A] 상품 페이지 텍스트 — 1688/타오바오/쿠팡 등에서 복사한 원본 페이지 내용 (참고 자료)
+[B] 사용자 메모 — 사용자가 직접 작성한 추가 정보/요구사항 (최우선 자료)
+
+🔑 우선순위 규칙 (가장 중요):
+- **[B] 사용자 메모가 [A] 페이지 내용보다 항상 우선합니다.**
+- 두 정보가 충돌하면 무조건 [B] 사용자 메모를 따릅니다.
+- [B]에 명시된 사실(상품명, 강점, 사이즈, 활용법 등)은 그대로 반영합니다.
+- [B]에 없는 정보만 [A]에서 보충합니다.
+
+기타 규칙:
 - 결과는 반드시 한국어로 작성합니다.
 - 중국어(1688, 타오바오 등)가 있으면 자연스러운 한국어로 번역합니다.
-- 페이지에 명시되지 않은 정보는 추측하지 말고 빈 문자열/빈 배열로 둡니다.
+- 어디에도 명시되지 않은 정보는 추측하지 말고 빈 문자열/빈 배열로 둡니다.
 - 과장/허위 표현을 쓰지 않습니다.
 - 광고 문구/관련 추천상품/리뷰 노이즈는 제외하고 핵심 제품 정보에만 집중합니다.
 - 아래 JSON 스키마를 따라 단일 JSON 객체만 반환합니다. 코드 펜스 금지.
@@ -760,16 +772,23 @@ export async function extractProductInfoFromText({
   "photoTypes": "페이지에서 확인된 사진 종류",
   "differences": ["차별점1", "..."],
   "usages": ["활용법1", "..."],
+  "usageSteps": ["사용 1단계", "사용 2단계", "사용 3단계"],
+  "faqs": [{"q": "질문1", "a": "답변1"}, ...최대 5개],
+  "reviews": [{"nickname": "닉네임", "date": "2024-MM-DD", "body": "후기"}, ...최대 4개],
   "extraNotes": "기타 참고 사항 (브랜드/원산지/인증 등)"
 }`;
 
-  const userPrompt = `다음은 사용자가 브라우저에서 복사해 붙여넣은 상품 페이지 내용입니다.
+  const userPrompt = `${hasNotes ? `## [B] 🔑 사용자 메모 (최우선 — 반드시 이걸 따르세요)
+--- 메모 시작 ---
+${notesContent}
+--- 메모 끝 ---
 
+` : ''}## [A] 상품 페이지 텍스트 (참고 자료 — 메모와 충돌 시 무시)
 --- 페이지 내용 시작 ---
 ${pageContent}
 --- 페이지 내용 끝 ---
 
-위 내용에서 제품 정보를 추출해 스키마에 맞춰 JSON으로 반환하세요.`;
+위 두 자료를 종합해 제품 정보를 추출하되, ${hasNotes ? '**사용자 메모([B])가 무조건 우선**입니다. ' : ''}스키마에 맞춰 JSON으로 반환하세요.`;
 
   const response = await fetch(OPENAI_URL, {
     method: 'POST',

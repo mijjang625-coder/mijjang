@@ -118,6 +118,7 @@ export default function App() {
   const [extractResult, setExtractResult] = useState(null); // { filledFields: [], source: '' }
   const [extractMode, setExtractMode] = useState('url'); // 'url' | 'paste'
   const [pastedText, setPastedText] = useState('');
+  const [userNotes, setUserNotes] = useState(''); // 사용자가 직접 작성한 메모 (1688 내용보다 우선)
   const [showPasteHint, setShowPasteHint] = useState(false); // Captcha 감지 시 true
 
   // 수정 요청 채팅창
@@ -483,6 +484,7 @@ export default function App() {
     setExtractResult(null);
     setReferenceUrl('');
     setPastedText('');
+    setUserNotes('');
     setError('');
     setLastSavedAt(null);
     alert('✅ 초기화되었습니다.');
@@ -517,8 +519,8 @@ export default function App() {
       setError('참조 URL을 입력해주세요.');
       return;
     }
-    if (extractMode === 'paste' && pastedText.trim().length < 50) {
-      setError('상품 페이지 내용을 복사해 붙여넣어주세요. (최소 50자)');
+    if (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10) {
+      setError('① 페이지 내용(최소 50자) 또는 ② 내 메모(최소 10자) 중 하나는 입력해주세요.');
       return;
     }
     try {
@@ -537,6 +539,7 @@ export default function App() {
           apiKey: apiKey.trim(),
           model,
           pastedText,
+          userNotes,
         });
       }
 
@@ -1213,18 +1216,52 @@ export default function App() {
                   <br />④ 아래 <b>✨ 내용 분석</b> 버튼 클릭
                   <br /><span style={{ color: '#C8B6A6' }}>※ 이미지는 복사 안되니 글 위주로 OK</span>
                 </div>
-                <Field label="페이지 내용 붙여넣기">
+                <Field label="① 1688/쿠팡 페이지 내용 붙여넣기 (선택)">
                   <textarea
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
                     placeholder="브라우저에서 상품 페이지 → Ctrl+A → Ctrl+C → 여기 Ctrl+V"
-                    rows={10}
+                    rows={8}
                     className="input font-mono text-[11px]"
-                    style={{ resize: 'vertical', minHeight: '160px' }}
+                    style={{ resize: 'vertical', minHeight: '140px' }}
                   />
                 </Field>
                 <div className="text-[10px] text-slate-400 -mt-1">
-                  현재 {pastedText.length.toLocaleString()}자 {pastedText.length >= 500 && '✓'}
+                  1688/쿠팡 내용: {pastedText.length.toLocaleString()}자 {pastedText.length >= 500 && '✓'}
+                </div>
+
+                <Field label="② 🔑 내가 직접 쓴 메모 (최우선 적용)">
+                  <textarea
+                    value={userNotes}
+                    onChange={(e) => setUserNotes(e.target.value)}
+                    placeholder={`예시) 메모장이나 엑셀에서 자유롭게 복사해서 붙여넣으세요.
+
+[제품명] 프랑스 중간 유리 꽃병
+[강점]
+- 무드있는 디자인
+- 깨지지 않는 소재
+- 다양한 사이즈
+[활용법]
+- 거실 인테리어
+- 결혼식 장식
+[사이즈] 가로 20cm, 세로 30cm
+[FAQ] 세척 방법은? → 미온수로 부드럽게 닦아주세요`}
+                    rows={8}
+                    className="input text-[11px]"
+                    style={{ resize: 'vertical', minHeight: '140px', backgroundColor: '#fffbeb' }}
+                  />
+                </Field>
+                <div
+                  className="text-[10px] -mt-1 p-2 rounded leading-relaxed"
+                  style={{ backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}
+                >
+                  💡 내 메모: <b>{userNotes.length.toLocaleString()}자</b>
+                  <br />
+                  • <b>①과 ② 둘 중 하나만</b> 채워도 OK, 둘 다 채워도 OK
+                  <br />
+                  • <b>②(내 메모)가 ①(페이지 내용)보다 항상 우선</b> 적용됩니다
+                  <br />
+                  • 메모장·엑셀·카톡·문서 어디서 복사하든 자유 형식으로 붙여넣으세요
                 </div>
               </>
             )}
@@ -1240,7 +1277,7 @@ export default function App() {
               disabled={
                 isExtracting ||
                 (extractMode === 'url' && !referenceUrl.trim()) ||
-                (extractMode === 'paste' && pastedText.trim().length < 50)
+                (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10)
               }
               className="w-full py-2.5 rounded-lg text-white font-bold text-sm shadow disabled:opacity-50"
               style={{ backgroundColor: '#C8B6A6' }}
