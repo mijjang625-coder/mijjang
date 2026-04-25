@@ -18,6 +18,7 @@ import AISynthesisFloatingButton from './components/AISynthesisFloatingButton.js
 import InfoCard from './components/ui/InfoCard.jsx';
 import ScaledHeightWrap from './components/ui/ScaledHeightWrap.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
+import OnboardingTour from './components/onboarding/OnboardingTour.jsx';
 import { DEFAULT_BRIEF } from './lib/briefDefaults.js';
 import { THEME_PRESETS, applyTheme, applyFont } from './lib/theme.js';
 import {
@@ -137,6 +138,29 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('previewMode', previewMode); } catch {}
   }, [previewMode]);
+
+  // 🎓 온보딩 튜토리얼 — 첫 방문 시 1회 자동 표시 (이후엔 ❓ 헬프 버튼으로 재실행)
+  // -1 = Welcome 모달부터, 0~4 = 스포트라이트 단계부터
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStartStep, setOnboardingStartStep] = useState(-1);
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem('hasSeenOnboarding');
+      if (!seen) {
+        // 살짝 지연 후 열어 화면이 그려진 다음에 등장
+        setTimeout(() => setOnboardingOpen(true), 500);
+      }
+    } catch {}
+  }, []);
+  const handleCloseOnboarding = () => {
+    setOnboardingOpen(false);
+    try { localStorage.setItem('hasSeenOnboarding', '1'); } catch {}
+  };
+  const handleOpenOnboarding = (fromStart = true) => {
+    setOnboardingStartStep(fromStart ? -1 : 0);
+    setOnboardingOpen(true);
+  };
+
   // 페이지별 텍스트 오버라이드
   // { P1: { "mainHeadline": { text, style, offset }, "subHeadline": {...}, ... } }
   const [textOverrides, setTextOverrides] = useState({});
@@ -1216,6 +1240,17 @@ export default function App() {
               )}
             </div>
 
+            {/* ❓ 온보딩 튜토리얼 다시 보기 */}
+            <button
+              onClick={() => handleOpenOnboarding(true)}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border hover:bg-slate-50 flex items-center gap-1"
+              style={{ borderColor: '#e2ddd4', color: '#6b6660' }}
+              title="온보딩 튜토리얼 다시 보기 (5분)"
+            >
+              <span>❓</span>
+              <span>도움말</span>
+            </button>
+
             {/* 프로젝트 관리 버튼 그룹 */}
             <div className="flex items-center gap-1 border-l pl-3" style={{ borderColor: '#e2ddd4' }}>
               <button
@@ -1256,7 +1291,7 @@ export default function App() {
             </div>
 
             {/* P1~P10 전체 내보내기 (PNG/HTML) */}
-            <div className="relative">
+            <div className="relative" data-tour="export-button">
               <button
                 onClick={() => setShowExportPanel((v) => !v)}
                 title="P1~P10 전체를 한꺼번에 내보내기"
@@ -1428,6 +1463,7 @@ export default function App() {
 
                 {/* 다시 생성 / 생성 */}
                 <button
+                  data-tour="generate-button"
                   onClick={() => handleGenerate(currentPage)}
                   disabled={isLoading}
                   className="px-4 py-2 rounded-lg text-white font-bold text-xs shadow"
@@ -2033,6 +2069,13 @@ export default function App() {
         .input:focus { border-color: #C8B6A6; box-shadow: 0 0 0 3px rgba(200,182,166,.2); }
         textarea.input { line-height: 1.5; }
       `}</style>
+
+      {/* 🎓 온보딩 튜토리얼 */}
+      <OnboardingTour
+        open={onboardingOpen}
+        onClose={handleCloseOnboarding}
+        startStep={onboardingStartStep}
+      />
     </div>
   );
 }

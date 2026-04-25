@@ -72,6 +72,7 @@ export default function Sidebar({
           className="space-y-4 xl:sticky xl:overflow-y-auto xl:pr-2"
           style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
         >
+          <div data-tour="api-key">
           <Section title="1. OpenAI 설정" emoji="🔑" collapsible defaultCollapsed={!!apiKey}>
             <Field label="OpenAI API Key" required>
               <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className="input" />
@@ -94,6 +95,7 @@ export default function Sidebar({
               </div>
             </Field>
           </Section>
+          </div>
 
           <Section title="톤앤매너 (색상 테마)" emoji="🎨" collapsible defaultCollapsed>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
@@ -921,6 +923,7 @@ Q5. / A5.
             </div>
           </Section>
 
+          <div data-tour="product-info">
           <Section title="3. 제품 기본 정보" emoji="🛍️" collapsible>
             <Field label="제품명" required>
               <input value={brief.productName} onChange={(e) => updateBrief({ productName: e.target.value })} className="input" placeholder="예) 욕실용 실리콘 미끄럼방지 매트" />
@@ -1066,7 +1069,9 @@ Q5. / A5.
               </div>
             </div>
           </Section>
+          </div>
 
+          <div data-tour="image-upload">
           <Section title="4. 제품 사진 업로드" emoji="📸" collapsible defaultCollapsed={images.length > 0} badge={images.length > 0 ? `${images.length}장` : null}>
             {/* 사진 개수 가이드 */}
             <div className="mb-2 p-2 rounded-lg text-[11px]" style={{
@@ -1140,6 +1145,7 @@ Q5. / A5.
               23장 넘으면 "순환"으로 재사용됩니다.
             </div>
           </Section>
+          </div>
 
           <Section title="5. 리뷰 4개 (P4 필수)" emoji="⭐" collapsible>
             {brief.reviews.map((r, i) => (
