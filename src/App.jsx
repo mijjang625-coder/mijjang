@@ -519,8 +519,8 @@ export default function App() {
       setError('참조 URL을 입력해주세요.');
       return;
     }
-    if (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10) {
-      setError('① 페이지 내용(최소 50자) 또는 ② 내 메모(최소 10자) 중 하나는 입력해주세요.');
+    if (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10 && images.length === 0) {
+      setError('① 페이지 내용(최소 50자), ② 내 메모(최소 10자), 또는 📷 이미지 첨부 중 하나는 필요합니다.');
       return;
     }
     try {
@@ -540,6 +540,7 @@ export default function App() {
           model,
           pastedText,
           userNotes,
+          imageDataUrls: images, // 업로드된 이미지를 OCR 분석에 함께 전달
         });
       }
 
@@ -559,52 +560,82 @@ export default function App() {
         setIf('sizeSpec', info.sizeSpec);
         setIf('photoTypes', info.photoTypes);
         setIf('extraNotes', info.extraNotes);
+        setIf('generalProductName', info.generalProductName);
+
+        // compliance (모델명/색상)
+        const nextCompliance = { ...(b.compliance || {}) };
+        let compChanged = false;
+        if (info.modelName && !nextCompliance.modelName?.trim()) {
+          nextCompliance.modelName = info.modelName; compChanged = true;
+        }
+        if (info.color && !nextCompliance.color?.trim()) {
+          nextCompliance.color = info.color; compChanged = true;
+        }
+        if (info.material && !nextCompliance.material?.trim()) {
+          nextCompliance.material = info.material; compChanged = true;
+        }
+        if (info.sizeSpec && !nextCompliance.sizeWeight?.trim()) {
+          nextCompliance.sizeWeight = info.sizeSpec; compChanged = true;
+        }
+        if (compChanged) { next.compliance = nextCompliance; filled.push('compliance'); }
 
         // 배열 필드는 빈 슬롯만 채움
-        if (Array.isArray(info.strengths) && info.strengths.length > 0) {
-          const next3 = [...b.strengths];
-          info.strengths.slice(0, 3).forEach((s, i) => {
-            if (!next3[i]?.trim() && s?.trim()) next3[i] = s;
-          });
-          if (JSON.stringify(next3) !== JSON.stringify(b.strengths)) {
-            next.strengths = next3;
-            filled.push('strengths');
+        const fillArray = (key, src, max) => {
+          if (Array.isArray(src) && src.length > 0) {
+            const cur = Array.isArray(b[key]) ? [...b[key]] : Array(max).fill('');
+            while (cur.length < max) cur.push('');
+            src.slice(0, max).forEach((s, i) => {
+              if (!cur[i]?.toString().trim() && s?.toString().trim()) cur[i] = s;
+            });
+            if (JSON.stringify(cur) !== JSON.stringify(b[key])) {
+              next[key] = cur; filled.push(key);
+            }
           }
-        }
-        // 주 고객층 3개 (배열) — 구버전 문자열 응답도 호환
+        };
+        fillArray('strengths', info.strengths, 3);
+        fillArray('differences', info.differences, 4);
+        fillArray('generalProductFeatures', info.generalProductFeatures, 4);
+        fillArray('usages', info.usages, 4);
+        fillArray('usageSteps', info.usageSteps, 3);
+
+        // targetCustomers — 구버전 문자열 응답도 호환
         const tcArr = Array.isArray(info.targetCustomers)
           ? info.targetCustomers
-          : info.targetCustomer
-          ? [info.targetCustomer]
-          : [];
-        if (tcArr.length > 0) {
-          const nextTc = [...b.targetCustomers];
-          tcArr.slice(0, 3).forEach((c, i) => {
-            if (!nextTc[i]?.trim() && c?.trim()) nextTc[i] = c;
+          : info.targetCustomer ? [info.targetCustomer] : [];
+        fillArray('targetCustomers', tcArr, 3);
+
+        // reviews (객체 배열, 65자 컷)
+        if (Array.isArray(info.reviews) && info.reviews.length > 0) {
+          const nextR = [...b.reviews];
+          info.reviews.slice(0, 4).forEach((r, i) => {
+            if (!nextR[i]) nextR[i] = { nickname: '', date: '', body: '' };
+            const slot = { ...nextR[i] };
+            let changed = false;
+            if (!slot.nickname?.trim() && r?.nickname) { slot.nickname = r.nickname; changed = true; }
+            if (!slot.date?.trim() && r?.date) { slot.date = r.date; changed = true; }
+            if (!slot.body?.trim() && r?.body) {
+              slot.body = String(r.body).slice(0, 65); changed = true;
+            }
+            if (changed) nextR[i] = slot;
           });
-          if (JSON.stringify(nextTc) !== JSON.stringify(b.targetCustomers)) {
-            next.targetCustomers = nextTc;
-            filled.push('targetCustomers');
+          if (JSON.stringify(nextR) !== JSON.stringify(b.reviews)) {
+            next.reviews = nextR; filled.push('reviews');
           }
         }
-        if (Array.isArray(info.differences) && info.differences.length > 0) {
-          const next4 = [...b.differences];
-          info.differences.slice(0, 4).forEach((d, i) => {
-            if (!next4[i]?.trim() && d?.trim()) next4[i] = d;
+
+        // faqs (객체 배열)
+        if (Array.isArray(info.faqs) && info.faqs.length > 0) {
+          const nextF = [...b.faqs];
+          info.faqs.slice(0, 5).forEach((f, i) => {
+            if (!nextF[i]) nextF[i] = { q: '', a: '' };
+            const slot = { ...nextF[i] };
+            let changed = false;
+            if (!slot.q?.trim() && f?.q) { slot.q = f.q; changed = true; }
+            if (!slot.a?.trim() && f?.a) { slot.a = f.a; changed = true; }
+            if (changed) nextF[i] = slot;
           });
-          if (JSON.stringify(next4) !== JSON.stringify(b.differences)) {
-            next.differences = next4;
-            filled.push('differences');
-          }
-        }
-        if (Array.isArray(info.usages) && info.usages.length > 0) {
-          const next4 = [...b.usages];
-          info.usages.slice(0, 4).forEach((u, i) => {
-            if (!next4[i]?.trim() && u?.trim()) next4[i] = u;
-          });
-          if (JSON.stringify(next4) !== JSON.stringify(b.usages)) {
-            next.usages = next4;
-            filled.push('usages');
+          if (JSON.stringify(nextF) !== JSON.stringify(b.faqs)) {
+            next.faqs = nextF; filled.push('faqs');
           }
         }
         return next;
@@ -1257,17 +1288,20 @@ export default function App() {
 2. 
 3. 
 
-[리뷰 4개] (P4에 사용)
-1. 닉네임: / 날짜(YYYY-MM-DD): / 후기: 
-2. 닉네임: / 날짜: / 후기: 
-3. 닉네임: / 날짜: / 후기: 
-4. 닉네임: / 날짜: / 후기: 
+[리뷰 4개] (P4에 사용 - 후기는 65자 이내)
+1. 닉네임: / 날짜(YYYY-MM-DD): / 후기(65자 이내): 
+2. 닉네임: / 날짜: / 후기(65자 이내): 
+3. 닉네임: / 날짜: / 후기(65자 이내): 
+4. 닉네임: / 날짜: / 후기(65자 이내): 
 
-[차별점 4가지] (P5 비교표용 - 우리 제품 vs 일반 제품)
-1. 
-2. 
-3. 
-4. 
+[비교 대상 일반 제품 이름] (P5 비교표 헤더)
+
+
+[차별점 4쌍] (P5 비교표 - 일반 제품 vs 내 제품)
+1. 일반 제품: / 내 제품: 
+2. 일반 제품: / 내 제품: 
+3. 일반 제품: / 내 제품: 
+4. 일반 제품: / 내 제품: 
 
 [소재/원료 상세 설명] (P6에 사용)
 
@@ -1326,17 +1360,19 @@ A5.
 2. 
 3. 
 
-[리뷰 4개]
-1. 닉네임: / 날짜(YYYY-MM-DD): / 후기:
-2. 닉네임: / 날짜: / 후기:
-3. 닉네임: / 날짜: / 후기:
-4. 닉네임: / 날짜: / 후기:
+[리뷰 4개] (후기는 65자 이내)
+1. 닉네임: / 날짜(YYYY-MM-DD): / 후기(65자 이내):
+2. 닉네임: / 날짜: / 후기(65자 이내):
+3. 닉네임: / 날짜: / 후기(65자 이내):
+4. 닉네임: / 날짜: / 후기(65자 이내):
 
-[차별점 4가지]
-1. 
-2. 
-3. 
-4. 
+[비교 대상 일반 제품 이름]
+
+[차별점 4쌍] (일반 제품 vs 내 제품)
+1. 일반 제품: / 내 제품:
+2. 일반 제품: / 내 제품:
+3. 일반 제품: / 내 제품:
+4. 일반 제품: / 내 제품: 
 
 [소재/원료 상세 설명]
 
@@ -1385,12 +1421,18 @@ Q5. / A5.
                   style={{ backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}
                 >
                   💡 내 메모: <b>{userNotes.length.toLocaleString()}자</b>
+                  {images.length > 0 && (
+                    <>
+                      {' · '}
+                      📷 첨부 이미지: <b>{images.length}장</b> (이미지 안 글씨도 자동 분석)
+                    </>
+                  )}
                   <br />
-                  • <b>①과 ② 둘 중 하나만</b> 채워도 OK, 둘 다 채워도 OK
+                  • <b>①·②·이미지 중 하나만</b> 있어도 OK (모두 합쳐도 OK)
                   <br />
-                  • <b>②(내 메모)가 ①(페이지 내용)보다 항상 우선</b> 적용됩니다
+                  • <b>②(내 메모) &gt; ①(페이지 내용) &gt; 📷(이미지 OCR)</b> 순으로 우선 적용
                   <br />
-                  • 메모장·엑셀·카톡·문서 어디서 복사하든 자유 형식으로 붙여넣으세요
+                  • 1688 이미지를 다운받아 아래 <b>이미지 첨부</b>에 올리면 그림 속 글씨도 분석됩니다 (최대 8장)
                 </div>
               </>
             )}
@@ -1406,7 +1448,7 @@ Q5. / A5.
               disabled={
                 isExtracting ||
                 (extractMode === 'url' && !referenceUrl.trim()) ||
-                (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10)
+                (extractMode === 'paste' && pastedText.trim().length < 50 && userNotes.trim().length < 10 && images.length === 0)
               }
               className="w-full py-2.5 rounded-lg text-white font-bold text-sm shadow disabled:opacity-50"
               style={{ backgroundColor: '#C8B6A6' }}

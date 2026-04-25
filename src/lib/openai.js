@@ -729,36 +729,50 @@ export async function extractProductInfoFromText({
   model = 'gpt-4o-mini',
   pastedText,
   userNotes = '',
+  imageDataUrls = [],   // 1688 등에서 다운받은 이미지 (base64 dataURL 배열) — Vision OCR
 }) {
   if (!apiKey) throw new Error('OpenAI API 키가 필요합니다.');
   const hasPasted = pastedText && pastedText.trim().length >= 50;
   const hasNotes = userNotes && userNotes.trim().length > 0;
-  if (!hasPasted && !hasNotes) {
-    throw new Error('붙여넣은 내용이나 메모를 입력해주세요. (페이지 내용은 최소 50자)');
+  const validImages = (Array.isArray(imageDataUrls) ? imageDataUrls : []).filter(
+    (u) => typeof u === 'string' && u.startsWith('data:image')
+  ).slice(0, 8); // 최대 8장 (비용/속도)
+  const hasImages = validImages.length > 0;
+
+  if (!hasPasted && !hasNotes && !hasImages) {
+    throw new Error('붙여넣은 내용·메모·이미지 중 하나는 필요합니다. (페이지 내용은 최소 50자)');
   }
 
-  const pageContent = hasPasted ? truncate(pastedText) : '(페이지 내용 없음 — 사용자 메모만 제공됨)';
+  // Vision은 gpt-4o-mini / gpt-4o / gpt-4.1-mini / gpt-4.1 모두 지원
+  const visionModel = model;
+
+  const pageContent = hasPasted ? truncate(pastedText) : '(페이지 내용 없음)';
   const notesContent = hasNotes ? truncate(userNotes, 8000) : '';
   const contentLength = (pastedText?.length || 0) + (userNotes?.length || 0);
 
   const systemPrompt = `당신은 이커머스 상품 페이지 분석 전문가입니다.
-사용자가 제공한 두 가지 정보를 종합해 한국 쿠팡 상세페이지 제작용 정보를 추출합니다:
+사용자가 제공한 세 가지 정보를 종합해 한국 쿠팡 상세페이지 제작용 정보를 추출합니다:
 
 [A] 상품 페이지 텍스트 — 1688/타오바오/쿠팡 등에서 복사한 원본 페이지 내용 (참고 자료)
 [B] 사용자 메모 — 사용자가 직접 작성한 추가 정보/요구사항 (최우선 자료)
+[C] 첨부 이미지 — 1688 등에서 다운받은 상세페이지 이미지. 이미지 안의 글씨(중국어 포함)도 모두 읽어내세요 (참고 자료)
 
 🔑 우선순위 규칙 (가장 중요):
-- **[B] 사용자 메모가 [A] 페이지 내용보다 항상 우선합니다.**
-- 두 정보가 충돌하면 무조건 [B] 사용자 메모를 따릅니다.
-- [B]에 명시된 사실(상품명, 강점, 사이즈, 활용법 등)은 그대로 반영합니다.
-- [B]에 없는 정보만 [A]에서 보충합니다.
+- **[B] 사용자 메모가 [A] 텍스트와 [C] 이미지보다 항상 우선합니다.**
+- [A]/[C]가 충돌하면 더 구체적이고 명확한 쪽을 따릅니다.
+- [B]에 명시된 사실은 그대로 반영하고, [B]에 없는 정보만 [A]/[C]에서 보충합니다.
+
+이미지 분석 규칙:
+- 이미지 안의 모든 글씨(중국어/영어/한국어)를 OCR로 읽어 한국어로 자연스럽게 번역합니다.
+- 이미지에서 사이즈/스펙 수치(cm, L, kg, 색상, 모델명 등)를 발견하면 우선 활용합니다.
+- 이미지에 표시된 사용 장면, 활용법, 차별점 등을 적극 반영합니다.
 
 기타 규칙:
 - 결과는 반드시 한국어로 작성합니다.
-- 중국어(1688, 타오바오 등)가 있으면 자연스러운 한국어로 번역합니다.
 - 어디에도 명시되지 않은 정보는 추측하지 말고 빈 문자열/빈 배열로 둡니다.
 - 과장/허위 표현을 쓰지 않습니다.
-- 광고 문구/관련 추천상품/리뷰 노이즈는 제외하고 핵심 제품 정보에만 집중합니다.
+- 리뷰 본문(reviews[].body)은 반드시 65자 이내로 작성합니다.
+- 차별점(comparisons)은 일반 제품 vs 내 제품 4쌍 형태로 작성합니다.
 - 아래 JSON 스키마를 따라 단일 JSON 객체만 반환합니다. 코드 펜스 금지.
 
 스키마:
@@ -769,26 +783,44 @@ export async function extractProductInfoFromText({
   "targetCustomers": ["주 고객층1 (한 문장)", "주 고객층2", "주 고객층3"],
   "material": "소재 (없으면 빈 문자열)",
   "sizeSpec": "사이즈/스펙 (cm, L, kg 등 구체 수치 포함)",
+  "color": "색상",
+  "modelName": "모델명",
   "photoTypes": "페이지에서 확인된 사진 종류",
-  "differences": ["차별점1", "..."],
+  "generalProductName": "비교 대상 일반 제품 이름 (예: 일반 유리 꽃병)",
+  "differences": ["내 제품 차별점1", "내 제품 차별점2", "내 제품 차별점3", "내 제품 차별점4"],
+  "generalProductFeatures": ["일반 제품 모습1", "일반 제품 모습2", "일반 제품 모습3", "일반 제품 모습4"],
   "usages": ["활용법1", "..."],
   "usageSteps": ["사용 1단계", "사용 2단계", "사용 3단계"],
   "faqs": [{"q": "질문1", "a": "답변1"}, ...최대 5개],
-  "reviews": [{"nickname": "닉네임", "date": "2024-MM-DD", "body": "후기"}, ...최대 4개],
+  "reviews": [{"nickname": "닉네임", "date": "2024-MM-DD", "body": "후기 (65자 이내)"}, ...최대 4개],
   "extraNotes": "기타 참고 사항 (브랜드/원산지/인증 등)"
 }`;
 
-  const userPrompt = `${hasNotes ? `## [B] 🔑 사용자 메모 (최우선 — 반드시 이걸 따르세요)
+  const textBlock = `${hasNotes ? `## [B] 🔑 사용자 메모 (최우선 — 반드시 이걸 따르세요)
 --- 메모 시작 ---
 ${notesContent}
 --- 메모 끝 ---
 
-` : ''}## [A] 상품 페이지 텍스트 (참고 자료 — 메모와 충돌 시 무시)
+` : ''}## [A] 상품 페이지 텍스트 (참고 자료)
 --- 페이지 내용 시작 ---
 ${pageContent}
 --- 페이지 내용 끝 ---
 
-위 두 자료를 종합해 제품 정보를 추출하되, ${hasNotes ? '**사용자 메모([B])가 무조건 우선**입니다. ' : ''}스키마에 맞춰 JSON으로 반환하세요.`;
+${hasImages ? `## [C] 첨부 이미지 ${validImages.length}장
+이미지 안의 글씨(중국어 포함)를 모두 읽어 분석에 활용해주세요.
+` : ''}
+위 자료를 종합해 제품 정보를 추출하되, ${hasNotes ? '**사용자 메모([B])가 무조건 우선**입니다. ' : ''}리뷰 본문은 65자 이내, 차별점(comparisons)은 일반 제품 vs 내 제품 4쌍 형태로 스키마에 맞춰 JSON 반환하세요.`;
+
+  // Vision 호출: content를 멀티모달 배열로 구성
+  const userContent = hasImages
+    ? [
+        { type: 'text', text: textBlock },
+        ...validImages.map((url) => ({
+          type: 'image_url',
+          image_url: { url, detail: 'high' },
+        })),
+      ]
+    : textBlock;
 
   const response = await fetch(OPENAI_URL, {
     method: 'POST',
@@ -797,13 +829,14 @@ ${pageContent}
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model,
+      model: visionModel,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        { role: 'user', content: userContent },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3,
+      max_tokens: 4000,
     }),
   });
 
@@ -818,11 +851,23 @@ ${pageContent}
 
   try {
     const parsed = JSON.parse(content);
+    // 리뷰 65자 컷
+    if (Array.isArray(parsed.reviews)) {
+      parsed.reviews = parsed.reviews.map((r) => ({
+        ...r,
+        body: typeof r?.body === 'string' && r.body.length > 65 ? r.body.slice(0, 65) : r?.body || '',
+      }));
+    }
+    const sources = [];
+    if (hasPasted) sources.push(`텍스트 ${pastedText.length.toLocaleString()}자`);
+    if (hasNotes) sources.push(`메모 ${userNotes.length.toLocaleString()}자`);
+    if (hasImages) sources.push(`이미지 ${validImages.length}장 OCR`);
     return {
       ...parsed,
-      _source: '직접 붙여넣기',
-      _attempts: [`붙여넣은 텍스트: ${contentLength.toLocaleString()}자`],
+      _source: sources.join(' + ') || '직접 붙여넣기',
+      _attempts: sources,
       _contentLength: contentLength,
+      _imageCount: validImages.length,
       _normalizeNote: '',
       _weakContent: false,
       _finalUrl: '',
