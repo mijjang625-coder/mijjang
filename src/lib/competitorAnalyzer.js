@@ -122,9 +122,16 @@ ${reviewInsights.painPoints
   - purpose: 그 섹션의 목적 (예: "구매 전환 후크 제시")
   - note: 어떻게 구성했는지 한 줄 메모 (예: "1+1 가성비를 큰 글씨로 강조")
 
-【3. usp】 — 경쟁사가 가장 강조하는 셀링포인트 Top 3~5
+【3. usp】 — 경쟁사가 강조하는 셀링포인트 — 반드시 4~6개 (최소 4개, 절대 3개 이하 금지)
+스크린샷을 꼼꼼히 보고 큰 강점부터 작은 강점까지 폭넓게 추출하세요. 비슷한 항목이라도 각도가 다르면 별도 항목으로 분리:
+- 핵심 기능/성능 강점
+- 재질/품질 강점
+- 가격/혜택 강점
+- 신뢰성/인증 강점
+- 사용성/편의성 강점
+- 디자인/감성 강점
 각 항목은 반드시 "경쟁사 시점"과 "우리 시점" 두 측면을 모두 포함:
-- rank: 1, 2, 3, ...
+- rank: 1, 2, 3, 4, ... (최소 4까지)
 - point: 경쟁사가 강조한 핵심 강점 한 줄 (예: "국내 유일 의료용 실리콘 사용")
 - evidence: 경쟁사 페이지 어디에서 그렇게 강조하는지 근거 (예: "P3 인증마크 섹션에서 큰 배지로 표시")
 - ourCounter: 우리는 어떻게 대응/차별화할지 한 줄 (예: "우리는 가격 30% 저렴 + 동일 성능 인증서로 맞대응")
@@ -145,7 +152,8 @@ ${reviewInsights.painPoints
 - ourOpportunity: 우리가 어떻게 보완할지 (예: "P8에 세척·건조 단계별 사진 + 깨짐 방지 팁 추가")
 - linkedPainPoint: (선택) 위 painPoints 중 매칭되는 title (없으면 빈 문자열)
 
-【5. headlines】 — 벤치마킹할 카피 6~10개
+【5. headlines】 — 벤치마킹할 카피 — 반드시 6~10개 (최소 6개, 절대 5개 이하 금지)
+스크린샷에서 눈에 띄는 헤드라인·서브카피·CTA 문구를 폭넓게 골라 다양하게 추출하세요.
 각 카피마다 "어느 페이지(P1~P10)에 어울리는지" 추천:
 - original: 경쟁사 스크린샷에서 본 강력한 헤드라인 그대로 (한 줄)
 - ourVersion: 우리 톤에 맞춰 변형한 버전 (15~25자, 카피 톤 적용)
@@ -212,7 +220,7 @@ ${reviewInsights.painPoints
       ],
       response_format: { type: 'json_object' },
       temperature: 0.4,
-      max_tokens: 4000,
+      max_tokens: 6000,
     }),
   });
 
@@ -243,9 +251,9 @@ ${reviewInsights.painPoints
       flow: parsed.structure?.flow || '',
       sections: Array.isArray(parsed.structure?.sections) ? parsed.structure.sections : [],
     },
-    usp: Array.isArray(parsed.usp) ? parsed.usp.slice(0, 5) : [],
+    usp: Array.isArray(parsed.usp) ? parsed.usp.slice(0, 6) : [],
     gapAnalysis: Array.isArray(parsed.gapAnalysis) ? parsed.gapAnalysis.slice(0, 10) : [],
-    headlines: Array.isArray(parsed.headlines) ? parsed.headlines.slice(0, 12) : [],
+    headlines: Array.isArray(parsed.headlines) ? parsed.headlines.slice(0, 10) : [],
     meta: { imageCount: scaled.length, model },
   };
 }
