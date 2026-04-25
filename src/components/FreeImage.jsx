@@ -95,24 +95,34 @@ export default function FreeImage({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [selected]);
 
-  // ─── 위치 드래그 ──────────────────────
+  // ─── 위치 드래그 (3px 임계값으로 클릭/더블클릭과 구분) ──────────────────────
   const handlePosDragStart = (e) => {
     if (!editMode) return;
     if (mode === 'cropping') return;
     if (e.target.closest('[data-handle]')) return;
     if (e.target.closest('[data-free-toolbar]')) return;
+    if (e.target.closest('[data-replace-panel]')) return;
     if (e.button !== 0) return;
-    e.preventDefault();
     e.stopPropagation();
+    // preventDefault 제거 — dblclick 발화 보장
     setSelected(true);
-    setDraggingPos({ startX: e.clientX, startY: e.clientY, sx: x, sy: y });
+    setDraggingPos({
+      startX: e.clientX, startY: e.clientY, sx: x, sy: y,
+      active: false,  // 임계값 넘기 전: 아직 실제 드래그 아님
+    });
   };
 
   useEffect(() => {
     if (!draggingPos) return;
+    const DRAG_THRESHOLD = 3; // 3px 이상 움직여야 실제 드래그로 인식
     const onMove = (e) => {
       const dx = e.clientX - draggingPos.startX;
       const dy = e.clientY - draggingPos.startY;
+      // 임계값 미만이면 아직 드래그 아님
+      if (!draggingPos.active && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      if (!draggingPos.active) {
+        setDraggingPos((p) => ({ ...p, active: true }));
+      }
       let nx = draggingPos.sx + dx;
       let ny = draggingPos.sy + dy;
 
@@ -301,16 +311,8 @@ export default function FreeImage({
         top: y,
         width: w,
         height: h,
-        backgroundColor: '#e8e5e1',
-        overflow: 'hidden',
-        borderRadius: FREE_RADIUS,
-        outline:
-          mode === 'cropping' ? '2px solid #f97316'
-          : selected ? '2px solid #3b82f6'
-          : (hovering && editMode) ? '2px dashed #3b82f6'
-          : editMode ? '1px dashed rgba(96,165,250,0.5)'
-          : 'none',
-        outlineOffset: 1,
+        // 외곽 wrapper는 overflow: visible — 핸들/툴바가 박스 밖으로 나갈 수 있어야 함
+        overflow: 'visible',
         cursor: editMode
           ? (mode === 'cropping' ? (draggingCrop ? 'grabbing' : 'grab')
              : draggingPos ? 'grabbing' : 'move')
@@ -320,27 +322,45 @@ export default function FreeImage({
         boxShadow: editMode && selected ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
       }}
     >
-      <img
-        src={src}
-        alt=""
-        crossOrigin="anonymous"
-        draggable={false}
-        onLoad={handleImgLoad}
-        onMouseDown={mode === 'cropping' ? handleCropDragStart : undefined}
+      {/* 내부 클리핑 컨테이너 (사진 자르기 + 둥근 모서리) */}
+      <div
         style={{
           position: 'absolute',
-          left: '50%',
-          top: '50%',
-          width: imgW > 0 ? imgW : '100%',
-          height: imgH > 0 ? imgH : '100%',
-          maxWidth: 'none',
-          transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
-          objectFit: 'cover',
-          display: 'block',
-          userSelect: 'none',
-          pointerEvents: mode === 'cropping' ? 'auto' : 'none',
+          inset: 0,
+          backgroundColor: '#e8e5e1',
+          overflow: 'hidden',
+          borderRadius: FREE_RADIUS,
+          outline:
+            mode === 'cropping' ? '2px solid #f97316'
+            : selected ? '2px solid #3b82f6'
+            : (hovering && editMode) ? '2px dashed #3b82f6'
+            : editMode ? '1px dashed rgba(96,165,250,0.5)'
+            : 'none',
+          outlineOffset: 1,
         }}
-      />
+      >
+        <img
+          src={src}
+          alt=""
+          crossOrigin="anonymous"
+          draggable={false}
+          onLoad={handleImgLoad}
+          onMouseDown={mode === 'cropping' ? handleCropDragStart : undefined}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: imgW > 0 ? imgW : '100%',
+            height: imgH > 0 ? imgH : '100%',
+            maxWidth: 'none',
+            transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
+            objectFit: 'cover',
+            display: 'block',
+            userSelect: 'none',
+            pointerEvents: mode === 'cropping' ? 'auto' : 'none',
+          }}
+        />
+      </div>
 
       {/* A모드 핸들 */}
       {showHandles && HANDLES.map((handle) => {

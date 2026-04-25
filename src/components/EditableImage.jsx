@@ -704,23 +704,25 @@ export default function EditableImage({
         </div>
       )}
 
-      {/* 사진 교체 패널 */}
+      {/* 사진 교체 패널 — 툴바 바로 아래(박스 상단에 떠 있게) */}
       {mode === 'cropping' && showSwapPanel && (
         <div
           data-toolbar
           style={{
             position: 'absolute',
             left: fx,
-            top: fy + fh + 8,
+            top: fy - 8,                   // 툴바(fy-50, 높이 ~38) 바로 아래
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 80px)',
+            gridTemplateColumns: 'repeat(4, 70px)',
             gap: 6,
             padding: 10,
             backgroundColor: '#1e293b',
             borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            maxWidth: 360,
-            zIndex: 40,
+            boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+            maxWidth: 320,
+            maxHeight: 280,
+            overflowY: 'auto',
+            zIndex: 50,
           }}
         >
           {availableImages.map((imgUrl, i) => (
@@ -732,8 +734,8 @@ export default function EditableImage({
                 setShowSwapPanel(false);
               }}
               style={{
-                width: 80,
-                height: 80,
+                width: 70,
+                height: 70,
                 padding: 0,
                 border: imgUrl === currentSrc ? '3px solid #f97316' : '2px solid transparent',
                 borderRadius: 6,
