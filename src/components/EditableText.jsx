@@ -124,6 +124,35 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showToolbar]);
 
+  // 🔑 외부(다른 EditableText 또는 빈 영역) 클릭 시 — 편집 종료 + 툴바 닫기
+  //    이렇게 해야 "위 글씨 수정 → 아래 글씨 클릭" 시 위 글씨의 편집창이 닫힘
+  useEffect(() => {
+    if (!isEditing && !showToolbar) return;
+    const handlePointerDown = (e) => {
+      // 자기 자신 안쪽이면 무시
+      if (ref.current && ref.current.contains(e.target)) return;
+      // 자기 툴바 안쪽이면 무시 (툴바는 portal이 아니라 형제로 렌더되므로 data-toolbar 로 구분)
+      if (e.target.closest && e.target.closest('[data-toolbar]')) return;
+
+      // 편집 중이었다면 → 변경사항 저장 후 종료
+      if (isEditing) {
+        if (ref.current) {
+          const newText = ref.current.innerText;
+          if (newText !== mergedText) {
+            onChange({ text: newText });
+          }
+        }
+        setIsEditing(false);
+      }
+      // 툴바 닫기
+      setShowToolbar(false);
+    };
+    // mousedown 단계에서 처리 (click 보다 먼저 실행되어 다른 요소 클릭 충돌 방지)
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, showToolbar, mergedText]);
+
   // ─────────── 드래그 이동 (임계값 기반) ───────────
   const handleMouseDown = (e) => {
     if (isEditing) return;
