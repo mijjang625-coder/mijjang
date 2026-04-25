@@ -918,9 +918,12 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-[1700px] mx-auto px-6 py-5 grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5">
-        {/* 좌측: 입력 + 페이지 컨트롤 */}
-        <aside className="space-y-4">
+      <main className="max-w-[1700px] mx-auto px-6 py-5 grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5 items-start">
+        {/* 좌측: 입력 + 페이지 컨트롤 (사이드바 고정 + 개별 스크롤) */}
+        <aside
+          className="space-y-4 xl:sticky xl:overflow-y-auto xl:pr-2"
+          style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
+        >
           <Section title="1. OpenAI 설정" emoji="🔑">
             <Field label="API Key" required>
               <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className="input" />

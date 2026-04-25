@@ -528,8 +528,9 @@ export default function EditableImage({
           userSelect: 'none',
           zIndex: override?.zIndex || 'auto',
           transition: resizing || draggingFrame || draggingCrop ? 'none' : 'outline-color 0.15s',
-          // 다른 레이어가 활성일 때는 이 사진 영역을 통과 (뒤 사진 클릭 가능)
-          pointerEvents: hasActiveOther ? 'none' : 'auto',
+          // 항상 클릭 가능 — 레이어 순서(z-index)에 따라 위에 있는 이미지가 잡힌다.
+          // (정렬 버튼 ▲▼으로 원하는 이미지를 위로 올려서 선택)
+          pointerEvents: 'auto',
         }}
       >
         <img

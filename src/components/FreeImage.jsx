@@ -329,9 +329,9 @@ export default function FreeImage({
         zIndex,
         userSelect: 'none',
         boxShadow: editMode && isActive ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
-        // 다른 레이어가 활성화되어 있으면 이 레이어는 클릭 통과
-        // (자기가 활성이거나, 활성 레이어가 없을 때만 클릭 가능)
-        pointerEvents: hasActiveOther ? 'none' : 'auto',
+        // 항상 클릭 가능 — 레이어 순서(z-index)에 따라 위에 있는 이미지가 잡힌다.
+        // (정렬 버튼 ▲▼ 또는 우측 레이어 패널로 원하는 이미지를 위로 올려서 선택)
+        pointerEvents: 'auto',
       }}
     >
       {/* 내부 클리핑 컨테이너 (사진 자르기 + 둥근 모서리) */}
