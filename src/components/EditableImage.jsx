@@ -101,6 +101,8 @@ export default function EditableImage({
   const [snapLines, setSnapLines] = useState({ v: null, h: null });
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });    // wrapper 측정값
   const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });      // 이미지 원본 비율
+  // 🆕 부모 컨테이너 실측 너비 — frame이 부모보다 클 때 자동 축소용 (모바일 미리보기)
+  const [parentWidth, setParentWidth] = useState(0);
 
   const frame = override?.frame || null;
   const crop = override?.crop || null; // null이면 cover 효과
@@ -150,6 +152,21 @@ export default function EditableImage({
       setNaturalSize({ w: rect.width, h });
     }
   }, [aspect, naturalSize.w]);
+
+  // 🆕 부모 컨테이너 실측 너비 추적 (ResizeObserver)
+  // 모바일 미리보기처럼 부모 너비가 frame.width 보다 작을 때 비율대로 자동 축소하기 위함.
+  useEffect(() => {
+    const parent = wrapperRef.current?.parentElement;
+    if (!parent) return;
+    const update = () => {
+      const w = parent.getBoundingClientRect().width || 0;
+      setParentWidth((prev) => (Math.abs(prev - w) > 0.5 ? w : prev));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, []);
 
   // 이미지 원본 비율 측정
   const handleImgLoad = (e) => {
@@ -443,6 +460,14 @@ export default function EditableImage({
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
   if (!editMode) {
     const hasFrame = !!frame;
+    // 🆕 부모 너비 대비 frame이 너무 크면 비율 유지하며 자동 축소 (모바일 미리보기 대응)
+    // ResizeObserver 로 추적한 parentWidth state 사용 — 부모 크기 변경 시 자동 리렌더
+    const needsShrink = hasFrame && parentWidth > 0 && frame.width > parentWidth;
+    const shrinkRatio = needsShrink ? parentWidth / frame.width : 1;
+    const renderedW = hasFrame ? frame.width * shrinkRatio : null;
+    const renderedH = hasFrame ? frame.height * shrinkRatio : null;
+    const renderedX = hasFrame ? frame.x * shrinkRatio : 0;
+    const renderedY = hasFrame ? frame.y * shrinkRatio : 0;
     return (
       <div
         ref={wrapperRef}
@@ -450,7 +475,9 @@ export default function EditableImage({
           position: 'relative',
           width: '100%',
           aspectRatio: hasFrame ? undefined : aspect,
-          minHeight: hasFrame ? frame.height + Math.max(0, frame.y) + 20 : undefined,
+          minHeight: hasFrame
+            ? renderedH + Math.max(0, renderedY) + 20 * shrinkRatio
+            : undefined,
           zIndex: customZ ?? 1,
           pointerEvents: hasFrame ? 'none' : 'auto',
         }}
@@ -458,10 +485,10 @@ export default function EditableImage({
         <div
           style={{
             position: hasFrame ? 'absolute' : 'relative',
-            left: hasFrame ? frame.x : 0,
-            top: hasFrame ? frame.y : 0,
-            width: hasFrame ? frame.width : '100%',
-            height: hasFrame ? frame.height : undefined,
+            left: hasFrame ? renderedX : 0,
+            top: hasFrame ? renderedY : 0,
+            width: hasFrame ? renderedW : '100%',
+            height: hasFrame ? renderedH : undefined,
             aspectRatio: hasFrame ? undefined : aspect,
             backgroundColor: '#e8e5e1',
             borderRadius: radius,
@@ -481,10 +508,10 @@ export default function EditableImage({
               position: 'absolute',
               left: '50%',
               top: '50%',
-              width: imgW > 0 ? imgW : '100%',
-              height: imgH > 0 ? imgH : '100%',
+              width: imgW > 0 ? imgW * shrinkRatio : '100%',
+              height: imgH > 0 ? imgH * shrinkRatio : '100%',
               maxWidth: 'none',
-              transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
+              transform: `translate(calc(-50% + ${offsetX * shrinkRatio}px), calc(-50% + ${offsetY * shrinkRatio}px))`,
               objectFit: 'cover',
               display: 'block',
               userSelect: 'none',
