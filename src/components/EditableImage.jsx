@@ -431,6 +431,7 @@ export default function EditableImage({
           aspectRatio: hasFrame ? undefined : aspect,
           minHeight: hasFrame ? frame.height + Math.max(0, frame.y) + 20 : undefined,
           zIndex: customZ ?? 1,
+          pointerEvents: hasFrame ? 'none' : 'auto',
         }}
       >
         <div
@@ -445,6 +446,7 @@ export default function EditableImage({
             borderRadius: radius,
             overflow: 'hidden',
             zIndex: override?.zIndex || 'auto',
+            pointerEvents: 'auto',
           }}
         >
           <img
@@ -491,6 +493,9 @@ export default function EditableImage({
         aspectRatio: hasFrame ? undefined : aspect,
         minHeight: wrapperMinHeight,
         zIndex: customZ ?? 1,
+        // wrapper는 frame 바깥(빈 여백)에서 클릭을 통과시켜
+        // 뒤에 깔린 자유이미지가 선택될 수 있게 한다.
+        pointerEvents: hasFrame ? 'none' : 'auto',
       }}
     >
       {/* 프레임 박스 */}
@@ -581,6 +586,7 @@ export default function EditableImage({
             boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
             cursor: h.cursor,
             zIndex: 20,
+            pointerEvents: 'auto',
           };
           // 좌표 계산
           if (typeof h.left === 'number') style.left = fx + h.left;
@@ -618,6 +624,7 @@ export default function EditableImage({
             boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             zIndex: 30,
             whiteSpace: 'nowrap',
+            pointerEvents: 'auto',
           }}
         >
           <button
@@ -719,6 +726,7 @@ export default function EditableImage({
             borderRadius: 8,
             boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             zIndex: 40,
+            pointerEvents: 'auto',
           }}
         >
           <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>확대:</span>
@@ -788,6 +796,7 @@ export default function EditableImage({
             boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
             padding: 12,
             zIndex: 50,
+            pointerEvents: 'auto',
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
