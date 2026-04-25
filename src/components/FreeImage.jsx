@@ -62,8 +62,20 @@ export default function FreeImage({
   const [draggingCrop, setDraggingCrop] = useState(null); // 크롭 모드 사진 이동
   const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });
   const [snapV, setSnapV] = useState(null);
+  // 🎨 색상/밝기/채도 조정 패널 (idle 모드에서)
+  const [showAdjust, setShowAdjust] = useState(false);
 
-  const { id, src, x = 0, y = 0, w = 200, h = 200, crop, zIndex = 100 } = item;
+  const { id, src, x = 0, y = 0, w = 200, h = 200, crop, zIndex = 100, adjust } = item;
+  // 색상 조정 기본값
+  const adj = {
+    brightness: adjust?.brightness ?? 100,  // 0~200 (%)
+    contrast:   adjust?.contrast   ?? 100,  // 0~200 (%)
+    saturate:   adjust?.saturate   ?? 100,  // 0~200 (%)
+    hue:        adjust?.hue        ?? 0,    // -180~180 (deg)
+  };
+  const cssFilter = `brightness(${adj.brightness}%) contrast(${adj.contrast}%) saturate(${adj.saturate}%) hue-rotate(${adj.hue}deg)`;
+  const isAdjusted =
+    adj.brightness !== 100 || adj.contrast !== 100 || adj.saturate !== 100 || adj.hue !== 0;
   const cover = coverSize(w, h, imgNatural.w, imgNatural.h);
   // 크롭 모드에서는 50%까지 축소 허용, idle 모드에서는 cover 보장(>=1)
   const rawScale = crop?.scale ?? 1.0;
@@ -370,6 +382,8 @@ export default function FreeImage({
             display: 'block',
             userSelect: 'none',
             pointerEvents: mode === 'cropping' ? 'auto' : 'none',
+            // 🎨 색상/밝기/채도/색조 조정
+            filter: cssFilter,
           }}
         />
       </div>
@@ -445,10 +459,102 @@ export default function FreeImage({
           }}>z{zIndex}</span>
           <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
           <button
+            onClick={(e) => { e.stopPropagation(); setShowAdjust((s) => !s); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              ...btnLabel(showAdjust ? '#7c3aed' : (isAdjusted ? '#a855f7' : '#475569')),
+            }}
+            title="색상·밝기·채도 조정"
+          >🎨 색상{isAdjusted ? ' •' : ''}</button>
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+          <button
             onClick={(e) => { e.stopPropagation(); if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }}
             onMouseDown={(e) => e.stopPropagation()}
             style={btnLabel('#dc2626')} title="삭제"
           >🗑 삭제</button>
+        </div>
+      )}
+
+      {/* 🎨 색상 조정 패널 — idle 모드 + showAdjust ON 일 때 */}
+      {showToolbar && showAdjust && (
+        <div
+          data-free-toolbar
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: toolbarBelow ? h + 52 : -250,
+            width: 280,
+            backgroundColor: '#fff',
+            border: '1px solid #e2ddd4',
+            borderRadius: 10,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
+            padding: 12,
+            zIndex: 50,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            alignItems: 'center', marginBottom: 10,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#2F2A26' }}>🎨 색상 조정</div>
+            <button
+              onClick={() => setShowAdjust(false)}
+              style={{ border: 'none', background: 'transparent', color: '#64748b', fontSize: 14, cursor: 'pointer', padding: 0 }}
+              title="닫기"
+            >✕</button>
+          </div>
+
+          {/* 슬라이더 4종 */}
+          <AdjustSlider
+            label="🌞 밝기"  unit="%"  min={0} max={200} step={1}
+            value={adj.brightness}  defaultValue={100}
+            onChange={(v) => onUpdate({ adjust: { ...adj, brightness: v } })}
+            color="#f59e0b"
+          />
+          <AdjustSlider
+            label="◐ 대비" unit="%" min={0} max={200} step={1}
+            value={adj.contrast} defaultValue={100}
+            onChange={(v) => onUpdate({ adjust: { ...adj, contrast: v } })}
+            color="#475569"
+          />
+          <AdjustSlider
+            label="🎨 채도" unit="%" min={0} max={200} step={1}
+            value={adj.saturate} defaultValue={100}
+            onChange={(v) => onUpdate({ adjust: { ...adj, saturate: v } })}
+            color="#ec4899"
+          />
+          <AdjustSlider
+            label="🌈 색조" unit="°" min={-180} max={180} step={1}
+            value={adj.hue} defaultValue={0}
+            onChange={(v) => onUpdate({ adjust: { ...adj, hue: v } })}
+            color="#8b5cf6"
+          />
+
+          {/* 프리셋 */}
+          <div style={{ marginTop: 8, marginBottom: 6, fontSize: 10, fontWeight: 700, color: '#64748b' }}>
+            ✨ 프리셋
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+            <PresetBtn label="원본" onClick={() => onUpdate({ adjust: null })} />
+            <PresetBtn label="선명하게"
+              onClick={() => onUpdate({ adjust: { brightness: 105, contrast: 115, saturate: 120, hue: 0 } })} />
+            <PresetBtn label="밝게"
+              onClick={() => onUpdate({ adjust: { brightness: 120, contrast: 100, saturate: 105, hue: 0 } })} />
+            <PresetBtn label="어둡게"
+              onClick={() => onUpdate({ adjust: { brightness: 85, contrast: 110, saturate: 100, hue: 0 } })} />
+            <PresetBtn label="흑백"
+              onClick={() => onUpdate({ adjust: { brightness: 100, contrast: 110, saturate: 0, hue: 0 } })} />
+            <PresetBtn label="따뜻하게"
+              onClick={() => onUpdate({ adjust: { brightness: 105, contrast: 100, saturate: 115, hue: -10 } })} />
+            <PresetBtn label="차갑게"
+              onClick={() => onUpdate({ adjust: { brightness: 100, contrast: 100, saturate: 110, hue: 15 } })} />
+            <PresetBtn label="빈티지"
+              onClick={() => onUpdate({ adjust: { brightness: 95, contrast: 90, saturate: 80, hue: 10 } })} />
+            <PresetBtn label="비비드"
+              onClick={() => onUpdate({ adjust: { brightness: 100, contrast: 120, saturate: 145, hue: 0 } })} />
+          </div>
         </div>
       )}
 
@@ -634,4 +740,64 @@ function btnLabel(color) {
     whiteSpace: 'nowrap',
     lineHeight: 1.2,
   };
+}
+
+// 색상 조정용 슬라이더 (라벨 + 값표시 + 더블클릭 리셋)
+function AdjustSlider({ label, unit, min, max, step, value, defaultValue, onChange, color }) {
+  const isModified = value !== defaultValue;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 2,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{label}</span>
+        <button
+          onClick={() => onChange(defaultValue)}
+          style={{
+            border: 'none', background: 'transparent',
+            color: isModified ? color : '#9ca3af',
+            fontSize: 10, fontWeight: 700, cursor: 'pointer',
+            padding: '0 4px',
+          }}
+          title="기본값으로 초기화"
+        >
+          {value}{unit} {isModified ? '↺' : ''}
+        </button>
+      </div>
+      <input
+        type="range"
+        min={min} max={max} step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onDoubleClick={() => onChange(defaultValue)}
+        style={{ width: '100%', accentColor: color, cursor: 'pointer' }}
+        title="더블클릭으로 초기화"
+      />
+    </div>
+  );
+}
+
+// 색상 프리셋 작은 버튼
+function PresetBtn({ label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        backgroundColor: '#f3f4f6',
+        color: '#374151',
+        border: '1px solid #e5e7eb',
+        padding: '5px 4px',
+        borderRadius: 4,
+        fontSize: 10,
+        fontWeight: 700,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#e5e7eb'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+    >
+      {label}
+    </button>
+  );
 }

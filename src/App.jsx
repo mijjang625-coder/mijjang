@@ -189,28 +189,36 @@ export default function App() {
   };
 
   // 자유 이미지 추가
-  // - 신규 사진은 기존 자유이미지의 "가장 아래" 다음 줄에 자동 배치되어 겹치지 않음
+  // - 신규 사진은 본문 콘텐츠 + 기존 자유이미지 모두의 "가장 아래" 다음 줄에 배치
+  //   → 텍스트나 다른 사진과 절대 겹치지 않음
   // - 페이지 길이는 freeImageLayer 의 freeBottom 계산으로 자동 연장됨
   const addFreeImage = (pageNum, src) => {
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
 
-      // ── 새 이미지는 가장 아래 자유이미지 바로 아래에 위치 ──
-      // 페이지 폭 780 기준, 새 이미지 폭 480 (큰 사진), 가운데 정렬
+      // 페이지 폭 780, 새 이미지 폭 480, 가운데 정렬
       const NEW_W = 480;
       const NEW_H = 360;
       const GAP = 24;
       const PAGE_W = 780;
       const x = Math.round((PAGE_W - NEW_W) / 2);
 
-      // 기존 자유이미지가 있으면 그중 가장 아래 끝(y+h) + GAP 에 배치
-      // 없으면 본문 콘텐츠 아래쪽(기본 600)에 배치
+      // 페이지별 본문 콘텐츠 baseHeight (이 값보다 아래에 새 사진이 떨어져야 본문과 안 겹침)
+      // 각 페이지(P1~P10)의 컴포넌트가 사용하는 baseHeight 와 동일
+      const PAGE_BASE_HEIGHT = {
+        P1: 1500, P2: 1300, P3: 1450, P4: 1300, P5: 1300,
+        P6: 1300, P7: 1500, P8: 1350, P9: 1300, P10: 1500,
+      };
+      const baseHeight = PAGE_BASE_HEIGHT[pageNum] || 1300;
+
+      // 기존 자유이미지의 가장 아래 끝
       const maxBottom = list.reduce(
         (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
         0
       );
-      const y = list.length > 0 ? maxBottom + GAP : 600;
+      // 본문 baseHeight 와 기존 자유사진 끝 중 더 아래쪽 + GAP
+      const y = Math.max(baseHeight, maxBottom) + GAP;
 
       const newItem = {
         id,
