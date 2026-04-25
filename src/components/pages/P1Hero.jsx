@@ -34,10 +34,24 @@ export default function P1Hero({
     subHeadline = '',
     strengthCards = [],
     trustLine = '',
+    p1CardSettings = {},
   } = copy;
 
-  // variant에 따라 체크 아이콘 모양 변경 (다시 생성할 때마다 다른 모양)
-  const checkVariant = variant;
+  // 사용자가 설정한 카드 디자인 (없으면 기본값)
+  const cardCfg = {
+    iconVariant: 0,
+    iconSize: 28,
+    cardMinHeight: 220,
+    cardPaddingY: 18,
+    cardPaddingYBottom: 20,
+    cardPaddingX: 10,
+    cardRadius: 18,
+    cardGap: 22,
+    ...p1CardSettings,
+  };
+
+  // 체크 아이콘 모양: 사용자 선택 우선, 없으면 variant
+  const checkVariant = (typeof cardCfg.iconVariant === 'number') ? cardCfg.iconVariant : variant;
 
   // EditableText용 공통 props 헬퍼
   const editPropsFor = (id) => ({
@@ -228,16 +242,15 @@ export default function P1Hero({
         backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20,
         pointerEvents: editMode ? 'none' : 'auto',
       }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: cardCfg.cardGap }}>
           {strengthCards.slice(0, 3).map((c, i) => (
             <div
               key={i}
               style={{
                 backgroundColor: '#fff',
-                borderRadius: 18,
-                padding: '18px 10px 20px',
-                // 카드 축소 — 기존 230 → 220 (체크+타이틀+서브3줄 여유 공간)
-                minHeight: 220,
+                borderRadius: cardCfg.cardRadius,
+                padding: `${cardCfg.cardPaddingY}px ${cardCfg.cardPaddingX}px ${cardCfg.cardPaddingYBottom}px`,
+                minHeight: cardCfg.cardMinHeight,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -247,11 +260,11 @@ export default function P1Hero({
                 boxShadow: '0 2px 6px rgba(47, 42, 38, 0.04)',
                 overflow: 'hidden',
                 boxSizing: 'border-box',
-                minWidth: 0, // grid 자식 overflow 제어
+                minWidth: 0,
               }}
             >
-              {/* 체크 아이콘 — 다시 생성할 때마다 모양이 바뀜 (variant 기반) */}
-              <CheckIcon size={28} variant={checkVariant + i} />
+              {/* 체크 아이콘 — 모든 카드 동일 모양 (사용자가 1.사이드바에서 선택) */}
+              <CheckIcon size={cardCfg.iconSize} variant={checkVariant} />
 
               {/* 타이틀 — 1줄 고정 */}
               <EditableText

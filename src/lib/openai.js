@@ -881,3 +881,106 @@ ${hasNotes ? '🔑 **사용자 메모([B])가 무조건 우선**입니다. ' : '
     throw new Error('OpenAI 응답을 JSON으로 파싱할 수 없습니다.');
   }
 }
+
+/**
+ * 크롤링한 자료(텍스트 + 이미지)를 분석해 쿠팡 검색 최적화용 추천 검색어 20개를 추출.
+ */
+export async function extractRecommendedKeywords({
+  apiKey,
+  model = 'gpt-4o-mini',
+  pastedText = '',
+  userNotes = '',
+  imageDataUrls = [],
+  productName = '',
+}) {
+  if (!apiKey) throw new Error('OpenAI API 키가 필요합니다.');
+  const hasPasted = pastedText && pastedText.trim().length >= 50;
+  const hasNotes = userNotes && userNotes.trim().length > 0;
+  const validImages = (Array.isArray(imageDataUrls) ? imageDataUrls : []).filter(
+    (u) => typeof u === 'string' && u.startsWith('data:image')
+  ).slice(0, 8);
+  const hasImages = validImages.length > 0;
+  const hasName = !!productName?.trim();
+
+  if (!hasPasted && !hasNotes && !hasImages && !hasName) {
+    throw new Error('제품명·페이지 내용·메모·이미지 중 하나는 필요합니다.');
+  }
+
+  const pageContent = hasPasted ? truncate(pastedText) : '(없음)';
+  const notesContent = hasNotes ? truncate(userNotes, 8000) : '';
+
+  const systemPrompt = `당신은 쿠팡/네이버쇼핑 SEO 전문가입니다.
+주어진 자료를 분석해 쿠팡 검색 최적화용 추천 검색어 20개를 뽑아주세요.
+
+규칙:
+- 한국어로 작성합니다 (중국어가 있으면 자연스러운 한국어로 변환).
+- 실제 사용자가 검색할 만한 자연스러운 키워드만 작성 (브랜드명/모호한 단어 금지).
+- 다음 4가지 유형을 골고루 섞어 20개를 뽑습니다:
+  ① 핵심 단일 키워드 (1~2단어, 예: "유리꽃병")
+  ② 카테고리+속성 조합 (2~3단어, 예: "프랑스 유리 꽃병", "북유럽 화병")
+  ③ 용도/상황 키워드 (예: "결혼식 꽃병", "거실 인테리어 화병")
+  ④ 롱테일 키워드 (4~6단어, 예: "투명 미니 유리 꽃병 인테리어")
+- 검색량이 많을 만한 순서로 정렬 (인기 키워드 먼저).
+- 중복 방지, 제품과 무관한 키워드 금지.
+- 자료에 없는 정보는 추측하지 마세요. 자료에 명시된 속성·용도·소재 기반으로만 작성.
+
+JSON 형식:
+{
+  "keywords": [
+    { "rank": 1, "keyword": "검색어", "type": "핵심|조합|용도|롱테일" }
+  ]
+}
+정확히 20개의 키워드를 반환합니다.`;
+
+  const textBlock = `## 제품 정보
+${hasName ? `제품명: ${productName}\n` : ''}
+${hasNotes ? `## 사용자 메모
+${notesContent}
+
+` : ''}## 크롤링 자료
+${hasPasted ? pageContent : '(텍스트 없음)'}
+${hasImages ? `\n첨부 이미지 ${validImages.length}장 — 그림 속 글씨도 읽어 활용하세요.\n` : ''}
+위 자료를 바탕으로 쿠팡 검색 최적화 키워드 20개를 JSON으로 반환하세요.`;
+
+  const userContent = hasImages
+    ? [
+        { type: 'text', text: textBlock },
+        ...validImages.map((url) => ({ type: 'image_url', image_url: { url, detail: 'low' } })),
+      ]
+    : textBlock;
+
+  const response = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.5,
+      max_tokens: 1500,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`OpenAI API 오류 (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenAI 응답이 비어있습니다.');
+
+  try {
+    const parsed = JSON.parse(content);
+    const keywords = Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 20) : [];
+    return { keywords };
+  } catch {
+    throw new Error('OpenAI 응답을 JSON으로 파싱할 수 없습니다.');
+  }
+}

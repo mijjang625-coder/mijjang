@@ -6,6 +6,7 @@ import {
   validatePageRequirements,
   extractProductInfoFromUrl,
   extractProductInfoFromText,
+  extractRecommendedKeywords,
   autoFillBrief,
 } from './lib/openai.js';
 import {
@@ -13,6 +14,7 @@ import {
   downloadAllAsSinglePng, downloadAllAsSeparatePngs,
   downloadAllAsHtml, downloadForFigma,
 } from './lib/exporters.js';
+import { CheckIcon as CheckIconPreview } from './components/pages/Shared.jsx';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 import {
   saveProject,
@@ -92,6 +94,17 @@ const DEFAULT_BRIEF = {
   themeId: 'warmBeige',
   // 전역 폰트 (모든 페이지에 일괄 적용)
   fontId: 'pretendard',
+  // P1 강점카드 디자인 설정 (사용자가 직접 조정)
+  p1CardSettings: {
+    iconVariant: 0,    // 0~5 (0:원형, 1:사각, 2:방패, 3:별, 4:육각, 5:다이아)
+    iconSize: 28,      // 16 ~ 56
+    cardMinHeight: 220, // 140 ~ 320
+    cardPaddingY: 18,   // 8 ~ 40 (위쪽)
+    cardPaddingYBottom: 20, // 8 ~ 40 (아래쪽)
+    cardPaddingX: 10,   // 4 ~ 30
+    cardRadius: 18,     // 0 ~ 32
+    cardGap: 22,        // 8 ~ 40
+  },
 };
 
 export default function App() {
@@ -121,6 +134,9 @@ export default function App() {
   const [userNotes, setUserNotes] = useState(''); // 사용자가 직접 작성한 메모 (1688 내용보다 우선)
   const [ocrImages, setOcrImages] = useState([]); // OCR용 이미지 (1688 다운받은 이미지, base64 dataURL)
   const [showPasteHint, setShowPasteHint] = useState(false); // Captcha 감지 시 true
+  // 추천 검색어 20개 추출
+  const [keywords, setKeywords] = useState([]); // [{rank, keyword, type}]
+  const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
 
   // 수정 요청 채팅창
   const [feedbackInput, setFeedbackInput] = useState('');
@@ -662,6 +678,35 @@ export default function App() {
     }
   };
 
+  // 추천 검색어 20개 추출
+  const handleExtractKeywords = async () => {
+    setError('');
+    if (!apiKey.trim()) {
+      setError('OpenAI API 키를 먼저 입력해주세요.');
+      return;
+    }
+    if (!brief.productName?.trim() && pastedText.trim().length < 50 && userNotes.trim().length < 10 && ocrImages.length === 0) {
+      setError('제품명·페이지 내용·메모·OCR 이미지 중 하나는 필요합니다.');
+      return;
+    }
+    try {
+      setIsExtractingKeywords(true);
+      const { keywords: kws } = await extractRecommendedKeywords({
+        apiKey: apiKey.trim(),
+        model,
+        pastedText,
+        userNotes,
+        imageDataUrls: ocrImages,
+        productName: brief.productName,
+      });
+      setKeywords(kws || []);
+    } catch (err) {
+      setError(err.message || '추천 검색어 추출 중 오류가 발생했습니다.');
+    } finally {
+      setIsExtractingKeywords(false);
+    }
+  };
+
   // 이미지 업로드
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files || []);
@@ -1093,7 +1138,7 @@ export default function App() {
           className="space-y-4 xl:sticky xl:overflow-y-auto xl:pr-2"
           style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
         >
-          <Section title="1. OpenAI 설정" emoji="🔑">
+          <Section title="1. OpenAI 설정" emoji="🔑" collapsible defaultCollapsed={!!apiKey}>
             <Field label="API Key" required>
               <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className="input" />
             </Field>
@@ -1107,7 +1152,7 @@ export default function App() {
             </Field>
           </Section>
 
-          <Section title="톤앤매너 (색상 테마)" emoji="🎨">
+          <Section title="톤앤매너 (색상 테마)" emoji="🎨" collapsible defaultCollapsed>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               상품 분위기에 맞는 컬러 팔레트를 선택하세요.
               <br />모든 P1~P10 페이지에 즉시 적용됩니다.
@@ -1149,7 +1194,7 @@ export default function App() {
           </Section>
 
           {/* ─────────── 폰트 선택 (전체 페이지 일괄 적용) ─────────── */}
-          <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤">
+          <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤" collapsible defaultCollapsed>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               선택한 폰트가 P1~P10 모든 페이지에 즉시 적용됩니다.
               <br />5종 무료 상업용 한글 폰트 제공.
@@ -1188,7 +1233,91 @@ export default function App() {
             </div>
           </Section>
 
-          <Section title="2. 참조 자료로 자동 채우기" emoji="🔗">
+          {/* ─────────── P1 강점 카드 디자인 (체크아이콘 모양 + 박스 크기) ─────────── */}
+          <Section title="P1 강점 카드 디자인" emoji="✨" collapsible defaultCollapsed>
+            <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+              P1 페이지의 3개 강점 카드(체크 아이콘 + 박스)를 직접 조정합니다.
+            </div>
+
+            {/* 아이콘 모양 6종 선택 */}
+            <Field label="✓ 체크 아이콘 모양 (모든 카드 동일하게 적용)">
+              <div className="grid grid-cols-6 gap-1.5">
+                {[
+                  { v: 0, name: '원형' },
+                  { v: 1, name: '사각' },
+                  { v: 2, name: '방패' },
+                  { v: 3, name: '별' },
+                  { v: 4, name: '육각' },
+                  { v: 5, name: '다이아' },
+                ].map(({ v, name }) => {
+                  const active = (brief.p1CardSettings?.iconVariant ?? 0) === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => updateBrief({
+                        p1CardSettings: { ...(brief.p1CardSettings || {}), iconVariant: v },
+                      })}
+                      className="flex flex-col items-center gap-1 p-1.5 rounded-lg border-2 transition-all"
+                      style={{
+                        borderColor: active ? '#C8B6A6' : '#e2ddd4',
+                        backgroundColor: active ? '#F7F3EE' : '#fff',
+                        boxShadow: active ? '0 0 0 2px rgba(200,182,166,0.3)' : 'none',
+                      }}
+                    >
+                      <CheckIconPreview variant={v} />
+                      <div className="text-[9px]" style={{ color: '#2F2A26' }}>{name}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            {/* 슬라이더 컨트롤 */}
+            {(() => {
+              const cfg = brief.p1CardSettings || {};
+              const setCfg = (patch) => updateBrief({
+                p1CardSettings: { ...(brief.p1CardSettings || {}), ...patch },
+              });
+              const Slider = ({ label, value, min, max, step = 1, suffix = 'px', valKey }) => (
+                <div>
+                  <div className="flex items-center justify-between text-[10px] mb-0.5" style={{ color: '#6b635c' }}>
+                    <span>{label}</span>
+                    <span className="font-bold" style={{ color: '#2F2A26' }}>{value}{suffix}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={min} max={max} step={step}
+                    value={value}
+                    onChange={(e) => setCfg({ [valKey]: Number(e.target.value) })}
+                    className="w-full"
+                    style={{ accentColor: '#C8B6A6' }}
+                  />
+                </div>
+              );
+              return (
+                <div className="space-y-2 mt-2">
+                  <Slider label="아이콘 크기" value={cfg.iconSize ?? 28} min={16} max={56} valKey="iconSize" />
+                  <Slider label="카드 최소 높이" value={cfg.cardMinHeight ?? 220} min={140} max={320} valKey="cardMinHeight" />
+                  <Slider label="카드 위쪽 여백" value={cfg.cardPaddingY ?? 18} min={4} max={50} valKey="cardPaddingY" />
+                  <Slider label="카드 아래쪽 여백" value={cfg.cardPaddingYBottom ?? 20} min={4} max={50} valKey="cardPaddingYBottom" />
+                  <Slider label="카드 좌우 여백" value={cfg.cardPaddingX ?? 10} min={4} max={40} valKey="cardPaddingX" />
+                  <Slider label="카드 모서리 둥글기" value={cfg.cardRadius ?? 18} min={0} max={32} valKey="cardRadius" />
+                  <Slider label="카드 사이 간격" value={cfg.cardGap ?? 22} min={4} max={50} valKey="cardGap" />
+                  <button
+                    type="button"
+                    onClick={() => updateBrief({ p1CardSettings: DEFAULT_BRIEF.p1CardSettings })}
+                    className="w-full mt-1 py-1.5 rounded-lg text-[10px] font-bold border"
+                    style={{ borderColor: '#C8B6A6', backgroundColor: '#fff', color: '#2F2A26' }}
+                  >
+                    🔄 기본값으로 초기화
+                  </button>
+                </div>
+              );
+            })()}
+          </Section>
+
+          <Section title="2. 참조 자료로 자동 채우기" emoji="🔗" collapsible>
             {/* 모드 탭 */}
             <div className="flex gap-1 mb-2 p-1 rounded-lg" style={{ backgroundColor: '#F7F3EE' }}>
               <button
@@ -1592,9 +1721,110 @@ Q5. / A5.
                 )}
               </div>
             )}
+
+            {/* ────── 추천 검색어 20개 추출 (쿠팡 SEO) ────── */}
+            <div className="pt-3 mt-2 border-t" style={{ borderColor: '#f0ebe4' }}>
+              <div className="text-[11px] font-bold mb-1.5" style={{ color: '#2F2A26' }}>
+                🔍 쿠팡 추천 검색어 20개 추출
+              </div>
+              <div className="text-[10px] text-slate-500 mb-2 leading-relaxed">
+                위 자료(텍스트·메모·OCR 이미지·제품명)를 분석해 쿠팡/네이버쇼핑에 등록할 추천 검색어 20개를 자동 생성합니다.
+              </div>
+              <button
+                type="button"
+                onClick={handleExtractKeywords}
+                disabled={isExtractingKeywords}
+                className="w-full py-2 rounded-lg text-white font-bold text-[12px] shadow disabled:opacity-50"
+                style={{ backgroundColor: '#7c5e4a' }}
+              >
+                {isExtractingKeywords ? '🔍 키워드 추출 중...' : '🔍 추천 검색어 20개 뽑기'}
+              </button>
+
+              {keywords.length > 0 && (
+                <div className="mt-2 p-2 rounded-lg border" style={{ backgroundColor: '#F7F3EE', borderColor: '#C8B6A6' }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-[11px] font-bold" style={{ color: '#2F2A26' }}>
+                      ✅ 추출된 검색어 {keywords.length}개
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = keywords.map((k) => `${k.rank}. ${k.keyword}`).join('\n');
+                          navigator.clipboard.writeText(text);
+                          alert('✅ 검색어 20개가 복사되었습니다!');
+                        }}
+                        className="px-1.5 py-0.5 rounded text-[9px] font-bold border"
+                        style={{ borderColor: '#C8B6A6', backgroundColor: '#fff', color: '#2F2A26' }}
+                      >
+                        📋 전체 복사
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // 쿠팡용 콤마 구분
+                          const text = keywords.map((k) => k.keyword).join(', ');
+                          navigator.clipboard.writeText(text);
+                          alert('✅ 콤마 구분으로 복사됨 (쿠팡 검색어 입력칸에 바로 붙여넣기 가능)');
+                        }}
+                        className="px-1.5 py-0.5 rounded text-[9px] font-bold border"
+                        style={{ borderColor: '#C8B6A6', backgroundColor: '#fff', color: '#2F2A26' }}
+                      >
+                        📋 콤마 복사
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKeywords([])}
+                        className="px-1.5 py-0.5 rounded text-[9px] border"
+                        style={{ borderColor: '#C8B6A6', backgroundColor: '#fff', color: '#6b635c' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-0.5 max-h-[260px] overflow-y-auto pr-1">
+                    {keywords.map((k, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-1.5 p-1 rounded text-[11px]"
+                        style={{ backgroundColor: '#fff' }}
+                      >
+                        <span className="font-bold w-5 text-right" style={{ color: '#C8B6A6' }}>{k.rank ?? i + 1}.</span>
+                        <span className="flex-1 truncate" style={{ color: '#2F2A26' }}>{k.keyword}</span>
+                        {k.type && (
+                          <span
+                            className="text-[9px] px-1 py-0.5 rounded"
+                            style={{
+                              backgroundColor:
+                                k.type === '핵심' ? '#dbeafe' :
+                                k.type === '조합' ? '#dcfce7' :
+                                k.type === '용도' ? '#fef3c7' : '#fce7f3',
+                              color: '#2F2A26',
+                            }}
+                          >
+                            {k.type}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(k.keyword);
+                          }}
+                          className="text-[9px] px-1 py-0.5 rounded border"
+                          style={{ borderColor: '#e2ddd4', backgroundColor: '#fff', color: '#6b635c' }}
+                          title="이 검색어 복사"
+                        >
+                          📋
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </Section>
 
-          <Section title="3. 제품 기본 정보" emoji="🛍️">
+          <Section title="3. 제품 기본 정보" emoji="🛍️" collapsible>
             <Field label="제품명" required>
               <input value={brief.productName} onChange={(e) => updateBrief({ productName: e.target.value })} className="input" placeholder="예) 욕실용 실리콘 미끄럼방지 매트" />
             </Field>
@@ -1735,7 +1965,7 @@ Q5. / A5.
             </div>
           </Section>
 
-          <Section title="4. 제품 사진 업로드" emoji="📸" required>
+          <Section title="4. 제품 사진 업로드" emoji="📸" collapsible defaultCollapsed={images.length > 0} badge={images.length > 0 ? `${images.length}장` : null}>
             {/* 사진 개수 가이드 */}
             <div className="mb-2 p-2 rounded-lg text-[11px]" style={{
               backgroundColor: images.length >= 23 ? '#ECFDF5' : images.length >= 10 ? '#FFF8F0' : '#FEF2F2',
@@ -1828,7 +2058,7 @@ Q5. / A5.
             </div>
           </Section>
 
-          <Section title="5. 리뷰 4개 (P4 필수)" emoji="⭐">
+          <Section title="5. 리뷰 4개 (P4 필수)" emoji="⭐" collapsible>
             {brief.reviews.map((r, i) => (
               <div key={i} className="space-y-1.5 mb-3 pb-3 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <div className="text-[11px] font-bold text-slate-500">리뷰 {i + 1}</div>
@@ -1841,7 +2071,7 @@ Q5. / A5.
             ))}
           </Section>
 
-          <Section title="6. P5 2지선다 비교표 (내 제품 vs 일반 제품)" emoji="⚖️">
+          <Section title="6. P5 2지선다 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               각 행에 <b>내 제품의 차별점</b>과 <b>일반 제품의 모습</b>을 함께 입력하세요.
               <br />비워두면 AI가 "일반적인 모습"을 추측해서 채웁니다.
@@ -1887,19 +2117,19 @@ Q5. / A5.
             </label>
           </Section>
 
-          <Section title="7. 활용법 4가지 (P8 필수)" emoji="💡">
+          <Section title="7. 활용법 4가지 (P8 필수)" emoji="💡" collapsible>
             {brief.usages.map((u, i) => (
               <input key={i} value={u} onChange={(e) => updateArrayItem('usages', i, e.target.value)} placeholder={`활용법 ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="8. 사용 순서 3단계 (P9 필수)" emoji="🔢">
+          <Section title="8. 사용 순서 3단계 (P9 필수)" emoji="🔢" collapsible>
             {brief.usageSteps.map((s, i) => (
               <input key={i} value={s} onChange={(e) => updateArrayItem('usageSteps', i, e.target.value)} placeholder={`STEP ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="9. FAQ 5개 (P10 필수)" emoji="❓">
+          <Section title="9. FAQ 5개 (P10 필수)" emoji="❓" collapsible>
             {brief.faqs.map((f, i) => (
               <div key={i} className="space-y-1.5 mb-2 pb-2 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <input placeholder={`Q${i + 1}`} value={f.q} onChange={(e) => updateObjectArrayItem('faqs', i, 'q', e.target.value)} className="input" />
@@ -2280,14 +2510,37 @@ Q5. / A5.
   );
 }
 
-function Section({ title, emoji, children }) {
+function Section({ title, emoji, children, collapsible = false, defaultCollapsed = false, badge = null }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const isCollapsible = collapsible;
   return (
     <div className="bg-white rounded-xl p-4 border" style={{ borderColor: '#e2ddd4' }}>
-      <div className="flex items-center gap-2 pb-2 mb-3 border-b" style={{ borderColor: '#f0ebe4' }}>
+      <div
+        className={`flex items-center gap-2 pb-2 ${collapsed ? '' : 'mb-3 border-b'}`}
+        style={{ borderColor: '#f0ebe4', cursor: isCollapsible ? 'pointer' : 'default' }}
+        onClick={isCollapsible ? () => setCollapsed((v) => !v) : undefined}
+      >
         <span>{emoji}</span>
-        <h3 className="text-sm font-bold" style={{ color: '#2F2A26' }}>{title}</h3>
+        <h3 className="text-sm font-bold flex-1" style={{ color: '#2F2A26' }}>{title}</h3>
+        {badge && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+            {badge}
+          </span>
+        )}
+        {isCollapsible && (
+          <span
+            className="text-xs px-1.5 py-0.5 rounded transition-transform"
+            style={{
+              backgroundColor: '#F7F3EE',
+              color: '#6b635c',
+              transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+            }}
+          >
+            ▼
+          </span>
+        )}
       </div>
-      <div className="space-y-2.5">{children}</div>
+      {!collapsed && <div className="space-y-2.5">{children}</div>}
     </div>
   );
 }
