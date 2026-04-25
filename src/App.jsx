@@ -29,6 +29,14 @@ import {
   getLastSaved,
   debounce,
 } from './lib/storage.js';
+import {
+  costFromUsage,
+  recordCost,
+  getCostSummary,
+  formatKRW,
+  resetSession,
+  getSessionStart,
+} from './lib/costTracker.js';
 
 const PAGE_LIST = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10'];
 
@@ -68,6 +76,15 @@ export default function App() {
   const [error, setError] = useState('');
   const [p5Version, setP5Version] = useState('text');
   // (pageVariants는 아래에서 한 번만 선언)
+
+  // 💰 비용 추적 — recordCost 호출 시 +1 → 위젯 리렌더 트리거
+  const [costBumpKey, setCostBumpKey] = useState(0);
+  const [sessionStartMs] = useState(() => getSessionStart());
+  // 메모이즈 안 함: costBumpKey 바뀔 때마다 다시 합산
+  const costSummary = (() => {
+    void costBumpKey; // dep 주석
+    return getCostSummary({ sinceMs: sessionStartMs });
+  })();
 
   // 참조 URL (1688/쿠팡/네이버 등) - AI 자동 채우기
   const [referenceUrl, setReferenceUrl] = useState('');
@@ -956,6 +973,24 @@ export default function App() {
         missingItems: result?.missingItems,
       });
 
+      // 💰 비용 기록 (응답에 _usage가 있는 경우)
+      if (result?._usage) {
+        const cost = costFromUsage(model, result._usage);
+        if (cost) {
+          recordCost({
+            label: `${pageNumber} ${revisionRequest ? '수정' : '생성'}`,
+            model: cost.model,
+            inputTokens: cost.inputTokens,
+            outputTokens: cost.outputTokens,
+            krw: cost.krw,
+          });
+          // 페이지 객체에도 비용 보존 (UI 표시용)
+          result._costKrw = cost.krw;
+          // 누적 합계 갱신
+          setCostBumpKey((k) => k + 1);
+        }
+      }
+
       // AI가 needsMoreInfo: true로 답하면 에러로 표시
       if (result?.needsMoreInfo) {
         const items = (result.missingItems || []).join(', ');
@@ -1107,6 +1142,30 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* 💰 이번 세션 누적 비용 */}
+            <div
+              className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-amber-50"
+              style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
+              title={`이번 세션 OpenAI 비용 — ${costSummary.count}회 호출 / 합계 ${formatKRW(costSummary.totalKrw)}\n클릭 시 세션 리셋`}
+              onClick={() => {
+                if (window.confirm('비용 카운터를 0원으로 리셋할까요?\n(과거 기록은 유지됩니다)')) {
+                  resetSession();
+                  setCostBumpKey((k) => k + 1);
+                  // sessionStartMs는 초기값이므로 페이지 리로드 권장하나 우선 리셋만
+                  window.location.reload();
+                }
+              }}
+            >
+              <span>💰</span>
+              <span>이번 세션</span>
+              <span style={{ color: '#B45309', fontWeight: 'bold' }}>
+                {formatKRW(costSummary.totalKrw)}
+              </span>
+              {costSummary.count > 0 && (
+                <span style={{ color: '#B45309', opacity: 0.7 }}>· {costSummary.count}회</span>
+              )}
+            </div>
+
             {/* 자동 저장 상태 표시 */}
             <div className="text-[11px] font-semibold flex items-center gap-1.5" title="작업 내용은 1초마다 브라우저에 자동 저장됩니다.">
               {saveStatus === 'saving' && (
@@ -1296,7 +1355,19 @@ export default function App() {
           <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: '#e2ddd4' }}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="text-xs font-bold text-slate-500 mb-1">현재 작업 중</div>
+                <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-2">
+                  <span>현재 작업 중</span>
+                  {/* 💰 이 페이지 마지막 생성 비용 */}
+                  {currentResult?._costKrw > 0 && (
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ backgroundColor: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}
+                      title={`이 페이지 최근 생성 비용 (${currentResult._model || model})`}
+                    >
+                      💰 {formatKRW(currentResult._costKrw)}
+                    </span>
+                  )}
+                </div>
                 <div className="text-xl font-extrabold" style={{ color: '#2F2A26' }}>
                   {PAGE_TITLES[currentPage]}
                 </div>

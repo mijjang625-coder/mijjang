@@ -409,12 +409,21 @@ ${previousPagesSummary ? `이전 페이지 요약:\n${previousPagesSummary}\n\n`
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('OpenAI 응답이 비어있습니다.');
 
+  // 💰 토큰 사용량 (비용 추적용)
+  const _usage = data?.usage || null;
+
   let parsed;
   try {
     parsed = JSON.parse(content);
   } catch (e) {
     console.error('[generateCoupangPage] JSON parse 실패', { pageNumber, content, error: e });
     throw new Error('OpenAI 응답을 JSON으로 파싱할 수 없습니다.');
+  }
+
+  // 응답에 usage 첨부 (App.jsx에서 비용 기록)
+  if (parsed && _usage) {
+    parsed._usage = _usage;
+    parsed._model = model;
   }
 
   // 🛡️ P10 안전 보강 — 응답이 부분적이거나 needsMoreInfo여도 빈 데이터로 깨지지 않도록
