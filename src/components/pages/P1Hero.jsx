@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame, Img, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
@@ -102,6 +102,23 @@ export default function P1Hero({
   const isLayerActive = (kind, id) => activeLayerId === `${kind}:${id}`;
   const activateLayer = (kind, id) => onSetActiveLayer(`${kind}:${id}`);
   const clearActiveLayer = () => onSetActiveLayer(null);
+  // 활성 레이어가 있는지 (자기 자신 제외하고 다른 게 활성인지 확인용)
+  const hasActiveLayer = !!activeLayerId;
+
+  // ESC 키로 활성 레이어 해제 (편집 모드에서)
+  useEffect(() => {
+    if (!editMode || !activeLayerId) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        // 텍스트 입력 중일 때는 무시
+        const tag = (document.activeElement?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
+        clearActiveLayer();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editMode, activeLayerId]);
 
   // 파일 업로드 → base64 DataURL → onAddFreeImage
   const handleFileUpload = (e) => {
@@ -181,7 +198,8 @@ export default function P1Hero({
           data-edit-image
           style={{
             marginTop: 36,
-            pointerEvents: 'auto',
+            // wrapper는 항상 통과 (실제 사진 영역만 EditableImage 내부에서 클릭 받음)
+            pointerEvents: editMode ? 'none' : 'auto',
             position: 'relative',
             zIndex: mainZ,
             borderRadius: 22,
@@ -198,6 +216,7 @@ export default function P1Hero({
             availableImages={allImages.filter(Boolean)}
             isActive={editMode ? mainActive : null}
             onActivate={() => activateLayer('main', 'P1.heroImage')}
+            hasActiveOther={editMode && hasActiveLayer && !mainActive}
             onLayerAction={(action) => handleLayerAction({ kind: 'main', id: 'P1.heroImage' }, action)}
           />
         </div>
@@ -308,19 +327,23 @@ export default function P1Hero({
       </div>
 
       {/* ─── 자유 배치 이미지 캠버스 (절대 위치) ─── */}
-      {(freeImages || []).map((item) => (
-        <FreeImage
-          key={item.id}
-          item={{ ...item, galleryImages: validImages }}
-          editMode={editMode}
-          isActive={isLayerActive('free', item.id)}
-          onActivate={() => activateLayer('free', item.id)}
-          canvasWidth={780}
-          onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
-          onDelete={() => onDeleteFreeImage(item.id)}
-          onChangeLayer={(action) => handleLayerAction({ kind: 'free', id: item.id }, action)}
-        />
-      ))}
+      {(freeImages || []).map((item) => {
+        const itemActive = isLayerActive('free', item.id);
+        return (
+          <FreeImage
+            key={item.id}
+            item={{ ...item, galleryImages: validImages }}
+            editMode={editMode}
+            isActive={itemActive}
+            onActivate={() => activateLayer('free', item.id)}
+            hasActiveOther={editMode && hasActiveLayer && !itemActive}
+            canvasWidth={780}
+            onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
+            onDelete={() => onDeleteFreeImage(item.id)}
+            onChangeLayer={(action) => handleLayerAction({ kind: 'free', id: item.id }, action)}
+          />
+        );
+      })}
 
       {/* ─── 플로팅 버튼 영역 (편집모드에서만) ─── */}
       {editMode && (

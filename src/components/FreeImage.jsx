@@ -50,6 +50,8 @@ export default function FreeImage({
   canvasWidth = 780,
   isActive = false,
   onActivate = () => {},
+  // 다른 레이어가 활성화되어 있는지 (자기 자신은 제외) — true면 이 레이어는 클릭 통과
+  hasActiveOther = false,
 }) {
   const wrapRef = useRef(null);
   const [hovering, setHovering] = useState(false);
@@ -319,7 +321,6 @@ export default function FreeImage({
         top: y,
         width: w,
         height: h,
-        // 외곽 wrapper는 overflow: visible — 핸들/툴바가 박스 밖으로 나갈 수 있어야 함
         overflow: 'visible',
         cursor: editMode
           ? (mode === 'cropping' ? (draggingCrop ? 'grabbing' : 'grab')
@@ -328,6 +329,9 @@ export default function FreeImage({
         zIndex,
         userSelect: 'none',
         boxShadow: editMode && isActive ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
+        // 다른 레이어가 활성화되어 있으면 이 레이어는 클릭 통과
+        // (자기가 활성이거나, 활성 레이어가 없을 때만 클릭 가능)
+        pointerEvents: hasActiveOther ? 'none' : 'auto',
       }}
     >
       {/* 내부 클리핑 컨테이너 (사진 자르기 + 둥근 모서리) */}

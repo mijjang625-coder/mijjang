@@ -84,6 +84,8 @@ export default function EditableImage({
   // 활성 레이어 제어 — null이면 기존 hover 기반 동작, 명시되면 활성일 때만 툴바/외곽선 표시
   isActive = null,
   onActivate = null,
+  // 다른 레이어가 활성화되어 있으면 이 레이어는 클릭 통과 (피그마 방식)
+  hasActiveOther = false,
 }) {
   const wrapperRef = useRef(null);
   const frameRef = useRef(null);
@@ -526,6 +528,8 @@ export default function EditableImage({
           userSelect: 'none',
           zIndex: override?.zIndex || 'auto',
           transition: resizing || draggingFrame || draggingCrop ? 'none' : 'outline-color 0.15s',
+          // 다른 레이어가 활성일 때는 이 사진 영역을 통과 (뒤 사진 클릭 가능)
+          pointerEvents: hasActiveOther ? 'none' : 'auto',
         }}
       >
         <img
