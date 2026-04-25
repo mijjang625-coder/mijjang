@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   synthesizeBatch,
   BACKGROUND_PRESETS,
@@ -8,29 +8,54 @@ import {
 /**
  * AISynthesisPanel — AI 사진 합성 패널 (청소솔/생활용품 특화)
  *
- * 4가지 모드:
- *   1. 배경 교체 (background)
- *   2. 사용 장면 (usage)
- *   3. Before/After (beforeAfter) — 자동 2장
- *   4. 손에 쥔 컷 (handHeld)
- *   5. 다양한 각도 (multiAngle)
- *
  * Props:
- *   apiKey         OpenAI API 키
- *   productName    제품명 (브리프에서 가져옴)
- *   uploadedImages 업로드된 사진 목록 (data URL 배열) — 기준 사진 선택용
- *   onAddImages(urls)  생성된 이미지를 사진 라이브러리에 추가하는 콜백
+ *   apiKey            OpenAI API 키
+ *   productName       제품명 (브리프에서 가져옴)
+ *   uploadedImages    업로드된 사진 목록 (data URL 배열)
+ *   initialSourceUrl  🆕 미리보기에서 클릭/활성화된 사진의 실제 URL
+ *                     이 값이 있으면 모달이 열릴 때 자동으로 그 사진을 기준 사진으로 선택
+ *                     (라이브러리에 없는 URL이라도 그 자체를 기준으로 사용 — 자유 사진 등)
+ *   currentPage       현재 작업 페이지 (P1~P10) — 안내 표시용
+ *   onAddImages(urls) 생성된 이미지를 사진 라이브러리에 추가하는 콜백
  */
 export default function AISynthesisPanel({
   apiKey,
   productName = '',
   uploadedImages = [],
+  initialSourceUrl = null,
+  currentPage = '',
   onAddImages = () => {},
 }) {
   // ───────── 상태 ─────────
   const [mode, setMode] = useState('background');
-  const [sourceIdx, setSourceIdx] = useState(uploadedImages.length > 0 ? 0 : -1);
-  // sourceIdx === -1 ⇒ 단품 사진 없이 생성 (텍스트만)
+
+  // sourceIdx 의 의미:
+  //   -1  → 단품 사진 없이 (텍스트만)
+  //   -2  → 외부 URL 사용 (initialSourceUrl, 라이브러리에 없는 URL)
+  //   ≥0  → uploadedImages[sourceIdx] 사용
+  // initialSourceUrl 이 라이브러리에 있으면 그 인덱스, 없으면 -2 로 시작
+  const initialIdx = useMemo(() => {
+    if (initialSourceUrl) {
+      const idx = uploadedImages.indexOf(initialSourceUrl);
+      if (idx >= 0) return idx;
+      return -2; // 외부 URL (자유 사진 등 — 라이브러리에 없음)
+    }
+    return uploadedImages.length > 0 ? 0 : -1;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount 시점 1회만
+
+  const [sourceIdx, setSourceIdx] = useState(initialIdx);
+
+  // initialSourceUrl 이 바뀌면 (사용자가 다른 사진 클릭 후 모달 다시 열기 등) 갱신
+  useEffect(() => {
+    if (!initialSourceUrl) return;
+    const idx = uploadedImages.indexOf(initialSourceUrl);
+    if (idx >= 0) {
+      setSourceIdx(idx);
+    } else {
+      setSourceIdx(-2);
+    }
+  }, [initialSourceUrl, uploadedImages]);
 
   const [backgroundKey, setBackgroundKey] = useState('bathroom');
   const [customBackground, setCustomBackground] = useState('');
@@ -91,6 +116,10 @@ export default function AISynthesisPanel({
       setError('기준 사진을 선택하거나 "단품 사진 없이"를 선택해 주세요.');
       return;
     }
+    if (sourceIdx === -2 && !initialSourceUrl) {
+      setError('기준 사진을 선택해 주세요.');
+      return;
+    }
     if (backgroundKey === 'custom' && !customBackground.trim()) {
       setError('직접 입력을 선택했어요. 배경 설명을 적어 주세요.');
       return;
@@ -101,7 +130,14 @@ export default function AISynthesisPanel({
     setProgress(`${realCount}장 생성 시작...`);
 
     try {
-      const sourceImageDataUrl = sourceIdx >= 0 ? uploadedImages[sourceIdx] : null;
+      // 기준 사진 URL 결정:
+      //   sourceIdx >= 0 → 라이브러리의 사진
+      //   sourceIdx === -2 → 외부(자유 사진 등) URL
+      //   sourceIdx === -1 → null (텍스트만)
+      const sourceImageDataUrl =
+        sourceIdx >= 0 ? uploadedImages[sourceIdx] :
+        sourceIdx === -2 ? initialSourceUrl :
+        null;
 
       const items = await synthesizeBatch({
         apiKey,
@@ -195,9 +231,17 @@ export default function AISynthesisPanel({
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <div className="text-[12px] font-bold" style={{ color: '#2F2A26' }}>
-            2. 기준 사진 {uploadedImages.length === 0 && <span className="text-red-500 font-normal">(업로드된 사진이 없어요)</span>}
+            2. 기준 사진
+            {currentPage && sourceIdx === -2 && (
+              <span className="ml-2 text-[10px] font-normal text-orange-600">
+                ({currentPage} 미리보기에서 클릭한 사진)
+              </span>
+            )}
+            {uploadedImages.length === 0 && sourceIdx !== -2 && (
+              <span className="text-red-500 font-normal"> (업로드된 사진이 없어요)</span>
+            )}
           </div>
-          {uploadedImages.length > 0 && (
+          {(uploadedImages.length > 0 || sourceIdx === -2) && (
             <button
               type="button"
               onClick={() => setShowPicker((s) => !s)}
@@ -213,7 +257,7 @@ export default function AISynthesisPanel({
           )}
         </div>
 
-        {uploadedImages.length > 0 ? (
+        {(uploadedImages.length > 0 || sourceIdx === -2) ? (
           <>
             {/* 선택된 사진 크게 표시 */}
             <div className="rounded-xl overflow-hidden border-2 bg-slate-50" style={{ borderColor: '#E87A2B' }}>
@@ -223,6 +267,18 @@ export default function AISynthesisPanel({
                     <div className="text-3xl mb-1">🚫</div>
                     <div className="text-[12px] font-bold" style={{ color: '#C2410C' }}>단품 사진 없이 (텍스트만으로 생성)</div>
                     <div className="text-[10px] text-slate-500 mt-1">결과는 일반적인 제품 이미지가 됩니다</div>
+                  </div>
+                </div>
+              ) : sourceIdx === -2 && initialSourceUrl ? (
+                <div className="relative">
+                  <img
+                    src={initialSourceUrl}
+                    alt=""
+                    className="w-full"
+                    style={{ maxHeight: 280, objectFit: 'contain', backgroundColor: '#fff' }}
+                  />
+                  <div className="absolute top-2 left-2 bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                    ✓ 미리보기에서 선택한 사진
                   </div>
                 </div>
               ) : uploadedImages[sourceIdx] ? (

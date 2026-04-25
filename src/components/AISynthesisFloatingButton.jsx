@@ -20,6 +20,8 @@ export default function AISynthesisFloatingButton({
   apiKey = '',
   productName = '',
   uploadedImages = [],
+  activeImageSrc = null,   // 🆕 현재 클릭/활성화된 사진의 실제 URL
+  currentPage = '',
   onAddImages = () => {},
 }) {
   const [open, setOpen] = useState(false);
@@ -145,6 +147,8 @@ export default function AISynthesisFloatingButton({
                 apiKey={apiKey}
                 productName={productName}
                 uploadedImages={uploadedImages}
+                initialSourceUrl={activeImageSrc}
+                currentPage={currentPage}
                 onAddImages={(urls) => {
                   onAddImages(urls);
                   // 추가 후 모달은 열어둠 (여러 번 합성 가능)

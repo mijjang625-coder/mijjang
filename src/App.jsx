@@ -195,6 +195,63 @@ export default function App() {
     setActiveLayerId(null);
   }, [editMode, currentPage]);
 
+  // ─────────────────────────────────────────────────────────
+  // 🎨 AI 합성용 — 현재 활성화된 레이어의 실제 이미지 src 추출
+  // 페이지별 EditableImage id 형식:
+  //   P1.heroImage  /  P2.images.{0..2}  /  P3.image  /  P4.images.{0..3}
+  //   P5.ourImage  /  P6.materialImage|sizeImage  /  P7.images.{0..2}
+  //   P8.images.{0..3}  /  P9.images.{0..2}  /  P10.componentImage
+  // ─────────────────────────────────────────────────────────
+  const getActiveImageSrc = () => {
+    const PAGE_IMAGE_MAP = {
+      P1: { start: 0,  count: 1 },
+      P2: { start: 1,  count: 3 },
+      P3: { start: 4,  count: 1 },
+      P4: { start: 5,  count: 4 },
+      P5: { start: 9,  count: 1 },
+      P6: { start: 10, count: 2 },
+      P7: { start: 12, count: 3 },
+      P8: { start: 15, count: 4 },
+      P9: { start: 19, count: 3 },
+      P10:{ start: 22, count: 1 },
+    };
+
+    if (!activeLayerId) return null;
+    // 'main:P1.heroImage' / 'free:abc123' / 'shape:xyz' 형식
+    const [kind, ...rest] = activeLayerId.split(':');
+    const editableId = rest.join(':');
+
+    // 1. main 레이어 (메인 EditableImage)
+    if (kind === 'main') {
+      // override 에 src 있으면 그걸 우선 (사용자가 사진 교체했을 수 있음)
+      const pageOverrides = imageOverrides[currentPage] || {};
+      const overrideSrc = pageOverrides[editableId]?.src;
+      if (overrideSrc) return overrideSrc;
+
+      // 없으면 PAGE_IMAGE_MAP 으로 인덱스 추론
+      const map = PAGE_IMAGE_MAP[currentPage];
+      if (!map) return images[0] || null;
+
+      // P2.images.1 → 1, P4.images.3 → 3, P1.heroImage → 0
+      const m = editableId.match(/\.images\.(\d+)$/);
+      const subIdx = m ? Number(m[1]) : 0;
+      const realIdx = map.start + subIdx;
+      // 사진 수환 (이미지가 부족하면 첫 번째로 fallback)
+      return images[realIdx] || images[realIdx % Math.max(1, images.length)] || images[0] || null;
+    }
+
+    // 2. free 레이어 (사용자가 추가한 자유 사진)
+    if (kind === 'free') {
+      const pageFree = freeImages[currentPage] || [];
+      const found = pageFree.find((f) => f.id === editableId);
+      return found?.src || null;
+    }
+
+    // shape 레이어는 사진이 아니므로 null
+    return null;
+  };
+  const activeImageSrc = getActiveImageSrc();
+
   const setLayerName = (pageNum, layerId, name) => {
     setLayerNames((prev) => ({
       ...prev,
@@ -2838,6 +2895,8 @@ Q5. / A5.
         apiKey={apiKey}
         productName={brief.productName}
         uploadedImages={images}
+        activeImageSrc={activeImageSrc}
+        currentPage={currentPage}
         onAddImages={(urls) => {
           if (!Array.isArray(urls) || !urls.length) return;
           setImages((prev) => [...prev, ...urls]);
