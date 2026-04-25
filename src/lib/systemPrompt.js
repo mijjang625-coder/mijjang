@@ -235,8 +235,6 @@ P8: { headline, usages: [{title(10자 이내), desc1, desc2, photoHint}, x4] }
 P9: { title, subTitle?, steps: [{stepNo, desc, photoHint}, x3], tips: [x1~2] }
 P10: {
   components: { title: "구성품 안내", bullets: [x3~4], photoHint },
-  shippingInfo: [{ title: "🚚/📦/💳 이모지+짧은 제목 (8자 이내)", body: "한 줄 설명 (20자 이내)" }, x3],
-  csInfo:       [{ title: "🔄/🛠/📞 이모지+짧은 제목 (8자 이내)", body: "한 줄 설명 (20자 이내)" }, x3],
   faq: [{q, a}, x5],
   compliance: {
     modelName: "품명 및 모델명 (제품명 기반)",
@@ -250,8 +248,7 @@ P10: {
 }
 ※ P10 규칙:
   - components.bullets: 제품 박스에 포함된 구성품 3~4개 (예: "본체 1개", "전용 수납 파우치 1개", "사용 설명서 1부")
-  - shippingInfo: 배송 관련 3가지 (당일 출고/안전 포장/결제 수단 등 쇼핑몰 표준 안내)
-  - csInfo: A/S 관련 3가지 (반품 조건/A/S 가능 여부/고객센터 운영시간 등)
+  - 배송/AS 안내 섹션은 P10에서 제거됨 (필수표기사항과 중복) → shippingInfo/csInfo 응답 불필요
   - compliance: 전자상거래법 기준 필수표기 7개 항목. 유저 입력이 있으면 **그대로** 사용, 없으면 다른 필드에서 유추:
     · modelName ← 유저 입력 없으면 "제품명" 그대로
     · sizeWeight ← sizeSpec 필드에서 가져오기

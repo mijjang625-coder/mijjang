@@ -288,12 +288,11 @@ export async function generateCoupangPage({
   if (pageNumber === 'P10') {
     p10Hint = `
 [P10 필수 응답 항목 — 절대 누락 금지]
-copy 안에 반드시 아래 5개 키가 모두 있어야 합니다:
+copy 안에 반드시 아래 3개 키가 모두 있어야 합니다:
 1) components: { title, bullets[3~4개], photoHint }
-2) shippingInfo: 배송 안내 3개 (이모지+제목+한줄설명)
-3) csInfo: A/S 안내 3개 (이모지+제목+한줄설명)
-4) faq: 5개 [{q, a}] — 키 이름은 "faq" (faqs 아님!)
-5) compliance: 7개 필드 객체 (modelName/sizeWeight/color/material/manufacturer/origin/asContact)
+2) faq: 5개 [{q, a}] — 키 이름은 "faq" (faqs 아님!)
+3) compliance: 7개 필드 객체 (modelName/sizeWeight/color/material/manufacturer/origin/asContact)
+* shippingInfo, csInfo는 더이상 사용하지 않음 (필수표기사항과 중복으로 제거됨)
 * needsMoreInfo는 false로 두고, 정보 부족하면 "상세페이지 참조"로 안전하게 채우세요.`;
   }
 
@@ -425,8 +424,7 @@ ${previousPagesSummary ? `이전 페이지 요약:\n${previousPagesSummary}\n\n`
         c.faq = [];
       }
     }
-    if (!Array.isArray(c.shippingInfo)) c.shippingInfo = [];
-    if (!Array.isArray(c.csInfo)) c.csInfo = [];
+    // shippingInfo/csInfo는 더이상 P10에서 사용하지 않음 (정리됨)
     if (!c.compliance || typeof c.compliance !== 'object') c.compliance = {};
     // needsMoreInfo가 true여도 P10은 무시하고 강제 표시 (FAQ는 default로 채워짐)
     if (parsed.needsMoreInfo) {
