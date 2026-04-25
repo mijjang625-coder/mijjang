@@ -390,13 +390,13 @@ export default function P1Hero({
       {/* ─── 플로팅 버튼 영역 (편집모드에서만) ─── */}
       {editMode && (
         <>
-          {/* 사진 추가 버튼 */}
+          {/* 사진 추가 버튼 — fixed: 화면 우측 상단 (P2~P10 공통과 통일) */}
           <button
             onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
             style={{
-              position: 'absolute',
-              right: 16,
-              top: 16,
+              position: 'fixed',
+              right: 24,
+              top: 168,
               zIndex: 9999,
               backgroundColor: '#3b82f6',
               color: '#fff',
@@ -411,7 +411,7 @@ export default function P1Hero({
               alignItems: 'center',
               gap: 6,
             }}
-            title="페이지에 사진을 자유롭게 추가합니다"
+            title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
           >
             <span style={{ fontSize: 16, lineHeight: 1 }}>＋</span>
             <span>사진 추가</span>
@@ -432,13 +432,13 @@ export default function P1Hero({
             )}
           </button>
 
-          {/* 레이어 패널 토글 버튼 */}
+          {/* 레이어 패널 토글 버튼 — fixed: 사진 추가 바로 밑 */}
           <button
             onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
             style={{
-              position: 'absolute',
-              right: 16,
-              top: 60,
+              position: 'fixed',
+              right: 24,
+              top: 220,
               zIndex: 9999,
               backgroundColor: showLayers ? '#1e293b' : '#475569',
               color: '#fff',
@@ -453,7 +453,7 @@ export default function P1Hero({
               alignItems: 'center',
               gap: 6,
             }}
-            title="모든 레이어 목록 (겹쳐서 선택 안 되는 요소도 여기서 선택)"
+            title="모든 레이어 목록 (스크롤해도 따라다님)"
           >
             📋 레이어 <span style={{
               backgroundColor: '#fbbf24', color: '#1e293b',
@@ -466,17 +466,17 @@ export default function P1Hero({
           {showLayers && (
             <div
               style={{
-                position: 'absolute',
-                right: 16,
-                top: 100,
+                position: 'fixed',
+                right: 180,
+                top: 168,
                 zIndex: 9998,
-                width: 280,
-                maxHeight: 480,
+                width: 320,
+                maxHeight: 'calc(100vh - 200px)',
                 overflow: 'auto',
                 backgroundColor: '#fff',
                 border: '1px solid #e2ddd4',
                 borderRadius: 12,
-                boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.22)',
                 padding: 12,
               }}
               onMouseDown={(e) => e.stopPropagation()}
@@ -663,17 +663,17 @@ export default function P1Hero({
           {showPicker && (
             <div
               style={{
-                position: 'absolute',
-                right: 16,
-                top: 60,
+                position: 'fixed',
+                right: 180,
+                top: 168,
                 zIndex: 9998,
-                width: 320,
-                maxHeight: 480,
+                width: 340,
+                maxHeight: 'calc(100vh - 200px)',
                 overflow: 'auto',
                 backgroundColor: '#fff',
                 border: '1px solid #e2ddd4',
                 borderRadius: 12,
-                boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.22)',
                 padding: 14,
               }}
               onMouseDown={(e) => e.stopPropagation()}

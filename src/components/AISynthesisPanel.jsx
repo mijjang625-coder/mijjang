@@ -43,6 +43,7 @@ export default function AISynthesisPanel({
   const [progress, setProgress] = useState(''); // '2/4 생성 중...'
   const [results, setResults] = useState([]);   // [{ url, prompt }]
   const [error, setError] = useState('');
+  const [showPicker, setShowPicker] = useState(false); // 기준 사진 변경 셀렉터 펼치기
 
   // 모드 정의
   const MODES = [
@@ -190,50 +191,108 @@ export default function AISynthesisPanel({
         </div>
       </div>
 
-      {/* 2) 기준 사진 */}
+      {/* 2) 기준 사진 — 선택된 1장만 크게 표시 + 변경 버튼 */}
       <div>
-        <div className="text-[12px] font-bold mb-1.5" style={{ color: '#2F2A26' }}>
-          2. 기준 사진 선택 {uploadedImages.length === 0 && <span className="text-red-500">(업로드된 사진이 없어요)</span>}
-        </div>
-        {uploadedImages.length > 0 ? (
-          <div className="grid grid-cols-6 gap-1.5">
-            {uploadedImages.map((src, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setSourceIdx(idx)}
-                className="relative aspect-square rounded-lg overflow-hidden border-2 transition"
-                style={{
-                  borderColor: sourceIdx === idx ? '#E87A2B' : '#e2ddd4',
-                  boxShadow: sourceIdx === idx ? '0 0 0 2px #FFF8F0' : 'none',
-                }}
-              >
-                <img src={src} alt="" className="w-full h-full object-cover" />
-                {sourceIdx === idx && (
-                  <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
-                    <div className="bg-orange-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">✓ 선택</div>
-                  </div>
-                )}
-              </button>
-            ))}
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[12px] font-bold" style={{ color: '#2F2A26' }}>
+            2. 기준 사진 {uploadedImages.length === 0 && <span className="text-red-500 font-normal">(업로드된 사진이 없어요)</span>}
+          </div>
+          {uploadedImages.length > 0 && (
             <button
               type="button"
-              onClick={() => setSourceIdx(-1)}
-              className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition"
+              onClick={() => setShowPicker((s) => !s)}
+              className="text-[11px] font-bold px-2 py-1 rounded-md border transition"
               style={{
-                borderColor: sourceIdx === -1 ? '#E87A2B' : '#C8B6A6',
-                backgroundColor: sourceIdx === -1 ? '#FFF8F0' : '#fff',
+                borderColor: showPicker ? '#E87A2B' : '#C8B6A6',
+                backgroundColor: showPicker ? '#FFF8F0' : '#fff',
+                color: showPicker ? '#C2410C' : '#2F2A26',
               }}
-              title="단품 사진 없이 텍스트로만 생성"
             >
-              <div className="text-center">
-                <div className="text-lg">🚫</div>
-                <div className="text-[9px] font-bold" style={{ color: sourceIdx === -1 ? '#C2410C' : '#7C6F65' }}>
-                  사진 없이
+              {showPicker ? '✓ 닫기' : '🔄 사진 변경'}
+            </button>
+          )}
+        </div>
+
+        {uploadedImages.length > 0 ? (
+          <>
+            {/* 선택된 사진 크게 표시 */}
+            <div className="rounded-xl overflow-hidden border-2 bg-slate-50" style={{ borderColor: '#E87A2B' }}>
+              {sourceIdx === -1 ? (
+                <div className="aspect-video flex items-center justify-center" style={{ backgroundColor: '#FFF8F0' }}>
+                  <div className="text-center">
+                    <div className="text-3xl mb-1">🚫</div>
+                    <div className="text-[12px] font-bold" style={{ color: '#C2410C' }}>단품 사진 없이 (텍스트만으로 생성)</div>
+                    <div className="text-[10px] text-slate-500 mt-1">결과는 일반적인 제품 이미지가 됩니다</div>
+                  </div>
+                </div>
+              ) : uploadedImages[sourceIdx] ? (
+                <div className="relative">
+                  <img
+                    src={uploadedImages[sourceIdx]}
+                    alt=""
+                    className="w-full"
+                    style={{ maxHeight: 280, objectFit: 'contain', backgroundColor: '#fff' }}
+                  />
+                  <div className="absolute top-2 left-2 bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                    ✓ 기준 사진 #{sourceIdx + 1}
+                  </div>
+                </div>
+              ) : (
+                <div className="aspect-video flex items-center justify-center text-[12px] text-slate-500">
+                  사진을 선택해 주세요
+                </div>
+              )}
+            </div>
+
+            {/* 변경 버튼 누르면 작은 셀렉터 펼침 */}
+            {showPicker && (
+              <div className="mt-2 p-2 rounded-lg border" style={{ borderColor: '#e2ddd4', backgroundColor: '#fafafa' }}>
+                <div className="text-[10px] font-bold mb-1.5 text-slate-600">
+                  사진을 클릭해서 기준 사진을 변경하세요
+                </div>
+                <div className="grid grid-cols-6 gap-1.5 max-h-[180px] overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => { setSourceIdx(-1); setShowPicker(false); }}
+                    className="aspect-square rounded-md border-2 border-dashed flex items-center justify-center transition"
+                    style={{
+                      borderColor: sourceIdx === -1 ? '#E87A2B' : '#C8B6A6',
+                      backgroundColor: sourceIdx === -1 ? '#FFF8F0' : '#fff',
+                    }}
+                    title="단품 사진 없이 텍스트로만 생성"
+                  >
+                    <div className="text-center">
+                      <div className="text-base">🚫</div>
+                      <div className="text-[8px] font-bold" style={{ color: sourceIdx === -1 ? '#C2410C' : '#7C6F65' }}>
+                        없이
+                      </div>
+                    </div>
+                  </button>
+                  {uploadedImages.map((src, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => { setSourceIdx(idx); setShowPicker(false); }}
+                      className="relative aspect-square rounded-md overflow-hidden border-2 transition"
+                      style={{
+                        borderColor: sourceIdx === idx ? '#E87A2B' : '#e2ddd4',
+                      }}
+                    >
+                      <img src={src} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute top-0.5 left-0.5 bg-black/70 text-white text-[8px] font-bold px-1 rounded">
+                        #{idx + 1}
+                      </div>
+                      {sourceIdx === idx && (
+                        <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center">
+                          <div className="bg-orange-600 text-white text-[8px] font-bold px-1 rounded">✓</div>
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </button>
-          </div>
+            )}
+          </>
         ) : (
           <div className="p-2 rounded-lg text-[11px] text-slate-600" style={{ backgroundColor: '#F7F3EE' }}>
             위 "제품 사진 업로드" 섹션에서 단품 사진을 먼저 업로드하면 그 사진을 기준으로 합성할 수 있어요.

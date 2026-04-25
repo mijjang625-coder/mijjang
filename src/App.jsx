@@ -2387,21 +2387,63 @@ Q5. / A5.
                   {PAGE_TITLES[currentPage]}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap items-center justify-end">
                 {currentPage === 'P5' && currentResult?.copy && (
                   <select value={p5Version} onChange={(e) => setP5Version(e.target.value)} className="input" style={{ width: 'auto', padding: '8px 10px' }}>
                     <option value="text">글 버전</option>
                     <option value="photo">사진 버전</option>
                   </select>
                 )}
+
+                {/* ⬇️ 다운로드 버튼들 — 결과가 있을 때만 표시 */}
+                {currentResult?.copy && !currentResult.needsMoreInfo && (
+                  <>
+                    <button
+                      onClick={() => handleDownloadImage(currentPage)}
+                      className="px-3 py-2 rounded-lg text-white text-xs font-bold shadow"
+                      style={{ backgroundColor: '#2F2A26' }}
+                      title={`${currentPage} 페이지를 PNG 이미지로 다운로드`}
+                    >
+                      📥 PNG
+                    </button>
+                    <button
+                      onClick={() => handleDownloadHtml(currentPage)}
+                      className="px-3 py-2 rounded-lg text-xs font-bold border"
+                      style={{ borderColor: '#2F2A26', color: '#2F2A26' }}
+                      title={`${currentPage} 페이지를 HTML 파일로 다운로드`}
+                    >
+                      📄 HTML
+                    </button>
+                  </>
+                )}
+
+                {/* 다시 생성 / 생성 */}
                 <button
                   onClick={() => handleGenerate(currentPage)}
                   disabled={isLoading}
-                  className="px-5 py-2.5 rounded-lg text-white font-bold text-sm shadow"
+                  className="px-4 py-2 rounded-lg text-white font-bold text-xs shadow"
                   style={{ backgroundColor: isLoading ? '#a89b8f' : '#C8B6A6' }}
                 >
-                  {isLoading ? '생성 중...' : currentResult ? `${currentPage} 다시 생성` : `${currentPage} 생성`}
+                  {isLoading ? '생성 중...' : currentResult ? `🔁 ${currentPage} 다시 생성` : `${currentPage} 생성`}
                 </button>
+
+                {/* ➡️ 다음 페이지 만들기 — 결과가 있을 때만 */}
+                {currentResult?.copy && !currentResult.needsMoreInfo && (() => {
+                  const nextIdx = PAGE_LIST.indexOf(currentPage) + 1;
+                  if (nextIdx >= PAGE_LIST.length) return null;
+                  const nextP = PAGE_LIST[nextIdx];
+                  return (
+                    <button
+                      onClick={() => { setCurrentPage(nextP); handleGenerate(nextP); }}
+                      disabled={isLoading}
+                      className="px-4 py-2 rounded-lg text-white text-xs font-bold shadow"
+                      style={{ backgroundColor: '#E87A2B' }}
+                      title={`${nextP} 페이지로 자동 이동 + 생성`}
+                    >
+                      다음 ({nextP}) →
+                    </button>
+                  );
+                })()}
               </div>
             </div>
 
@@ -2450,38 +2492,10 @@ Q5. / A5.
 
             {currentResult?.copy && !currentResult.needsMoreInfo && (
               <>
-                {/* 사용 사진 / 디자인 노트 / 확인 메시지 */}
+                {/* 사용 사진 / 디자인 노트 — 다운로드/다음 버튼은 상단 헤더로 이동했음 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                   <InfoCard title="📷 사용 사진" items={currentResult.usedPhotos} />
                   <InfoCard title="🎨 디자인/배치 지시" items={currentResult.designNotes} />
-                </div>
-
-                <div className="flex gap-2 mb-4">
-                  <button onClick={() => handleDownloadImage(currentPage)} className="px-4 py-2 rounded-lg text-white text-sm font-bold" style={{ backgroundColor: '#2F2A26' }}>
-                    {currentPage} 이미지(PNG) 다운로드
-                  </button>
-                  <button onClick={() => handleDownloadHtml(currentPage)} className="px-4 py-2 rounded-lg text-sm font-bold border" style={{ borderColor: '#2F2A26', color: '#2F2A26' }}>
-                    {currentPage} HTML 다운로드
-                  </button>
-
-                  {/* 다음 페이지 버튼 */}
-                  {(() => {
-                    const nextIdx = PAGE_LIST.indexOf(currentPage) + 1;
-                    if (nextIdx < PAGE_LIST.length) {
-                      const nextP = PAGE_LIST[nextIdx];
-                      return (
-                        <button
-                          onClick={() => { setCurrentPage(nextP); handleGenerate(nextP); }}
-                          disabled={isLoading}
-                          className="ml-auto px-4 py-2 rounded-lg text-white text-sm font-bold shadow"
-                          style={{ backgroundColor: '#C8B6A6' }}
-                        >
-                          다음 ({nextP}) 만들어줘 →
-                        </button>
-                      );
-                    }
-                    return null;
-                  })()}
                 </div>
               </>
             )}
