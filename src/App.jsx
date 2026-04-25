@@ -2785,7 +2785,9 @@ Q5. / A5.
 
                 // 모바일 폰 프레임 wrapper
                 // 실제 콘텐츠는 780px이지만, 모바일에서는 360/780 = 0.4615 배율로 축소
+                // 🆕 폰 화면 높이는 고정 (실제 핸드폰처럼) → 내부 콘텐츠가 길면 스크롤
                 const MOBILE_W = 360;
+                const MOBILE_H = 720; // 실제 핸드폰 비율 (16:9, iPhone 14 Pro 정도)
                 const SCALE = MOBILE_W / 780;
                 const MobileFrame = ({ children, label }) => (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -2807,15 +2809,27 @@ Q5. / A5.
                         position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
                         width: 80, height: 16, backgroundColor: '#0f172a', borderRadius: 999,
                       }} />
+                      {/* 📱 화면 영역 — 고정 높이로 안에서만 스크롤 */}
                       <div style={{
                         width: MOBILE_W,
+                        height: MOBILE_H,
                         backgroundColor: '#fff',
                         borderRadius: 6,
-                        overflow: 'hidden',
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        // 모바일 느낌의 부드러운 스크롤
+                        WebkitOverflowScrolling: 'touch',
+                        // 스크롤바 살짝 보이게 (선택)
+                        scrollbarWidth: 'thin',
                       }}>
                         {/* children 은 ScaledHeightWrap 으로 감싼 상태 — 안에서 scale 처리 */}
                         {children}
                       </div>
+                      {/* 하단 홈 인디케이터 */}
+                      <div style={{
+                        position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+                        width: 100, height: 4, backgroundColor: '#475569', borderRadius: 999,
+                      }} />
                     </div>
                   </div>
                 );
