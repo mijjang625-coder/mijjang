@@ -2467,7 +2467,7 @@ Q5. / A5.
                 <PageRenderer
                   ref={pageRefs[currentPage]}
                   pageNumber={currentPage}
-                  copy={currentResult.copy}
+                  copy={{ ...currentResult.copy, p1CardSettings: brief.p1CardSettings }}
                   images={images}
                   version={p5Version}
                   variant={pageVariants[currentPage] || 0}
@@ -2522,7 +2522,7 @@ Q5. / A5.
               <PageRenderer
                 ref={exportPageRefs[p]}
                 pageNumber={p}
-                copy={r.copy}
+                copy={{ ...r.copy, p1CardSettings: brief.p1CardSettings }}
                 images={images}
                 version={p5Version}
                 variant={pageVariants[p] || 0}
