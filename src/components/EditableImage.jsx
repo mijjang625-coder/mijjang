@@ -97,6 +97,27 @@ export default function EditableImage({
   const frame = override?.frame || null;
   const crop = override?.crop || null; // null이면 cover 효과
   const currentSrc = override?.src || src;
+  // 레이어 z-index (P1 정책: 콘텐츠=500, 1~499=뒤, 501~999=앞)
+  const customZ = override?.zIndex;
+  const CONTENT_Z = 500;
+
+  // 메인사진 레이어 변경 (자유이미지와 동일 정책)
+  const changeMainLayer = (action) => {
+    const cur = customZ ?? CONTENT_Z;
+    let newZ = cur;
+    if (action === 'front') newZ = 999;
+    else if (action === 'back') newZ = 1;
+    else if (action === 'forward') {
+      newZ = cur + 1;
+      if (newZ === CONTENT_Z) newZ = CONTENT_Z + 1;
+      if (newZ > 999) newZ = 999;
+    } else if (action === 'backward') {
+      newZ = cur - 1;
+      if (newZ === CONTENT_Z) newZ = CONTENT_Z - 1;
+      if (newZ < 1) newZ = 1;
+    }
+    onChange({ zIndex: newZ });
+  };
 
   // wrapper 초기 크기 측정
   useEffect(() => {
@@ -404,6 +425,7 @@ export default function EditableImage({
           width: '100%',
           aspectRatio: hasFrame ? undefined : aspect,
           minHeight: hasFrame ? frame.height + Math.max(0, frame.y) + 20 : undefined,
+          zIndex: customZ ?? undefined,
         }}
       >
         <div
@@ -463,6 +485,7 @@ export default function EditableImage({
         width: '100%',
         aspectRatio: hasFrame ? undefined : aspect,
         minHeight: wrapperMinHeight,
+        zIndex: customZ ?? undefined,
       }}
     >
       {/* 프레임 박스 */}
@@ -565,52 +588,83 @@ export default function EditableImage({
           );
         })}
 
-      {/* 좌상단 툴바 (idle) */}
+      {/* 좌상단 툴바 (idle) — 자유이미지와 동일 레이아웃 */}
       {mode === 'idle' && (hovering || resizing || draggingFrame) && (
         <div
           data-toolbar
           style={{
             position: 'absolute',
             left: fx,
-            top: fy - 36,
+            top: fy - 42,
             display: 'flex',
-            gap: 4,
+            gap: 6,
+            alignItems: 'center',
+            backgroundColor: '#1e293b',
+            padding: '6px 10px',
+            borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             zIndex: 30,
+            whiteSpace: 'nowrap',
           }}
         >
           <button
             onClick={(e) => { e.stopPropagation(); setMode('cropping'); }}
+            onMouseDown={(e) => e.stopPropagation()}
             title="크롭 모드 (사진 안쪽만 조정) — 더블클릭으로도 진입"
             style={toolbarBtnStyle('#3b82f6')}
-          >
-            🔍 크롭
-          </button>
+          >🔍 크롭</button>
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+          <button
+            onClick={(e) => { e.stopPropagation(); changeMainLayer('front'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={toolbarBtnStyle('#475569')} title="맨 앞으로"
+          >▲▲ 맨앞</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); changeMainLayer('forward'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={toolbarBtnStyle('#64748b')} title="한 단계 앞으로"
+          >▲ 앞</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); changeMainLayer('backward'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={toolbarBtnStyle('#64748b')} title="한 단계 뒤로"
+          >▼ 뒤</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); changeMainLayer('back'); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={toolbarBtnStyle('#475569')} title="맨 뒤로"
+          >▼▼ 맨뒤</button>
+          <span style={{
+            backgroundColor: '#fbbf24', color: '#1e293b',
+            padding: '2px 6px', borderRadius: 4,
+            fontSize: 10, fontWeight: 900,
+          }}>z{customZ ?? 500}</span>
+          {(hasFrame || crop || override?.src || customZ !== undefined) && (
+            <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+          )}
           {hasFrame && (
             <button
               onClick={(e) => { e.stopPropagation(); onChange({ frame: null }); }}
+              onMouseDown={(e) => e.stopPropagation()}
               title="프레임 크기/위치 초기화"
               style={toolbarBtnStyle('#7c2d12')}
-            >
-              ↺ 프레임
-            </button>
+            >↺ 프레임</button>
           )}
           {crop && (
             <button
               onClick={(e) => { e.stopPropagation(); onChange({ crop: null }); }}
+              onMouseDown={(e) => e.stopPropagation()}
               title="크롭 초기화 (자동 cover로 복원)"
               style={toolbarBtnStyle('#7c2d12')}
-            >
-              ↺ 크롭
-            </button>
+            >↺ 크롭</button>
           )}
           {override?.src && (
             <button
               onClick={(e) => { e.stopPropagation(); onChange({ src: null, crop: null }); }}
+              onMouseDown={(e) => e.stopPropagation()}
               title="원본 사진으로 복원"
               style={toolbarBtnStyle('#dc2626')}
-            >
-              ↺ 사진
-            </button>
+            >↺ 사진</button>
           )}
         </div>
       )}
