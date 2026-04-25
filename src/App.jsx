@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import PageRenderer from './components/PageRenderer.jsx';
 import {
   generateCoupangPage,
@@ -10,6 +10,15 @@ import {
 } from './lib/openai.js';
 import { downloadAsImage, downloadAsHtml } from './lib/exporters.js';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
+import {
+  saveProject,
+  loadProject,
+  clearProject,
+  downloadProjectJSON,
+  readProjectJSONFromFile,
+  getLastSaved,
+  debounce,
+} from './lib/storage.js';
 
 const PAGE_LIST = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10'];
 
@@ -200,6 +209,125 @@ export default function App() {
   }, []);
   useEffect(() => { if (apiKey) localStorage.setItem('openai_api_key', apiKey); }, [apiKey]);
   useEffect(() => { if (model) localStorage.setItem('openai_model', model); }, [model]);
+
+  // ─── 프로젝트 자동 저장/복원 ─────────────────────────
+  const [hydrated, setHydrated] = useState(false);     // 첫 로드 완료 여부
+  const [lastSavedAt, setLastSavedAt] = useState(null); // 마지막 자동 저장 시각
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+
+  // 앱 시작 시 1회 — localStorage + IndexedDB에서 복원
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await loadProject();
+        if (cancelled) return;
+        if (saved) {
+          if (saved.brief) setBrief(saved.brief);
+          if (Array.isArray(saved.images)) setImages(saved.images);
+          if (saved.pages) setPages(saved.pages);
+          if (saved.currentPage) setCurrentPage(saved.currentPage);
+          if (saved.pageVariants) setPageVariants(saved.pageVariants);
+          if (saved.textOverrides) setTextOverrides(saved.textOverrides);
+          if (saved.imageOverrides) setImageOverrides(saved.imageOverrides);
+          if (saved.p5Version) setP5Version(saved.p5Version);
+          if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
+          setLastSavedAt(getLastSaved());
+        }
+      } catch (e) {
+        console.warn('프로젝트 복원 실패:', e);
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 자동 저장 (1초 debounce)
+  const debouncedSaveRef = useRef(null);
+  if (!debouncedSaveRef.current) {
+    debouncedSaveRef.current = debounce(async (snapshot) => {
+      try {
+        setSaveStatus('saving');
+        const { savedAt } = await saveProject(snapshot);
+        setLastSavedAt(savedAt);
+        setSaveStatus('saved');
+        // 2초 후 idle로
+        setTimeout(() => setSaveStatus((s) => (s === 'saved' ? 'idle' : s)), 2000);
+      } catch (e) {
+        console.error('자동 저장 실패:', e);
+        setSaveStatus('error');
+      }
+    }, 1000);
+  }
+
+  // 주요 state가 변할 때마다 debounce 자동 저장
+  useEffect(() => {
+    if (!hydrated) return; // 첫 hydration 전에는 저장하지 않음 (덮어쓰기 방지)
+    debouncedSaveRef.current({
+      brief, images, pages, currentPage, pageVariants,
+      textOverrides, imageOverrides, p5Version, revisionHistory,
+    });
+  }, [hydrated, brief, images, pages, currentPage, pageVariants,
+      textOverrides, imageOverrides, p5Version, revisionHistory]);
+
+  // 수동 내보내기 (JSON 파일로 다운로드)
+  const handleExportProject = useCallback(() => {
+    const productName = (brief.productName || 'project').trim().slice(0, 30).replace(/[^\w가-힣]/g, '_') || 'project';
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = `coupang-${productName}-${stamp}.json`;
+    downloadProjectJSON({
+      brief, images, pages, currentPage, pageVariants,
+      textOverrides, imageOverrides, p5Version, revisionHistory,
+    }, filename);
+  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, p5Version, revisionHistory]);
+
+  // 수동 불러오기 (JSON 파일 입력)
+  const fileInputRef = useRef(null);
+  const handleImportProject = useCallback(async (file) => {
+    try {
+      const data = await readProjectJSONFromFile(file);
+      if (!window.confirm('현재 작업 중인 내용을 모두 덮어쓰고 불러올까요?')) return;
+      // 이미지 (base64) 그대로 setImages → 다음 자동 저장 때 IDB로 옮겨짐
+      if (data.brief) setBrief(data.brief);
+      setImages(Array.isArray(data.images) ? data.images : []);
+      setPages(data.pages || {});
+      setCurrentPage(data.currentPage || 'P1');
+      setPageVariants(data.pageVariants || {});
+      setTextOverrides(data.textOverrides || {});
+      setImageOverrides(data.imageOverrides || {});
+      setP5Version(data.p5Version || 'text');
+      setRevisionHistory(data.revisionHistory || {});
+      alert('✅ 프로젝트를 불러왔습니다.');
+    } catch (e) {
+      alert('❌ 불러오기 실패: ' + e.message);
+    }
+  }, []);
+
+  // 모두 초기화
+  const handleClearAll = useCallback(async () => {
+    if (!window.confirm('모든 입력/이미지/제작 결과를 지우고 처음부터 시작할까요?\n(저장된 데이터도 모두 삭제됩니다.)')) return;
+    if (!window.confirm('정말 초기화하시겠습니까? 되돌릴 수 없습니다.')) return;
+    try {
+      await clearProject();
+    } catch {}
+    // state 리셋
+    setBrief(DEFAULT_BRIEF);
+    setImages([]);
+    setPages({});
+    setCurrentPage('P1');
+    setPageVariants({});
+    setTextOverrides({});
+    setImageOverrides({});
+    setP5Version('text');
+    setRevisionHistory({});
+    setExtractResult(null);
+    setReferenceUrl('');
+    setPastedText('');
+    setError('');
+    setLastSavedAt(null);
+    alert('✅ 초기화되었습니다.');
+  }, []);
 
   // 브리프 수정 헬퍼
   const updateBrief = (patch) => setBrief((b) => ({ ...b, ...patch }));
@@ -532,10 +660,75 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-slate-600">
+            {/* 자동 저장 상태 표시 */}
+            <div className="text-[11px] font-semibold flex items-center gap-1.5" title="작업 내용은 1초마다 브라우저에 자동 저장됩니다.">
+              {saveStatus === 'saving' && (
+                <span style={{ color: '#0ea5e9' }}>💾 저장 중...</span>
+              )}
+              {saveStatus === 'saved' && (
+                <span style={{ color: '#16a34a' }}>✓ 저장됨</span>
+              )}
+              {saveStatus === 'error' && (
+                <span style={{ color: '#dc2626' }}>⚠️ 저장 실패</span>
+              )}
+              {saveStatus === 'idle' && lastSavedAt && (
+                <span style={{ color: '#94a3b8' }}>
+                  {(() => {
+                    const d = new Date(lastSavedAt);
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    return `자동 저장 ${hh}:${mm}`;
+                  })()}
+                </span>
+              )}
+              {saveStatus === 'idle' && !lastSavedAt && (
+                <span style={{ color: '#94a3b8' }}>자동 저장 대기</span>
+              )}
+            </div>
+
+            {/* 프로젝트 관리 버튼 그룹 */}
+            <div className="flex items-center gap-1 border-l pl-3" style={{ borderColor: '#e2ddd4' }}>
+              <button
+                onClick={handleExportProject}
+                title="현재 프로젝트를 JSON 파일로 내보내기 (다른 PC에서도 불러올 수 있음)"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
+              >
+                💾 내보내기
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleImportProject(f);
+                  e.target.value = ''; // 같은 파일 다시 선택 가능하게
+                }}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                title="저장된 JSON 파일을 불러와서 작업 이어가기"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
+              >
+                📂 불러오기
+              </button>
+              <button
+                onClick={handleClearAll}
+                title="모든 입력/이미지/제작 결과 초기화 (되돌릴 수 없음)"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-red-50"
+                style={{ color: '#dc2626', border: '1px solid #fecaca' }}
+              >
+                🗑️ 초기화
+              </button>
+            </div>
+
+            <div className="text-xs font-semibold text-slate-600 border-l pl-3" style={{ borderColor: '#e2ddd4' }}>
               진행률: <span style={{ color: '#C8B6A6' }}>{completedCount}</span> / 10
             </div>
-            <div className="w-40 h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
               <div
                 className="h-full"
                 style={{
