@@ -168,6 +168,11 @@ export default function App() {
   //   slot == null  → 자유 위치 (기존 동작, 자유사진끼리 자유롭게 배치/겹침)
   const [freeImages, setFreeImages] = useState({});
 
+  // 🟦 페이지별 도형 (사각형, 원, 선, 화살표, 하이라이트)
+  // { P1: [{ id, type, x, y, w, h, stroke, strokeWidth, fill, opacity, zIndex }, ...] }
+  // type: 'rect' | 'circle' | 'line' | 'arrow' | 'highlight'
+  const [shapes, setShapes] = useState({});
+
   // 페이지별 레이어 사용자 지정 이름  { P1: { 'free_xxx': '메인꽃병', 'P1.heroImage': '메인사진' } }
   const [layerNames, setLayerNames] = useState({});
 
@@ -259,6 +264,69 @@ export default function App() {
   // 자유 이미지 삭제
   const deleteFreeImage = (pageNum, id) => {
     setFreeImages((prev) => {
+      const list = prev[pageNum] || [];
+      return {
+        ...prev,
+        [pageNum]: list.filter((it) => it.id !== id),
+      };
+    });
+  };
+
+  // ─── 🟦 도형 CRUD ─────────────────────────────────────────────────
+  // 도형 추가 (페이지 가운데 근처에 기본 크기로)
+  const addShape = (pageNum, type) => {
+    setShapes((prev) => {
+      const list = prev[pageNum] || [];
+      const id = 'shape_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+      // 페이지별 본문 baseHeight (도형은 자유 위치라 본문과 안 겹치게 아래쪽에 배치)
+      const PAGE_BASE_HEIGHT = {
+        P1: 1500, P2: 1300, P3: 1450, P4: 1300, P5: 1300,
+        P6: 1300, P7: 1500, P8: 1350, P9: 1300, P10: 1500,
+      };
+      const baseY = (PAGE_BASE_HEIGHT[pageNum] || 1300);
+      // 페이지 폭 780, 가운데 배치
+      const PAGE_W = 780;
+
+      // 종류별 기본 모양
+      const presets = {
+        rect:      { w: 240, h: 160, stroke: '#ef4444', strokeWidth: 4, fill: 'none',          opacity: 1 },
+        circle:    { w: 200, h: 200, stroke: '#ef4444', strokeWidth: 4, fill: 'none',          opacity: 1 },
+        line:      { w: 280, h: 4,   stroke: '#1f2937', strokeWidth: 4, fill: 'none',          opacity: 1 },
+        arrow:     { w: 240, h: 60,  stroke: '#1f2937', strokeWidth: 4, fill: 'none',          opacity: 1 },
+        highlight: { w: 320, h: 80,  stroke: 'none',    strokeWidth: 0, fill: '#fde047',       opacity: 0.5 },
+      };
+      const p = presets[type] || presets.rect;
+
+      // 같은 페이지에 이미 있는 도형들의 가장 아래 끝 + 24px (겹침 방지)
+      const existingMaxBottom = list.reduce(
+        (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
+        0
+      );
+      const y = Math.max(baseY, existingMaxBottom) + 24;
+
+      const newShape = {
+        id, type,
+        x: Math.round((PAGE_W - p.w) / 2),
+        y,
+        ...p,
+        zIndex: 700 + list.length,
+      };
+      return { ...prev, [pageNum]: [...list, newShape] };
+    });
+  };
+
+  const updateShape = (pageNum, id, partial) => {
+    setShapes((prev) => {
+      const list = prev[pageNum] || [];
+      return {
+        ...prev,
+        [pageNum]: list.map((it) => (it.id === id ? { ...it, ...partial } : it)),
+      };
+    });
+  };
+
+  const deleteShape = (pageNum, id) => {
+    setShapes((prev) => {
       const list = prev[pageNum] || [];
       return {
         ...prev,
@@ -441,6 +509,7 @@ export default function App() {
           if (saved.textOverrides) setTextOverrides(saved.textOverrides);
           if (saved.imageOverrides) setImageOverrides(saved.imageOverrides);
           if (saved.freeImages) setFreeImages(saved.freeImages);
+          if (saved.shapes) setShapes(saved.shapes);
           if (saved.layerNames) setLayerNames(saved.layerNames);
           if (saved.p5Version) setP5Version(saved.p5Version);
           if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
@@ -478,10 +547,10 @@ export default function App() {
     if (!hydrated) return; // 첫 hydration 전에는 저장하지 않음 (덮어쓰기 방지)
     debouncedSaveRef.current({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory,
     });
   }, [hydrated, brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory]);
+      textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory]);
 
   // 수동 내보내기 (JSON 파일로 다운로드)
   const handleExportProject = useCallback(() => {
@@ -490,9 +559,9 @@ export default function App() {
     const filename = `coupang-${productName}-${stamp}.json`;
     downloadProjectJSON({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory,
     }, filename);
-  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, layerNames, p5Version, revisionHistory]);
+  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory]);
 
   // 수동 불러오기 (JSON 파일 입력)
   const fileInputRef = useRef(null);
@@ -509,6 +578,7 @@ export default function App() {
       setTextOverrides(data.textOverrides || {});
       setImageOverrides(data.imageOverrides || {});
       setFreeImages(data.freeImages || {});
+      setShapes(data.shapes || {});
       setLayerNames(data.layerNames || {});
       setP5Version(data.p5Version || 'text');
       setRevisionHistory(data.revisionHistory || {});
@@ -2519,6 +2589,10 @@ Q5. / A5.
                   onAddFreeImageToSlot={(slot, src) => addFreeImageToSlot(currentPage, slot, src)}
                   onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
                   onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
+                  shapes={shapes[currentPage] || []}
+                  onAddShape={(type) => addShape(currentPage, type)}
+                  onUpdateShape={(id, partial) => updateShape(currentPage, id, partial)}
+                  onDeleteShape={(id) => deleteShape(currentPage, id)}
                   onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
                   onChangeLayerKind={(kind, id, action, mainLayers) =>
                     changeLayerNormalized(currentPage, kind, id, action, mainLayers)
@@ -2572,8 +2646,13 @@ Q5. / A5.
                 onImageOverrideChange={() => {}}
                 freeImages={freeImages[p] || []}
                 onAddFreeImage={() => {}}
+                onAddFreeImageToSlot={() => {}}
                 onUpdateFreeImage={() => {}}
                 onDeleteFreeImage={() => {}}
+                shapes={shapes[p] || []}
+                onAddShape={() => {}}
+                onUpdateShape={() => {}}
+                onDeleteShape={() => {}}
                 onChangeLayer={() => {}}
                 onChangeLayerKind={() => {}}
                 onReorderLayers={() => {}}

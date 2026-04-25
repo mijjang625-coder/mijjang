@@ -4,6 +4,7 @@ import { PageFrame } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import InlineFreeImage from '../InlineFreeImage.jsx';
+import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 
 // P2: 베네핏 심화 설명 (세로 3섹션, 사진 중심)
@@ -29,6 +30,10 @@ export default function P2Benefits({
   onAddFreeImageToSlot = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  shapes = [],
+  onAddShape = () => {},
+  onUpdateShape = () => {},
+  onDeleteShape = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -55,12 +60,18 @@ export default function P2Benefits({
   // 자유 위치 사진(slot=null)만 freeImageLayer 에 넘겨 absolute 로 그리기
   const freePositioned = freeImages.filter((it) => !it.slot);
 
+  // 도형들의 가장 아래 끝 → 페이지 baseHeight 자동 연장
+  const shapesBottom = (shapes || []).reduce(
+    (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
+    0
+  );
+
   const layer = useFreeImageLayer({
     pageKey: 'P2',
     mainLayers,
     image: images[0],
     allImages,
-    baseHeight: 1700,
+    baseHeight: Math.max(1700, shapesBottom + 80),
     editMode,
     freeImages: freePositioned,
     imageOverrides,
@@ -275,6 +286,17 @@ export default function P2Benefits({
 
       {layer.renderFreeImages()}
       {layer.renderOverlay()}
+
+      {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
+      <ShapeLayer
+        shapes={shapes}
+        editMode={editMode}
+        onAddShape={onAddShape}
+        onUpdateShape={onUpdateShape}
+        onDeleteShape={onDeleteShape}
+        activeLayerId={activeLayerId}
+        onSetActiveLayer={onSetActiveLayer}
+      />
     </PageFrame>
   );
 }

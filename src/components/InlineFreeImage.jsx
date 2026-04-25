@@ -16,6 +16,16 @@ import { useEffect, useRef, useState } from 'react';
  *   canMoveUp, canMoveDown — 끝점일 때 비활성
  *   replaceImages: string[] — 교체 가능한 사진 후보
  */
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 4.0;
+
+function coverSize(boxW, boxH, natW = 1, natH = 1) {
+  const boxRatio = boxW / boxH;
+  const imgRatio = natW / natH;
+  if (imgRatio > boxRatio) return { w: boxH * imgRatio, h: boxH };
+  return { w: boxW, h: boxW / imgRatio };
+}
+
 export default function InlineFreeImage({
   item,
   editMode = false,
@@ -33,8 +43,91 @@ export default function InlineFreeImage({
   const [resizing, setResizing] = useState(null);
   const [showAdjust, setShowAdjust] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
+  // 🔍 크롭 모드 (더블클릭 진입)
+  const [mode, setMode] = useState('idle'); // 'idle' | 'cropping'
+  const [draggingCrop, setDraggingCrop] = useState(null);
+  const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });
 
-  const { id, src, w = 700, h = 460, adjust, align = 'center' } = item;
+  const { id, src, w = 700, h = 460, adjust, align = 'center', crop } = item;
+
+  // 크롭 계산 (FreeImage와 동일한 패턴)
+  const cover = coverSize(w, h, imgNatural.w, imgNatural.h);
+  const rawScale = crop?.scale ?? 1.0;
+  const currentScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, rawScale));
+  const imgInnerW = cover.w * currentScale;
+  const imgInnerH = cover.h * currentScale;
+  const offsetX = (crop?.offsetXR ?? 0) * w;
+  const offsetY = (crop?.offsetYR ?? 0) * h;
+
+  const handleImgLoad = (e) => {
+    setImgNatural({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 });
+  };
+
+  const clampOffset = (ox, oy, _imgW = imgInnerW, _imgH = imgInnerH) => {
+    const maxOx = Math.max(0, (_imgW - w) / 2);
+    const maxOy = Math.max(0, (_imgH - h) / 2);
+    return {
+      x: Math.max(-maxOx, Math.min(maxOx, ox)),
+      y: Math.max(-maxOy, Math.min(maxOy, oy)),
+    };
+  };
+
+  const handleCropDragStart = (e) => {
+    if (mode !== 'cropping') return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingCrop({
+      startX: e.clientX,
+      startY: e.clientY,
+      sox: offsetX,
+      soy: offsetY,
+    });
+  };
+
+  useEffect(() => {
+    if (!draggingCrop) return;
+    const onMove = (e) => {
+      const dx = e.clientX - draggingCrop.startX;
+      const dy = e.clientY - draggingCrop.startY;
+      const c = clampOffset(draggingCrop.sox + dx, draggingCrop.soy + dy);
+      onUpdate({
+        crop: {
+          scale: currentScale,
+          offsetXR: w > 0 ? c.x / w : 0,
+          offsetYR: h > 0 ? c.y / h : 0,
+        },
+      });
+    };
+    const onUp = () => setDraggingCrop(null);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingCrop, w, h, currentScale, imgInnerW, imgInnerH]);
+
+  const handleScaleChange = (newScale) => {
+    const newImgW = cover.w * newScale;
+    const newImgH = cover.h * newScale;
+    const c = clampOffset(offsetX, offsetY, newImgW, newImgH);
+    onUpdate({
+      crop: {
+        scale: newScale,
+        offsetXR: w > 0 ? c.x / w : 0,
+        offsetYR: h > 0 ? c.y / h : 0,
+      },
+    });
+  };
+
+  // ESC: 크롭 모드 종료
+  useEffect(() => {
+    if (mode !== 'cropping') return;
+    const onKey = (e) => { if (e.key === 'Escape') setMode('idle'); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode]);
 
   const adj = {
     brightness: adjust?.brightness ?? 100,
@@ -45,17 +138,18 @@ export default function InlineFreeImage({
   const cssFilter = `brightness(${adj.brightness}%) contrast(${adj.contrast}%) saturate(${adj.saturate}%) hue-rotate(${adj.hue}deg)`;
   const isAdjusted = adj.brightness !== 100 || adj.contrast !== 100 || adj.saturate !== 100 || adj.hue !== 0;
 
-  // 외부 클릭 시 패널 닫기
+  // 외부 클릭 시 패널/크롭 닫기
   useEffect(() => {
-    if (!showAdjust && !showReplace) return;
+    if (!showAdjust && !showReplace && mode !== 'cropping') return;
     const onDoc = (e) => {
       if (wrapRef.current?.contains(e.target)) return;
       setShowAdjust(false);
       setShowReplace(false);
+      setMode('idle');
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
-  }, [showAdjust, showReplace]);
+  }, [showAdjust, showReplace, mode]);
 
   // 세로 리사이즈 — 너비는 컨테이너에 고정, 높이만 사용자가 조절
   const handleResizeStart = (e, edge) => {
@@ -100,6 +194,14 @@ export default function InlineFreeImage({
           e.stopPropagation();
           if (editMode) onActivate();
         }}
+        onDoubleClick={(e) => {
+          // 🔍 더블클릭 → 크롭 모드 진입
+          if (!editMode) return;
+          e.stopPropagation();
+          e.preventDefault();
+          onActivate();
+          setMode('cropping');
+        }}
         style={{
           position: 'relative',
           width: w,
@@ -108,10 +210,15 @@ export default function InlineFreeImage({
           borderRadius: 16,
           overflow: 'hidden',
           backgroundColor: '#e8e5e1',
-          outline: editMode && isActive ? '2px solid #3b82f6' : 'none',
+          outline:
+            mode === 'cropping' ? '2px solid #f97316'
+            : editMode && isActive ? '2px solid #3b82f6'
+            : 'none',
           outlineOffset: 2,
           boxShadow: editMode && isActive ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
-          cursor: editMode ? 'pointer' : 'default',
+          cursor: editMode
+            ? (mode === 'cropping' ? (draggingCrop ? 'grabbing' : 'grab') : 'pointer')
+            : 'default',
         }}
       >
         <img
@@ -119,13 +226,21 @@ export default function InlineFreeImage({
           alt=""
           crossOrigin="anonymous"
           draggable={false}
+          onLoad={handleImgLoad}
+          onMouseDown={mode === 'cropping' ? handleCropDragStart : undefined}
           style={{
-            width: '100%',
-            height: '100%',
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            // 크롭 데이터가 있으면 cover.w*scale 크기로, 없으면 컨테이너 가득
+            width: imgInnerW > 0 ? imgInnerW : '100%',
+            height: imgInnerH > 0 ? imgInnerH : '100%',
+            maxWidth: 'none',
+            transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
             objectFit: 'cover',
             display: 'block',
             userSelect: 'none',
-            pointerEvents: 'none',
+            pointerEvents: mode === 'cropping' ? 'auto' : 'none',
             filter: cssFilter,
           }}
         />
@@ -171,8 +286,8 @@ export default function InlineFreeImage({
         )}
       </div>
 
-      {/* 툴바 — 활성 + 편집모드 */}
-      {editMode && isActive && (
+      {/* idle 툴바 — 활성 + 편집모드 + 크롭모드 아닐 때 */}
+      {editMode && isActive && mode === 'idle' && (
         <div
           data-inline-toolbar
           onMouseDown={(e) => e.stopPropagation()}
@@ -188,6 +303,10 @@ export default function InlineFreeImage({
             zIndex: 30, whiteSpace: 'nowrap',
           }}
         >
+          {/* 🔍 크롭 모드 진입 */}
+          <button onClick={() => setMode('cropping')}
+            style={tBtn('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)">🔍 크롭</button>
+          <span style={sep} />
           <button onClick={onMoveUp} disabled={!canMoveUp}
             style={tBtn(canMoveUp ? '#475569' : '#334155')} title="위로">▲</button>
           <button onClick={onMoveDown} disabled={!canMoveDown}
@@ -234,6 +353,43 @@ export default function InlineFreeImage({
             style={tBtn('#dc2626')}
             title="삭제"
           >🗑</button>
+        </div>
+      )}
+
+      {/* 🔍 크롭 모드 툴바 */}
+      {editMode && isActive && mode === 'cropping' && (
+        <div
+          data-inline-toolbar
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: -50,
+            transform: 'translateX(-50%)',
+            display: 'flex', gap: 8, alignItems: 'center',
+            backgroundColor: '#1e293b', padding: '8px 12px',
+            borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+            zIndex: 40, whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>확대:</span>
+          <input
+            type="range" min={MIN_SCALE} max={MAX_SCALE} step="0.05"
+            value={currentScale}
+            onChange={(e) => handleScaleChange(parseFloat(e.target.value))}
+            style={{ width: 130, accentColor: '#f97316' }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="50% ~ 400%"
+          />
+          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700, minWidth: 40 }}>
+            {Math.round(currentScale * 100)}%
+          </span>
+          <span style={sep} />
+          <button onClick={() => onUpdate({ crop: null })}
+            style={tBtn('#7c2d12')} title="크롭 초기화 (확대/위치 리셋)">↺ 크롭만</button>
+          <button onClick={() => setMode('idle')}
+            style={tBtn('#16a34a')} title="크롭 모드 종료 (ESC)">✓ 완료</button>
         </div>
       )}
 
