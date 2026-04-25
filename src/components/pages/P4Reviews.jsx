@@ -63,7 +63,7 @@ export default function P4Reviews({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
+      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
         <div style={{ padding: '50px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P4.sectionTitle')}
@@ -116,7 +116,7 @@ export default function P4Reviews({
                 </div>
                 <div style={{
                   backgroundColor: BRAND.colors.sub, position: 'relative',
-                  pointerEvents: editMode ? 'none' : 'auto',
+                  pointerEvents: 'auto',
                   zIndex: z,
                 }}>
                   <EditableImage

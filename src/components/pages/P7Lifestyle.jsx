@@ -59,7 +59,7 @@ export default function P7Lifestyle({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
+      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
         <div style={{ padding: '60px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P7.title')}
@@ -97,7 +97,7 @@ export default function P7Lifestyle({
               <div key={i}>
                 <div style={{
                   position: 'relative',
-                  pointerEvents: editMode ? 'none' : 'auto',
+                  pointerEvents: 'auto',
                   zIndex: z,
                   borderRadius: 18,
                 }}>

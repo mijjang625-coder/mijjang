@@ -68,7 +68,7 @@ export default function P6Material({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-    <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
+    <div style={{ position: 'relative', pointerEvents: 'auto' }}>
       {/* 상단 — 소재 */}
       <div style={{ padding: '50px 40px 30px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <EditableText
@@ -88,7 +88,7 @@ export default function P6Material({
         </EditableText>
         <div style={{
           marginTop: 24, position: 'relative',
-          pointerEvents: editMode ? 'none' : 'auto',
+          pointerEvents: 'auto',
           zIndex: imageOverrides[matId]?.zIndex ?? 1,
         }}>
           <EditableImage
@@ -195,7 +195,7 @@ export default function P6Material({
         </EditableText>
         <div style={{
           marginTop: 22, position: 'relative',
-          pointerEvents: editMode ? 'none' : 'auto',
+          pointerEvents: 'auto',
           zIndex: imageOverrides[sizeId]?.zIndex ?? 2,
         }}>
           <EditableImage

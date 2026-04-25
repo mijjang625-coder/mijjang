@@ -189,7 +189,7 @@ export default function P5Compare({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: editMode ? 'none' : 'auto' }}>
+      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
       <div style={{ padding: '50px 40px 24px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <EditableText
           {...editPropsFor('P5.headline')}
@@ -281,7 +281,7 @@ export default function P5Compare({
                     backgroundColor: '#fff',
                     boxShadow: '0 2px 8px rgba(200,182,166,0.25)',
                     position: 'relative',
-                    pointerEvents: editMode ? 'none' : 'auto',
+                    pointerEvents: 'auto',
                     zIndex: imageOverrides[mainImgId]?.zIndex ?? 1,
                   }}
                 >

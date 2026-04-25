@@ -68,7 +68,7 @@ export default function P3Target({
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
       <div style={{
         display: 'flex', flexDirection: 'column', minHeight: 1200, width: '100%',
-        position: 'relative', pointerEvents: editMode ? 'none' : 'auto',
+        position: 'relative', pointerEvents: 'auto',
       }}>
         {/* 1) 상단 타이틀 박스 */}
         <div style={{ padding: '40px 40px 16px', textAlign: 'center', flexShrink: 0, pointerEvents: editMode ? 'auto' : 'inherit' }}>
@@ -103,7 +103,7 @@ export default function P3Target({
         >
           <div style={{
             position: 'relative', width: 560, height: 560,
-            pointerEvents: editMode ? 'none' : 'auto',
+            pointerEvents: 'auto',
             zIndex: mainZ,
           }}>
             <div

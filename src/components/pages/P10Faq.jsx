@@ -211,7 +211,7 @@ export default function P10Faq({
 
         <div style={{
           marginTop: 26, position: 'relative',
-          pointerEvents: editMode ? 'none' : 'auto',
+          pointerEvents: 'auto',
           zIndex: imageOverrides[mainImgId]?.zIndex ?? 1,
         }}>
           <EditableImage
