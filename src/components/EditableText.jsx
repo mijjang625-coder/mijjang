@@ -16,6 +16,8 @@ import { FONT_PRESETS } from '../lib/theme.js';
  *   - className, style: 추가 CSS
  *   - draggable: 드래그 허용 여부 (기본 true)
  */
+const DRAG_THRESHOLD = 5; // px — 이 이상 움직여야 실제 드래그로 인식
+
 export default function EditableText({
   id,
   defaultStyle = {},
@@ -33,10 +35,11 @@ export default function EditableText({
   const [isEditing, setIsEditing] = useState(false);
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
+  const [hovering, setHovering] = useState(false);
 
   // 드래그 상태
   const [dragging, setDragging] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0 });
+  const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0, active: false, started: false });
 
   // 현재 적용할 값 (override가 있으면 우선)
   const mergedText = override?.text !== undefined ? override.text : children;
@@ -53,19 +56,16 @@ export default function EditableText({
   }
 
   // 툴바 위치 계산 — viewport 기준 (position: fixed)
-  // 텍스트 위쪽에 공간이 충분하면 위에, 부족하면 아래에 표시
   const updateToolbarPos = () => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const TOOLBAR_HEIGHT = 44;
-    const TOOLBAR_WIDTH = 460; // 대략적인 툴바 너비
+    const TOOLBAR_WIDTH = 460;
     const margin = 8;
 
-    // 위쪽 공간이 부족하면 텍스트 아래에 표시
     const showBelow = rect.top < TOOLBAR_HEIGHT + margin;
     const top = showBelow ? rect.bottom + margin : rect.top - TOOLBAR_HEIGHT - margin;
 
-    // 가로는 텍스트 좌측에 맞추되, 화면 밖으로 나가지 않게 보정
     let left = rect.left;
     const maxLeft = window.innerWidth - TOOLBAR_WIDTH - margin;
     if (left > maxLeft) left = maxLeft;
@@ -80,11 +80,9 @@ export default function EditableText({
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
-    // contentEditable 활성화 후 포커스
     setTimeout(() => {
       if (ref.current) {
         ref.current.focus();
-        // 전체 선택
         const range = document.createRange();
         range.selectNodeContents(ref.current);
         const sel = window.getSelection();
@@ -103,14 +101,18 @@ export default function EditableText({
         onChange({ text: newText });
       }
     }
-    // 툴바는 유지 (blur 시 스타일 변경도 가능)
   };
 
-  // 클릭 (편집 모드에서 단일 클릭) → 툴바만 표시
+  // 클릭 (편집 모드에서 단일 클릭) → 툴바 토글 표시
   const handleClick = (e) => {
-    if (isEditing) return; // 편집 중이면 무시
+    if (isEditing) return;
+    // 드래그가 실제로 발생했었다면 클릭을 무시
+    if (dragStart.current.started) {
+      dragStart.current.started = false;
+      return;
+    }
     e.stopPropagation();
-    setShowToolbar((s) => !s);
+    setShowToolbar(true);
     updateToolbarPos();
   };
 
@@ -127,28 +129,33 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showToolbar]);
 
-  // ─────────── 드래그 이동 ───────────
+  // ─────────── 드래그 이동 (임계값 기반) ───────────
   const handleMouseDown = (e) => {
     if (isEditing) return;
     if (!draggable) return;
-    // 툴바 영역 클릭은 제외
     if (e.target.closest('[data-toolbar]')) return;
-    e.preventDefault();
-    e.stopPropagation();
+    // preventDefault 하지 않음 (클릭 이벤트가 살아있어야 함)
     dragStart.current = {
       x: e.clientX,
       y: e.clientY,
       baseX: offset.x || 0,
       baseY: offset.y || 0,
+      active: true,
+      started: false,
     };
-    setDragging(true);
   };
 
   useEffect(() => {
-    if (!dragging) return;
     const handleMove = (e) => {
+      if (!dragStart.current.active) return;
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
+      // 임계값 넘기 전엔 단순 클릭으로 간주
+      if (!dragStart.current.started) {
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        dragStart.current.started = true;
+        setDragging(true);
+      }
       onChange({
         offset: {
           x: dragStart.current.baseX + dx,
@@ -156,7 +163,15 @@ export default function EditableText({
         },
       });
     };
-    const handleUp = () => setDragging(false);
+    const handleUp = () => {
+      if (dragStart.current.active) {
+        dragStart.current.active = false;
+        // started=true면 click handler가 자기 자신을 무시하도록 잠시 유지
+        if (dragStart.current.started) {
+          setDragging(false);
+        }
+      }
+    };
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
     return () => {
@@ -164,7 +179,7 @@ export default function EditableText({
       window.removeEventListener('mouseup', handleUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dragging]);
+  }, []);
 
   // 툴바에서 스타일 변경
   const applyStyle = (partial) => {
@@ -173,6 +188,12 @@ export default function EditableText({
   };
 
   const resetStyle = () => onChange({ style: {}, offset: { x: 0, y: 0 } });
+
+  // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
+  let outlineStyle = '1px dashed rgba(96,165,250,0.45)'; // 기본 (어디가 편집 가능한지 표시)
+  if (hovering) outlineStyle = '2px dashed #60a5fa';
+  if (showToolbar) outlineStyle = '2px dashed #3b82f6';
+  if (isEditing) outlineStyle = '2px solid #2563eb';
 
   return (
     <>
@@ -185,27 +206,26 @@ export default function EditableText({
         onClick={handleClick}
         onBlur={finishEditing}
         onMouseDown={handleMouseDown}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault();
             ref.current?.blur();
           }
         }}
+        title={isEditing ? '편집 중 (ESC로 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
         style={{
           ...mergedStyle,
           ...style,
           transform: `translate(${offset.x}px, ${offset.y}px)`,
-          outline: isEditing
-            ? '2px solid #3b82f6'
-            : showToolbar
-            ? '2px dashed #60a5fa'
-            : 'none',
+          outline: outlineStyle,
           outlineOffset: 2,
-          cursor: isEditing ? 'text' : draggable ? 'move' : 'pointer',
+          cursor: isEditing ? 'text' : 'pointer',
           position: 'relative',
           userSelect: isEditing ? 'text' : 'none',
-          // 편집 모드에서만 호버 표시
-          boxShadow: showToolbar && !isEditing ? '0 0 0 2px rgba(96,165,250,0.2)' : undefined,
+          backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
+          transition: 'background-color 0.15s, outline-color 0.15s',
         }}
       >
         {mergedText || placeholder}
@@ -243,10 +263,11 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
         padding: '6px 8px',
         backgroundColor: '#1e293b',
         borderRadius: 8,
-        boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
+        boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
         fontSize: 12,
         color: '#fff',
         whiteSpace: 'nowrap',
+        alignItems: 'center',
       }}
     >
       {/* 폰트 선택 */}
@@ -272,7 +293,7 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
       >
         A−
       </button>
-      <span style={{ padding: '4px 2px', minWidth: 24, textAlign: 'center' }}>
+      <span style={{ padding: '4px 2px', minWidth: 28, textAlign: 'center', fontWeight: 700 }}>
         {currentFontSize}
       </span>
       <button
@@ -308,8 +329,8 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
           defaultValue={currentStyle?.color || '#2F2A26'}
           onChange={(e) => onApply({ color: e.target.value })}
           style={{
-            width: 24,
-            height: 24,
+            width: 26,
+            height: 26,
             border: 'none',
             padding: 0,
             background: 'transparent',
@@ -350,20 +371,21 @@ const toolbarBtnStyle = {
   background: '#334155',
   color: '#fff',
   border: 'none',
-  padding: '4px 8px',
+  padding: '5px 9px',
   borderRadius: 4,
   cursor: 'pointer',
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 700,
+  lineHeight: 1,
 };
 
 const toolbarSelectStyle = {
   background: '#334155',
   color: '#fff',
   border: 'none',
-  padding: '4px 6px',
+  padding: '5px 6px',
   borderRadius: 4,
   cursor: 'pointer',
   fontSize: 11,
-  maxWidth: 100,
+  maxWidth: 110,
 };
