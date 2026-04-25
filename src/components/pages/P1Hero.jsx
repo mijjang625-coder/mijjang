@@ -179,14 +179,11 @@ export default function P1Hero({
         )}
         <div
           data-edit-image
-          onMouseDown={editMode ? () => activateLayer('main', 'P1.heroImage') : undefined}
           style={{
             marginTop: 36,
             pointerEvents: 'auto',
             position: 'relative',
             zIndex: mainZ,
-            outline: editMode && mainActive ? '2px solid #f59e0b' : 'none',
-            outlineOffset: 4,
             borderRadius: 22,
           }}
         >
@@ -199,6 +196,8 @@ export default function P1Hero({
             override={imageOverrides['P1.heroImage'] || {}}
             onChange={(partial) => onImageOverrideChange('P1.heroImage', partial)}
             availableImages={allImages.filter(Boolean)}
+            isActive={editMode ? mainActive : null}
+            onActivate={() => activateLayer('main', 'P1.heroImage')}
             onLayerAction={(action) => handleLayerAction({ kind: 'main', id: 'P1.heroImage' }, action)}
           />
         </div>

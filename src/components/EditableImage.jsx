@@ -81,6 +81,9 @@ export default function EditableImage({
   availableImages = [],
   alt = '',
   onLayerAction = null, // (action) => void; 지정 시 정규화 레이어 시스템에 위임
+  // 활성 레이어 제어 — null이면 기존 hover 기반 동작, 명시되면 활성일 때만 툴바/외곽선 표시
+  isActive = null,
+  onActivate = null,
 }) {
   const wrapperRef = useRef(null);
   const frameRef = useRef(null);
@@ -491,7 +494,10 @@ export default function EditableImage({
       {/* 프레임 박스 */}
       <div
         ref={frameRef}
-        onMouseDown={handleFrameDragStart}
+        onMouseDown={(e) => {
+          if (editMode && typeof onActivate === 'function') onActivate();
+          handleFrameDragStart(e);
+        }}
         onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
         style={{
@@ -507,9 +513,11 @@ export default function EditableImage({
           outline:
             mode === 'cropping'
               ? '2px solid #f97316'
-              : hovering || resizing || draggingFrame
-              ? '2px dashed #3b82f6'
-              : '1px dashed rgba(96,165,250,0.45)',
+              : (isActive !== null
+                  ? (isActive ? '2px solid #3b82f6' : 'none')
+                  : (hovering || resizing || draggingFrame
+                      ? '2px dashed #3b82f6'
+                      : '1px dashed rgba(96,165,250,0.45)')),
           outlineOffset: 2,
           cursor:
             mode === 'cropping'
@@ -555,8 +563,8 @@ export default function EditableImage({
         )}
       </div>
 
-      {/* A모드 핸들 */}
-      {mode === 'idle' && (hovering || resizing || draggingFrame) &&
+      {/* A모드 핸들 — isActive 명시되면 활성일 때만 표시 */}
+      {mode === 'idle' && (isActive !== null ? isActive : (hovering || resizing || draggingFrame)) &&
         HANDLES.map((h) => {
           const style = {
             position: 'absolute',
@@ -588,8 +596,8 @@ export default function EditableImage({
           );
         })}
 
-      {/* 좌상단 툴바 (idle) — 자유이미지와 동일 레이아웃 */}
-      {mode === 'idle' && (hovering || resizing || draggingFrame) && (
+      {/* 좌상단 툴바 (idle) — 자유이미지와 동일 레이아웃, isActive 우선 */}
+      {mode === 'idle' && (isActive !== null ? isActive : (hovering || resizing || draggingFrame)) && (
         <div
           data-toolbar
           style={{
@@ -670,7 +678,7 @@ export default function EditableImage({
       )}
 
       {/* 크기 표시 */}
-      {mode === 'idle' && hasFrame && (hovering || resizing || draggingFrame) && (
+      {mode === 'idle' && hasFrame && (isActive !== null ? isActive : (hovering || resizing || draggingFrame)) && (
         <div
           style={{
             position: 'absolute',

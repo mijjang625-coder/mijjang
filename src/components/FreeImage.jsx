@@ -294,8 +294,10 @@ export default function FreeImage({
   }, [showReplace]);
 
   // ─── 렌더 ──────────────────────
-  const showHandles = editMode && (selected || hovering || resizing) && mode === 'idle';
-  const showToolbar = editMode && (selected || hovering) && mode === 'idle';
+  // 핸들/툴바는 "활성 레이어"일 때만 표시 (호버만 했다고 보이지 않음)
+  // 단, 크롭모드는 이미 활성 상태로 들어온 것이므로 별도 처리
+  const showHandles = editMode && isActive && mode === 'idle';
+  const showToolbar = editMode && isActive && mode === 'idle';
 
   // 툴바 위치: 박스가 페이지 상단에 있으면 박스 아래에 표시
   const toolbarBelow = y < 50;
@@ -325,10 +327,11 @@ export default function FreeImage({
           : 'default',
         zIndex,
         userSelect: 'none',
-        boxShadow: editMode && (selected || isActive) ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
+        boxShadow: editMode && isActive ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
       }}
     >
       {/* 내부 클리핑 컨테이너 (사진 자르기 + 둥근 모서리) */}
+      {/* 외곽선은 활성 레이어이거나 크롭 모드일 때만 표시 — 화면 깔끔하게 */}
       <div
         style={{
           position: 'absolute',
@@ -338,9 +341,7 @@ export default function FreeImage({
           borderRadius: FREE_RADIUS,
           outline:
             mode === 'cropping' ? '2px solid #f97316'
-            : selected ? '2px solid #3b82f6'
-            : (hovering && editMode) ? '2px dashed #3b82f6'
-            : editMode ? '1px dashed rgba(96,165,250,0.5)'
+            : (editMode && isActive) ? '2px solid #3b82f6'
             : 'none',
           outlineOffset: 1,
         }}
