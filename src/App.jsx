@@ -1231,24 +1231,153 @@ export default function App() {
                 </div>
 
                 <Field label="② 🔑 내가 직접 쓴 메모 (최우선 적용)">
+                  <div className="flex gap-1.5 mb-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const template = `[제품명] 
+
+[제품 종류] (청소도구형/수납형/욕실위생형/주방정리형/소모품형/생활보조형/인테리어소품형 중 택1)
+
+[소재] 
+
+[사이즈/스펙] (가로 ○cm, 세로 ○cm, 높이 ○cm, 무게 ○g, 용량 ○L 등 구체 수치)
+
+[색상] 
+
+[모델명] 
+
+[강점 3가지] (P1·P2에 사용)
+1. 
+2. 
+3. 
+
+[타깃 고객 3가지] (P3에 사용 - 한 문장씩)
+1. 
+2. 
+3. 
+
+[리뷰 4개] (P4에 사용)
+1. 닉네임: / 날짜(YYYY-MM-DD): / 후기: 
+2. 닉네임: / 날짜: / 후기: 
+3. 닉네임: / 날짜: / 후기: 
+4. 닉네임: / 날짜: / 후기: 
+
+[차별점 4가지] (P5 비교표용 - 우리 제품 vs 일반 제품)
+1. 
+2. 
+3. 
+4. 
+
+[소재/원료 상세 설명] (P6에 사용)
+
+
+[활용법 4가지] (P7·P8에 사용)
+1. 
+2. 
+3. 
+4. 
+
+[사용 순서 3단계] (P9에 사용)
+1단계: 
+2단계: 
+3단계: 
+
+[FAQ 5개] (P10에 사용)
+Q1. 
+A1. 
+Q2. 
+A2. 
+Q3. 
+A3. 
+Q4. 
+A4. 
+Q5. 
+A5. 
+
+[기타 참고사항] (브랜드/원산지/인증 등)
+`;
+                        setUserNotes(template);
+                      }}
+                      className="px-2 py-1 rounded text-[10px] font-bold border"
+                      style={{ backgroundColor: '#fef3c7', borderColor: '#fbbf24', color: '#92400e' }}
+                    >
+                      📋 빈 양식 불러오기 (P1~P10)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const aiPrompt = `아래 양식의 [ ] 안 빈칸을 모두 채워줘. 한국 쿠팡 상세페이지 제작용이야. 과장 없이 자연스럽게.
+
+[제품명] (30자 이내, 핵심 키워드 중심)
+[제품 종류] (청소도구형/수납형/욕실위생형/주방정리형/소모품형/생활보조형/인테리어소품형 중 택1)
+[소재] 
+[사이즈/스펙] (구체 수치 포함)
+[색상] 
+[모델명] 
+
+[강점 3가지]
+1. 
+2. 
+3. 
+
+[타깃 고객 3가지] (한 문장씩)
+1. 
+2. 
+3. 
+
+[리뷰 4개]
+1. 닉네임: / 날짜(YYYY-MM-DD): / 후기:
+2. 닉네임: / 날짜: / 후기:
+3. 닉네임: / 날짜: / 후기:
+4. 닉네임: / 날짜: / 후기:
+
+[차별점 4가지]
+1. 
+2. 
+3. 
+4. 
+
+[소재/원료 상세 설명]
+
+[활용법 4가지]
+1. 
+2. 
+3. 
+4. 
+
+[사용 순서 3단계]
+1단계: 
+2단계: 
+3단계: 
+
+[FAQ 5개]
+Q1. / A1.
+Q2. / A2.
+Q3. / A3.
+Q4. / A4.
+Q5. / A5.
+
+[기타 참고사항] (브랜드/원산지/인증 등)`;
+                        navigator.clipboard.writeText(aiPrompt);
+                        alert('✅ AI 프롬프트가 복사되었습니다!\n\nChatGPT 등에 붙여넣고 답변을 받은 뒤,\n그 답변을 다시 이 칸에 붙여넣어주세요.');
+                      }}
+                      className="px-2 py-1 rounded text-[10px] font-bold border"
+                      style={{ backgroundColor: '#dbeafe', borderColor: '#60a5fa', color: '#1e40af' }}
+                    >
+                      🤖 AI에 보낼 프롬프트 복사
+                    </button>
+                  </div>
                   <textarea
                     value={userNotes}
                     onChange={(e) => setUserNotes(e.target.value)}
-                    placeholder={`예시) 메모장이나 엑셀에서 자유롭게 복사해서 붙여넣으세요.
+                    placeholder={`✏️ 위 [📋 빈 양식 불러오기] 버튼을 눌러 양식을 불러온 뒤 빈칸을 채우거나,
+[🤖 AI 프롬프트 복사] 버튼으로 복사된 양식을 ChatGPT에 보내고 받은 답변을 여기에 붙여넣으세요.
 
-[제품명] 프랑스 중간 유리 꽃병
-[강점]
-- 무드있는 디자인
-- 깨지지 않는 소재
-- 다양한 사이즈
-[활용법]
-- 거실 인테리어
-- 결혼식 장식
-[사이즈] 가로 20cm, 세로 30cm
-[FAQ] 세척 방법은? → 미온수로 부드럽게 닦아주세요`}
-                    rows={8}
+또는 메모장·엑셀·카톡에서 자유 형식으로 복사·붙여넣기 OK`}
+                    rows={10}
                     className="input text-[11px]"
-                    style={{ resize: 'vertical', minHeight: '140px', backgroundColor: '#fffbeb' }}
+                    style={{ resize: 'vertical', minHeight: '180px', backgroundColor: '#fffbeb' }}
                   />
                 </Field>
                 <div
