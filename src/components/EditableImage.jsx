@@ -460,14 +460,21 @@ export default function EditableImage({
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
   if (!editMode) {
     const hasFrame = !!frame;
-    // 🆕 부모 너비 대비 frame이 너무 크면 비율 유지하며 자동 축소 (모바일 미리보기 대응)
-    // ResizeObserver 로 추적한 parentWidth state 사용 — 부모 크기 변경 시 자동 리렌더
-    const needsShrink = hasFrame && parentWidth > 0 && frame.width > parentWidth;
-    const shrinkRatio = needsShrink ? parentWidth / frame.width : 1;
-    const renderedW = hasFrame ? frame.width * shrinkRatio : null;
-    const renderedH = hasFrame ? frame.height * shrinkRatio : null;
-    const renderedX = hasFrame ? frame.x * shrinkRatio : 0;
-    const renderedY = hasFrame ? frame.y * shrinkRatio : 0;
+    // 🆕 모바일/미리보기 자동 적응:
+    //  - frame.width 가 부모 너비보다 크면 → 비율 유지하며 축소 (모바일에서 잘림 방지)
+    //  - frame.width 가 부모 너비보다 작으면 → 비율 유지하며 확장 (사진이 카드 가득 차도록)
+    //  → 결과: 편집 OFF (미리보기/모바일/내보내기) 에서는 항상 부모 너비를 가득 채움
+    //  사용자가 PC 편집모드에서 frame 으로 의도적으로 작게 만들었더라도, 미리보기에서는
+    //  카드를 가득 채우는 게 시각적으로 더 자연스럽다.
+    let scaleRatio = 1;
+    if (hasFrame && parentWidth > 0 && frame.width > 0) {
+      scaleRatio = parentWidth / frame.width;
+    }
+    const renderedW = hasFrame ? frame.width * scaleRatio : null;
+    const renderedH = hasFrame ? frame.height * scaleRatio : null;
+    const renderedX = hasFrame ? frame.x * scaleRatio : 0;
+    const renderedY = hasFrame ? frame.y * scaleRatio : 0;
+    const shrinkRatio = scaleRatio; // 아래 img 스타일에서 사용
     return (
       <div
         ref={wrapperRef}
