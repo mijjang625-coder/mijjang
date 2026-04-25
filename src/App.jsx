@@ -18,6 +18,10 @@ import { CheckIcon as CheckIconPreview } from './components/pages/Shared.jsx';
 import ReviewAnalyzer from './components/ReviewAnalyzer.jsx';
 import CompetitorAnalyzer from './components/CompetitorAnalyzer.jsx';
 import AISynthesisFloatingButton from './components/AISynthesisFloatingButton.jsx';
+import Section from './components/ui/Section.jsx';
+import Field from './components/ui/Field.jsx';
+import InfoCard from './components/ui/InfoCard.jsx';
+import ScaledHeightWrap from './components/ui/ScaledHeightWrap.jsx';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 import {
   saveProject,
@@ -3078,101 +3082,3 @@ Q5. / A5.
   );
 }
 
-// 📱 모바일 미리보기용 스케일 래퍼
-// CSS transform: scale 은 시각만 축소하고 box width/height 는 원본(780)을 유지하므로,
-// 부모 컨테이너에 빈 공간이 생긴다. 자식 height 를 측정해서 자체 height 에
-// scale 곱한 값을 부여하여 실제 차지하는 공간도 비례 축소되도록 한다.
-// width 는 base(780) * scale 로 고정 — 모바일 폰 프레임 안에 정확히 들어맞도록.
-function ScaledHeightWrap({ children, scale, baseWidth = 780 }) {
-  const innerRef = useRef(null);
-  const [innerH, setInnerH] = useState(0);
-  useEffect(() => {
-    if (!innerRef.current) return;
-    const el = innerRef.current;
-    const update = () => setInnerH(el.scrollHeight || el.offsetHeight || 0);
-    update();
-    // 콘텐츠가 동적으로 자라는 경우 대응 (이미지 로드/추가 등)
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [children]);
-  return (
-    <div style={{
-      width: baseWidth * scale,
-      height: innerH * scale,
-      overflow: 'hidden',
-    }}>
-      <div
-        ref={innerRef}
-        style={{
-          width: baseWidth,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Section({ title, emoji, children, collapsible = false, defaultCollapsed = false, badge = null }) {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const isCollapsible = collapsible;
-  return (
-    <div className="bg-white rounded-xl p-4 border" style={{ borderColor: '#e2ddd4' }}>
-      <div
-        className={`flex items-center gap-2 pb-2 ${collapsed ? '' : 'mb-3 border-b'}`}
-        style={{ borderColor: '#f0ebe4', cursor: isCollapsible ? 'pointer' : 'default' }}
-        onClick={isCollapsible ? () => setCollapsed((v) => !v) : undefined}
-      >
-        <span>{emoji}</span>
-        <h3 className="text-sm font-bold flex-1" style={{ color: '#2F2A26' }}>{title}</h3>
-        {badge && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
-            {badge}
-          </span>
-        )}
-        {isCollapsible && (
-          <span
-            className="text-xs px-1.5 py-0.5 rounded transition-transform"
-            style={{
-              backgroundColor: '#F7F3EE',
-              color: '#6b635c',
-              transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-            }}
-          >
-            ▼
-          </span>
-        )}
-      </div>
-      {!collapsed && <div className="space-y-2.5">{children}</div>}
-    </div>
-  );
-}
-
-function Field({ label, required, children }) {
-  return (
-    <label className="block">
-      <div className="text-[11px] font-bold mb-1" style={{ color: '#6b635c' }}>
-        {label} {required && <span style={{ color: '#C8B6A6' }}>*</span>}
-      </div>
-      {children}
-    </label>
-  );
-}
-
-function InfoCard({ title, items }) {
-  return (
-    <div className="p-3 rounded-lg border text-xs" style={{ backgroundColor: '#fff', borderColor: '#e2ddd4' }}>
-      <div className="font-bold mb-1.5" style={{ color: '#2F2A26' }}>{title}</div>
-      {items?.length ? (
-        <ul className="list-disc list-inside space-y-0.5" style={{ color: '#6b635c' }}>
-          {items.map((it, i) => <li key={i}>{it}</li>)}
-        </ul>
-      ) : (
-        <div className="text-slate-400">—</div>
-      )}
-    </div>
-  );
-}
