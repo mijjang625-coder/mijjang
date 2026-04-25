@@ -86,7 +86,7 @@ export default function P4Reviews({
               <div
                 key={i}
                 style={{
-                  backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden',
+                  backgroundColor: '#fff', borderRadius: 18, overflow: editMode ? 'visible' : 'hidden',
                   display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 310,
                   position: 'relative',
                 }}

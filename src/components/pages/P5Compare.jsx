@@ -232,7 +232,7 @@ export default function P5Compare({
           style={{
             border: `1px solid ${BRAND.colors.neutral}`,
             borderRadius: 16,
-            overflow: 'hidden',
+            overflow: editMode ? 'visible' : 'hidden',
             display: 'grid',
             gridTemplateColumns: '0.7fr 1fr 1fr',
           }}
@@ -277,7 +277,7 @@ export default function P5Compare({
                     width: '100%',
                     aspectRatio: '1 / 1',
                     borderRadius: 12,
-                    overflow: 'hidden',
+                    overflow: editMode ? 'visible' : 'hidden',
                     backgroundColor: '#fff',
                     boxShadow: '0 2px 8px rgba(200,182,166,0.25)',
                     position: 'relative',
@@ -318,7 +318,7 @@ export default function P5Compare({
                     width: '90%',              // 사각형 자체 90% 축소 요청사항
                     aspectRatio: '1 / 1',
                     borderRadius: 12,
-                    overflow: 'hidden',
+                    overflow: editMode ? 'visible' : 'hidden',
                     backgroundColor: '#e0e0e0',
                     opacity: 0.8,
                   }}

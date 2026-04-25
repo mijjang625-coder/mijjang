@@ -87,7 +87,7 @@ export default function P8Usages({
               <div
                 key={i}
                 style={{
-                  backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden',
+                  backgroundColor: '#fff', borderRadius: 16, overflow: editMode ? 'visible' : 'hidden',
                   display: 'flex', flexDirection: 'column',
                 }}
               >

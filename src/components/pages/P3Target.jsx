@@ -109,7 +109,7 @@ export default function P3Target({
             <div
               style={{
                 width: '100%', height: '100%',
-                borderRadius: '50%', overflow: 'hidden',
+                borderRadius: '50%', overflow: editMode ? 'visible' : 'hidden',
                 backgroundColor: '#fff', border: `5px solid ${BRAND.colors.main}`,
                 boxShadow: '0 8px 24px rgba(47, 42, 38, 0.08)',
               }}

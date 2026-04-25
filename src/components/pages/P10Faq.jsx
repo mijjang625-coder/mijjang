@@ -406,7 +406,7 @@ export default function P10Faq({
           style={{
             border: `1.5px solid ${BRAND.colors.neutral}`,
             borderRadius: 12,
-            overflow: 'hidden',
+            overflow: editMode ? 'visible' : 'hidden',
             backgroundColor: '#fff',
           }}
         >

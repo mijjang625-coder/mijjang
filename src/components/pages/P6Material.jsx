@@ -122,7 +122,7 @@ export default function P6Material({
               display: editMode ? 'block' : '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
+              overflow: editMode ? 'visible' : 'hidden',
               textOverflow: 'ellipsis',
               maxHeight: editMode ? 'none' : 60,
             }}
@@ -240,7 +240,7 @@ export default function P6Material({
             marginTop: 22,
             backgroundColor: BRAND.colors.sub,
             borderRadius: 16,
-            overflow: 'hidden',
+            overflow: editMode ? 'visible' : 'hidden',
           }}
         >
           {(size.specs || []).map((s, i, arr) => (
