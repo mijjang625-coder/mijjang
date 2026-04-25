@@ -377,17 +377,36 @@ export default function CompetitorAnalyzer({
             )}
 
             {activeTab === 'usp' && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
+                <div className="text-[10px] text-slate-500 mb-1 px-1 leading-relaxed">
+                  💡 <b>회색 박스</b>는 경쟁사가 강조한 점, <b>파란 박스</b>는 우리가 어떻게 대응할지입니다.
+                </div>
                 {result.usp.map((u, i) => (
-                  <div
-                    key={i}
-                    className="p-2.5 rounded border bg-amber-50 border-amber-200 text-[11px]"
-                  >
-                    <div className="font-bold text-amber-900">
-                      💎 #{u.rank} {u.point}
+                  <div key={i} className="rounded-lg overflow-hidden border border-slate-300">
+                    {/* 경쟁사 측면 */}
+                    <div className="p-2.5 bg-slate-100 text-[11px]">
+                      <div className="text-[9px] font-bold text-slate-500 mb-0.5 tracking-wide">
+                        🔍 경쟁사 (THEM)
+                      </div>
+                      <div className="font-bold text-slate-800">
+                        #{u.rank} {u.point}
+                      </div>
+                      {u.evidence && (
+                        <div className="text-slate-600 mt-1 text-[10px]">
+                          📍 근거: {u.evidence}
+                        </div>
+                      )}
                     </div>
-                    {u.evidence && (
-                      <div className="text-amber-800 mt-1">📍 근거: {u.evidence}</div>
+                    {/* 우리 대응 */}
+                    {u.ourCounter && (
+                      <div className="p-2.5 bg-blue-50 border-t border-blue-200 text-[11px]">
+                        <div className="text-[9px] font-bold text-blue-600 mb-0.5 tracking-wide">
+                          ⚡ 우리 (US) — 대응 전략
+                        </div>
+                        <div className="font-bold text-blue-900">
+                          {u.ourCounter}
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -398,21 +417,33 @@ export default function CompetitorAnalyzer({
             )}
 
             {activeTab === 'gap' && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
+                <div className="text-[10px] text-slate-500 mb-1 px-1 leading-relaxed">
+                  💡 <b>회색 박스</b>는 경쟁사 약점, <b>초록 박스</b>는 우리의 기회입니다. ({result.gapAnalysis.length}개 발견)
+                </div>
                 {result.gapAnalysis.map((g, i) => (
-                  <div
-                    key={i}
-                    className="p-2.5 rounded border bg-rose-50 border-rose-200 text-[11px]"
-                  >
-                    <div className="font-bold text-rose-900">⚠️ {g.weakness}</div>
-                    <div className="text-rose-700 mt-1">
-                      💡 <b>우리의 기회:</b> {g.ourOpportunity}
-                    </div>
-                    {g.linkedPainPoint && (
-                      <div className="text-rose-600 mt-1 text-[10px]">
-                        🔗 연관 불만: <b>{g.linkedPainPoint}</b>
+                  <div key={i} className="rounded-lg overflow-hidden border border-slate-300">
+                    {/* 경쟁사 약점 */}
+                    <div className="p-2.5 bg-slate-100 text-[11px]">
+                      <div className="text-[9px] font-bold text-slate-500 mb-0.5 tracking-wide">
+                        🔍 경쟁사 (THEM) — 부족한 점
                       </div>
-                    )}
+                      <div className="font-bold text-slate-800">⚠️ {g.weakness}</div>
+                      {g.linkedPainPoint && (
+                        <div className="text-slate-600 mt-1 text-[10px]">
+                          🔗 연관 불만: <b>{g.linkedPainPoint}</b>
+                        </div>
+                      )}
+                    </div>
+                    {/* 우리 기회 */}
+                    <div className="p-2.5 bg-emerald-50 border-t border-emerald-200 text-[11px]">
+                      <div className="text-[9px] font-bold text-emerald-600 mb-0.5 tracking-wide">
+                        ⚡ 우리 (US) — 보완 방법
+                      </div>
+                      <div className="font-bold text-emerald-900">
+                        💡 {g.ourOpportunity}
+                      </div>
+                    </div>
                   </div>
                 ))}
                 {result.gapAnalysis.length === 0 && (
@@ -422,21 +453,49 @@ export default function CompetitorAnalyzer({
             )}
 
             {activeTab === 'headlines' && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
+                <div className="text-[10px] text-slate-500 mb-1 px-1 leading-relaxed">
+                  💡 우측 상단 <b>주황 배지</b>는 추천 페이지(P1~P10)예요. 클릭은 안 되지만 어디에 쓰면 좋은지 보여줍니다.
+                </div>
                 {result.headlines.map((h, i) => (
-                  <div
-                    key={i}
-                    className="p-2.5 rounded border bg-violet-50 border-violet-200 text-[11px]"
-                  >
-                    <div className="text-slate-500 line-through text-[10px]">
-                      원본: {h.original}
-                    </div>
-                    <div className="font-bold text-violet-900 mt-1">
-                      ✨ 우리 톤: {h.ourVersion}
-                    </div>
-                    {h.why && (
-                      <div className="text-violet-700 mt-1 text-[10px]">💭 {h.why}</div>
+                  <div key={i} className="rounded-lg overflow-hidden border border-slate-300">
+                    {/* 헤더 — 페이지 배지 */}
+                    {h.targetPage && (
+                      <div className="px-2.5 py-1.5 bg-orange-50 border-b border-orange-200 flex items-center justify-between gap-2">
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-white text-[11px] font-bold"
+                          style={{ backgroundColor: '#F97316' }}
+                        >
+                          📄 {h.targetPage} 추천
+                        </span>
+                        {h.targetPageReason && (
+                          <span className="text-[10px] text-orange-700 truncate flex-1">
+                            {h.targetPageReason}
+                          </span>
+                        )}
+                      </div>
                     )}
+                    {/* 경쟁사 원본 */}
+                    <div className="p-2.5 bg-slate-100 text-[11px]">
+                      <div className="text-[9px] font-bold text-slate-500 mb-0.5 tracking-wide">
+                        🔍 경쟁사 (THEM) — 원본 카피
+                      </div>
+                      <div className="text-slate-700">
+                        "{h.original}"
+                      </div>
+                    </div>
+                    {/* 우리 변형 */}
+                    <div className="p-2.5 bg-violet-50 border-t border-violet-200 text-[11px]">
+                      <div className="text-[9px] font-bold text-violet-600 mb-0.5 tracking-wide">
+                        ⚡ 우리 (US) — 우리 톤 변형
+                      </div>
+                      <div className="font-bold text-violet-900">
+                        ✨ {h.ourVersion}
+                      </div>
+                      {h.why && (
+                        <div className="text-violet-700 mt-1 text-[10px]">💭 {h.why}</div>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {result.headlines.length === 0 && (
