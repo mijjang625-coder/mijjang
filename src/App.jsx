@@ -2140,6 +2140,11 @@ Q5. / A5.
                 <option value="">(선택)</option>
                 {PRODUCT_TYPES.map((t) => <option key={t}>{t}</option>)}
               </select>
+              {brief.productType && (
+                <div className="text-[11px] mt-1.5 px-2 py-1.5 rounded" style={{ backgroundColor: '#FFF8F0', borderLeft: '3px solid #FDBA74', color: '#9A3412' }}>
+                  ✨ <b>{brief.productType}</b> 카테고리 가이드 적용 중 — 톤/강조점/사진추천이 카테고리에 맞게 자동 조정됩니다.
+                </div>
+              )}
             </Field>
             <Field label="핵심 강점 3가지" required>
               {brief.strengths.map((s, i) => (

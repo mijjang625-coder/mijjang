@@ -2,6 +2,7 @@
 // 각 페이지(P1~P10)를 하나씩 생성하는 방식으로 동작합니다.
 
 import { COUPANG_DETAIL_SYSTEM_PROMPT } from './systemPrompt.js';
+import { buildCategoryGuideBlock } from './categoryGuides.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -83,6 +84,14 @@ function serializeUserBrief(brief, imageCount) {
   }
 
   if (extraNotes) lines.push(`[추가 메모] ${extraNotes}`);
+
+  // 🆕 카테고리별 작성 가이드 자동 주입 (productType이 있을 때만)
+  // 7개 카테고리 각각에 톤/강조점/사진추천이 다르게 정의되어 있어
+  // 같은 제품명이라도 카테고리에 맞는 페이지가 생성됨.
+  const categoryBlock = buildCategoryGuideBlock(productType);
+  if (categoryBlock) {
+    lines.push(categoryBlock);
+  }
 
   return lines.join('\n');
 }
