@@ -482,11 +482,18 @@ export default function EditableImage({
   const fy = hasFrame ? frame.y : 0;
   const wrapperMinHeight = hasFrame ? frame.height + Math.max(0, frame.y) + 20 : (naturalSize.h || undefined);
 
+  // 핸들/툴바/사이즈 표시 가시성 — isActive 명시 시 hovering 변동 무시(깜빡임 방지)
+  const showUI = mode === 'idle' && (
+    isActive === true
+      ? true
+      : isActive === null
+        ? (hovering || resizing || draggingFrame)
+        : false
+  );
+
   return (
     <div
       ref={wrapperRef}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
       style={{
         position: 'relative',
         width: '100%',
@@ -501,6 +508,8 @@ export default function EditableImage({
       {/* 프레임 박스 */}
       <div
         ref={frameRef}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
         onMouseDown={(e) => {
           if (editMode && typeof onActivate === 'function') onActivate();
           handleFrameDragStart(e);
@@ -520,11 +529,13 @@ export default function EditableImage({
           outline:
             mode === 'cropping'
               ? '2px solid #f97316'
-              : (isActive !== null
-                  ? (isActive ? '2px solid #3b82f6' : 'none')
-                  : (hovering || resizing || draggingFrame
-                      ? '2px dashed #3b82f6'
-                      : '1px dashed rgba(96,165,250,0.45)')),
+              : (isActive === true
+                  ? '2px solid #3b82f6'
+                  : isActive === false
+                    ? 'none'
+                    : (hovering || resizing || draggingFrame
+                        ? '2px dashed #3b82f6'
+                        : '1px dashed rgba(96,165,250,0.45)')),
           outlineOffset: 2,
           cursor:
             mode === 'cropping'
@@ -532,7 +543,7 @@ export default function EditableImage({
               : draggingFrame ? 'grabbing' : 'move',
           userSelect: 'none',
           zIndex: override?.zIndex || 'auto',
-          transition: resizing || draggingFrame || draggingCrop ? 'none' : 'outline-color 0.15s',
+          transition: 'none',
           // 항상 클릭 가능 — 레이어 순서(z-index)에 따라 위에 있는 이미지가 잡힌다.
           // (정렬 버튼 ▲▼으로 원하는 이미지를 위로 올려서 선택)
           pointerEvents: 'auto',
@@ -574,7 +585,7 @@ export default function EditableImage({
       </div>
 
       {/* A모드 핸들 — isActive 명시되면 활성일 때만 표시 */}
-      {mode === 'idle' && (isActive !== null ? isActive : (hovering || resizing || draggingFrame)) &&
+      {showUI &&
         HANDLES.map((h) => {
           const style = {
             position: 'absolute',
@@ -608,7 +619,7 @@ export default function EditableImage({
         })}
 
       {/* 좌상단 툴바 (idle) — 자유이미지와 동일 레이아웃, isActive 우선 */}
-      {mode === 'idle' && (isActive !== null ? isActive : (hovering || resizing || draggingFrame)) && (
+      {showUI && (
         <div
           data-toolbar
           style={{
@@ -690,7 +701,7 @@ export default function EditableImage({
       )}
 
       {/* 크기 표시 */}
-      {mode === 'idle' && hasFrame && (isActive !== null ? isActive : (hovering || resizing || draggingFrame)) && (
+      {showUI && hasFrame && (
         <div
           style={{
             position: 'absolute',

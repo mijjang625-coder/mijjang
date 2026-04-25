@@ -8,7 +8,11 @@ import {
   extractProductInfoFromText,
   autoFillBrief,
 } from './lib/openai.js';
-import { downloadAsImage, downloadAsHtml } from './lib/exporters.js';
+import {
+  downloadAsImage, downloadAsHtml,
+  downloadAllAsSinglePng, downloadAllAsSeparatePngs,
+  downloadAllAsHtml, downloadForFigma,
+} from './lib/exporters.js';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 import {
   saveProject,
@@ -790,6 +794,78 @@ export default function App() {
     } catch (err) { setError(err.message); }
   };
 
+  // ───── 전체 내보내기 (P1~P10) ─────
+  const [exportProgress, setExportProgress] = useState(null); // { done, total, label } | null
+  const [showExportPanel, setShowExportPanel] = useState(false);
+
+  /** 모든 페이지가 mount 되도록 잠시 기다리고, 완성된 페이지의 ref 노드 배열을 반환 */
+  const collectAllPageNodes = async () => {
+    // 한 프레임 대기 — 숨겨진 export 영역의 페이지들이 DOM에 들어올 시간
+    await new Promise((r) => requestAnimationFrame(() => r()));
+    await new Promise((r) => setTimeout(r, 200));
+    const list = [];
+    for (const key of PAGE_LIST) {
+      const result = pages[key];
+      if (!result?.copy || result?.needsMoreInfo) continue;
+      const node = exportPageRefs[key]?.current;
+      if (node) list.push({ key, node });
+    }
+    return list;
+  };
+
+  const productSlug = (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product';
+
+  const handleExportAllSinglePng = async () => {
+    try {
+      setShowExportPanel(true);
+      setExportProgress({ done: 0, total: 1, label: '준비 중...' });
+      const list = await collectAllPageNodes();
+      if (!list.length) { setError('완성된 페이지가 없습니다.'); setExportProgress(null); return; }
+      await downloadAllAsSinglePng(list, `${productSlug}-all.png`, setExportProgress);
+      setTimeout(() => setExportProgress(null), 1500);
+    } catch (err) { setError(err.message); setExportProgress(null); }
+  };
+
+  const handleExportAllSeparate = async () => {
+    try {
+      setShowExportPanel(true);
+      setExportProgress({ done: 0, total: 1, label: '준비 중...' });
+      const list = await collectAllPageNodes();
+      if (!list.length) { setError('완성된 페이지가 없습니다.'); setExportProgress(null); return; }
+      await downloadAllAsSeparatePngs(list, productSlug, setExportProgress);
+      setTimeout(() => setExportProgress(null), 1500);
+    } catch (err) { setError(err.message); setExportProgress(null); }
+  };
+
+  const handleExportAllHtml = async () => {
+    try {
+      setShowExportPanel(true);
+      setExportProgress({ done: 0, total: 1, label: 'HTML 생성 중...' });
+      const list = await collectAllPageNodes();
+      if (!list.length) { setError('완성된 페이지가 없습니다.'); setExportProgress(null); return; }
+      downloadAllAsHtml(list, `${productSlug}-all.html`);
+      setExportProgress({ done: 1, total: 1, label: '완료' });
+      setTimeout(() => setExportProgress(null), 1500);
+    } catch (err) { setError(err.message); setExportProgress(null); }
+  };
+
+  const handleExportFigma = async () => {
+    try {
+      setShowExportPanel(true);
+      setExportProgress({ done: 0, total: 1, label: 'Figma 내보내기 준비...' });
+      const list = await collectAllPageNodes();
+      if (!list.length) { setError('완성된 페이지가 없습니다.'); setExportProgress(null); return; }
+      await downloadForFigma(list, productSlug, setExportProgress);
+      setTimeout(() => setExportProgress(null), 2000);
+    } catch (err) { setError(err.message); setExportProgress(null); }
+  };
+
+  // 숨겨진 전체 페이지 렌더링용 refs (편집 UI 없이 순수 렌더)
+  const exportPageRefs = {
+    P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),
+    P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
+  };
+
   const currentResult = pages[currentPage];
   const completedCount = PAGE_LIST.filter((p) => pages[p] && !pages[p].needsMoreInfo).length;
 
@@ -878,6 +954,64 @@ export default function App() {
               >
                 🗑️ 초기화
               </button>
+            </div>
+
+            {/* P1~P10 전체 내보내기 (PNG/HTML/Figma) */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportPanel((v) => !v)}
+                title="P1~P10 전체를 한꺼번에 내보내기"
+                className="px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#2F2A26' }}
+                disabled={completedCount === 0}
+              >
+                📦 전체 내보내기 ({completedCount}/10)
+              </button>
+              {showExportPanel && (
+                <div
+                  className="absolute right-0 mt-1 bg-white rounded-lg shadow-xl border p-2 z-40"
+                  style={{ borderColor: '#e2ddd4', width: 260 }}
+                >
+                  <div className="text-[10px] font-bold text-slate-500 px-2 py-1">완성된 페이지만 포함됩니다</div>
+                  <button
+                    onClick={() => { handleExportAllSinglePng(); }}
+                    disabled={!!exportProgress || completedCount === 0}
+                    className="w-full text-left px-3 py-2 rounded text-[12px] font-bold hover:bg-slate-100 disabled:opacity-50 flex items-center gap-2"
+                    style={{ color: '#2F2A26' }}
+                  >
+                    🖼️ <div><div>한 장의 긴 PNG</div><div className="text-[10px] font-normal text-slate-500">P1~P10 세로로 이어붙임</div></div>
+                  </button>
+                  <button
+                    onClick={() => { handleExportAllSeparate(); }}
+                    disabled={!!exportProgress || completedCount === 0}
+                    className="w-full text-left px-3 py-2 rounded text-[12px] font-bold hover:bg-slate-100 disabled:opacity-50 flex items-center gap-2"
+                    style={{ color: '#2F2A26' }}
+                  >
+                    🗂️ <div><div>페이지별 PNG (10장)</div><div className="text-[10px] font-normal text-slate-500">P1.png ~ P10.png 따로</div></div>
+                  </button>
+                  <button
+                    onClick={() => { handleExportAllHtml(); }}
+                    disabled={!!exportProgress || completedCount === 0}
+                    className="w-full text-left px-3 py-2 rounded text-[12px] font-bold hover:bg-slate-100 disabled:opacity-50 flex items-center gap-2"
+                    style={{ color: '#2F2A26' }}
+                  >
+                    📄 <div><div>전체 HTML 한 파일</div><div className="text-[10px] font-normal text-slate-500">쿠팡 등록용 (780px)</div></div>
+                  </button>
+                  <div className="border-t my-1" style={{ borderColor: '#e2ddd4' }} />
+                  <button
+                    onClick={() => { handleExportFigma(); }}
+                    disabled={!!exportProgress || completedCount === 0}
+                    className="w-full text-left px-3 py-2 rounded text-[12px] font-bold hover:bg-slate-100 disabled:opacity-50 flex items-center gap-2"
+                    style={{ color: '#7c3aed' }}
+                  >
+                    🎨 <div><div>Figma로 내보내기</div><div className="text-[10px] font-normal text-slate-500">PNG 10장 + HTML + manifest</div></div>
+                  </button>
+                  <button
+                    onClick={() => setShowExportPanel(false)}
+                    className="w-full text-center px-3 py-1.5 mt-1 rounded text-[10px] text-slate-500 hover:bg-slate-100"
+                  >닫기</button>
+                </div>
+              )}
             </div>
 
             <div className="text-xs font-semibold text-slate-600 border-l pl-3" style={{ borderColor: '#e2ddd4' }}>
@@ -1773,6 +1907,79 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {/* ───── 화면 밖 숨김 렌더링 영역 ─────
+          전체 내보내기를 위해 모든 완성된 페이지를 항상 DOM에 마운트해두고,
+          html2canvas가 ref로 캡처할 수 있도록 한다. 사용자에게는 보이지 않음. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          left: -100000,
+          top: 0,
+          width: 780,
+          pointerEvents: 'none',
+          opacity: 0,
+        }}
+      >
+        {PAGE_LIST.map((p) => {
+          const r = pages[p];
+          if (!r?.copy || r?.needsMoreInfo) return null;
+          return (
+            <div key={`export-${p}`} style={{ width: 780 }}>
+              <PageRenderer
+                ref={exportPageRefs[p]}
+                pageNumber={p}
+                copy={r.copy}
+                images={images}
+                version={p5Version}
+                variant={pageVariants[p] || 0}
+                editMode={false}
+                overrides={textOverrides[p] || {}}
+                onOverrideChange={() => {}}
+                imageOverrides={imageOverrides[p] || {}}
+                onImageOverrideChange={() => {}}
+                freeImages={freeImages[p] || []}
+                onAddFreeImage={() => {}}
+                onUpdateFreeImage={() => {}}
+                onDeleteFreeImage={() => {}}
+                onChangeLayer={() => {}}
+                onChangeLayerKind={() => {}}
+                onReorderLayers={() => {}}
+                layerNames={layerNames[p] || {}}
+                onSetLayerName={() => {}}
+                activeLayerId={null}
+                onSetActiveLayer={() => {}}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 전체 내보내기 진행 토스트 */}
+      {exportProgress && (
+        <div
+          className="fixed bottom-6 right-6 bg-white border rounded-xl shadow-2xl px-5 py-4 z-50"
+          style={{ borderColor: '#e2ddd4', minWidth: 260 }}
+        >
+          <div className="text-xs font-bold mb-2" style={{ color: '#2F2A26' }}>
+            📦 전체 내보내기 진행 중
+          </div>
+          <div className="text-[11px] text-slate-600 mb-2">{exportProgress.label}</div>
+          <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div
+              className="h-full transition-all"
+              style={{
+                width: `${exportProgress.total ? (exportProgress.done / exportProgress.total) * 100 : 0}%`,
+                backgroundColor: '#C8B6A6',
+              }}
+            />
+          </div>
+          <div className="text-[10px] text-slate-500 mt-1 text-right">
+            {exportProgress.done} / {exportProgress.total}
+          </div>
+        </div>
+      )}
 
       <style>{`
         .input {
