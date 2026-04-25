@@ -534,7 +534,11 @@ export default function EditableImage({
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseDown={(e) => {
-          if (editMode && typeof onActivate === 'function') onActivate();
+          if (editMode && typeof onActivate === 'function') {
+            // 현재 표시 중인 실제 이미지 src 를 콜백에 전달 (AI 합성 등에서 활용)
+            const currentSrc = override?.src || src || null;
+            onActivate(currentSrc);
+          }
           handleFrameDragStart(e);
         }}
         onDoubleClick={handleDoubleClick}

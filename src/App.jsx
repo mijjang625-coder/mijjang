@@ -16,7 +16,7 @@ import {
 } from './lib/exporters.js';
 import { CheckIcon as CheckIconPreview } from './components/pages/Shared.jsx';
 import ReviewAnalyzer from './components/ReviewAnalyzer.jsx';
-import AISynthesisPanel from './components/AISynthesisPanel.jsx';
+import AISynthesisFloatingButton from './components/AISynthesisFloatingButton.jsx';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 import {
   saveProject,
@@ -2264,18 +2264,6 @@ Q5. / A5.
             </div>
           </Section>
 
-          <Section title="AI 사진 합성 (배경교체 · 사용장면 · Before/After)" emoji="🎨" collapsible defaultCollapsed badge="NEW">
-            <AISynthesisPanel
-              apiKey={apiKey}
-              productName={brief.productName}
-              uploadedImages={images}
-              onAddImages={(urls) => {
-                if (!Array.isArray(urls) || !urls.length) return;
-                setImages((prev) => [...prev, ...urls]);
-              }}
-            />
-          </Section>
-
           <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
             <ReviewAnalyzer
               apiKey={apiKey}
@@ -2829,6 +2817,18 @@ Q5. / A5.
           );
         })}
       </div>
+
+      {/* 🎨 AI 사진 합성 플로팅 버튼 (편집모드에서만, '도형 추가' 바로 밑) */}
+      <AISynthesisFloatingButton
+        editMode={editMode}
+        apiKey={apiKey}
+        productName={brief.productName}
+        uploadedImages={images}
+        onAddImages={(urls) => {
+          if (!Array.isArray(urls) || !urls.length) return;
+          setImages((prev) => [...prev, ...urls]);
+        }}
+      />
 
       {/* 전체 내보내기 진행 토스트 */}
       {exportProgress && (

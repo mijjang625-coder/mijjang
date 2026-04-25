@@ -68,80 +68,104 @@ export const MOOD_PRESETS = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// 제품 일관성을 강제하는 공통 가드 문구
+// (gpt-image-1 이 reference image 의 디테일을 최대한 보존하도록)
+// ─────────────────────────────────────────────────────────────
+const IDENTITY_GUARD = [
+  'CRITICAL: The product in the output MUST be IDENTICAL to the reference image.',
+  'Preserve the exact shape, silhouette, color hue, surface texture, material, bristle pattern, handle design, logo, label text, and proportions of the reference product — pixel-faithful, no modification, no redesign, no stylization.',
+  'Do NOT invent new colors, do NOT redesign the bristles or handle, do NOT change the brand markings.',
+  'The reference image shows the EXACT product to be used — only the surrounding environment, lighting, and pose may change.',
+].join(' ');
+
+const QUALITY_TAIL = [
+  'Photorealistic, commercial-grade product photography, sharp focus on the product, fine surface detail, accurate color reproduction, soft realistic shadow grounding the product, 4K detail, no text overlays, no watermarks, no fake brand logos.',
+].join(' ');
+
+// ─────────────────────────────────────────────────────────────
 // 모드별 프롬프트 빌더
 // ─────────────────────────────────────────────────────────────
 function buildPrompt({ mode, productName, backgroundKey, customBackground, moodKey, extraNote }) {
-  const product = productName?.trim() || 'the product';
+  const product = productName?.trim() || 'the product shown in the reference image';
   const bg = backgroundKey === 'custom'
     ? (customBackground?.trim() || 'a clean neutral background')
     : (BACKGROUND_PRESETS[backgroundKey]?.description || BACKGROUND_PRESETS.studio.description);
   const mood = MOOD_PRESETS[moodKey]?.prompt || MOOD_PRESETS.clean.prompt;
-  const extra = extraNote?.trim() ? ` ${extraNote.trim()}.` : '';
+  const extra = extraNote?.trim() ? ` Additional instruction: ${extraNote.trim()}.` : '';
 
   switch (mode) {
     case 'background':
       return [
-        `Place ${product} in ${bg}.`,
-        `Keep the product itself completely unchanged — same shape, color, material, and proportions as the reference image.`,
-        `Only replace the background and surrounding environment.`,
-        `Add a soft realistic shadow underneath the product.`,
-        `${mood}.`,
-        `Professional commercial product photography, sharp focus on the product, photorealistic, 4K detail.${extra}`,
-      ].join(' ');
+        `Task: Replace ONLY the background of the reference image. Keep ${product} completely unchanged.`,
+        IDENTITY_GUARD,
+        `New environment: ${bg}.`,
+        `Keep the product centered with realistic ground shadow that matches the new lighting direction.`,
+        `Mood: ${mood}.`,
+        QUALITY_TAIL,
+        extra,
+      ].filter(Boolean).join(' ');
 
     case 'usage':
       return [
-        `A photorealistic lifestyle scene where ${product} is being actively used in ${bg}.`,
-        `Show realistic hands using the product naturally — for example, scrubbing, cleaning, or wiping a surface.`,
-        `The product must look exactly like the reference image (same shape, color, design).`,
-        `Visible cleaning effect or interaction with surface.`,
-        `${mood}.`,
-        `Photorealistic, commercial product-in-use photography, sharp focus, natural lighting.${extra}`,
-      ].join(' ');
+        `Task: Generate a photorealistic in-use lifestyle photo of ${product} being actively used by realistic human hands in ${bg}.`,
+        IDENTITY_GUARD,
+        `The hands should be holding the product naturally and using it for its intended purpose (e.g., scrubbing tiles, cleaning sink, wiping a surface). Show a visible cleaning interaction or contact with a surface.`,
+        `Hands should look clean, natural, and well-lit. Realistic skin tone and texture.`,
+        `Mood: ${mood}.`,
+        QUALITY_TAIL,
+        extra,
+      ].filter(Boolean).join(' ');
 
     case 'handHeld':
       return [
-        `A photorealistic close-up of a human hand holding ${product} in ${bg}.`,
-        `Show the grip clearly to emphasize size, ergonomics, and how it feels in the hand.`,
-        `The product must match the reference image exactly — same shape, color, material.`,
-        `Hand should look natural and clean, focused on the product.`,
-        `${mood}.`,
-        `Commercial product photography, sharp focus, soft natural lighting, shallow depth of field.${extra}`,
-      ].join(' ');
+        `Task: A photorealistic close-up of a human hand holding ${product}, set in ${bg}.`,
+        IDENTITY_GUARD,
+        `Show a clean, natural-looking hand with a confident grip that emphasizes the product's size, ergonomics, and how it feels to hold. Soft shallow depth of field with the product in razor-sharp focus.`,
+        `Mood: ${mood}.`,
+        QUALITY_TAIL,
+        extra,
+      ].filter(Boolean).join(' ');
 
     case 'beforeBefore':
-      // Before 컷: 더러운 표면 (제품은 등장하지 않거나 옆에 놓임)
+      // Before 컷: 더러운 표면 (제품은 옆에 놓이거나 부분적으로 보임)
       return [
-        `A "BEFORE" cleaning photo: a noticeably dirty surface in ${bg} — visible grime, water stains, mildew, or buildup that needs cleaning.`,
-        `The scene should look realistic and slightly unappealing to highlight the cleaning need.`,
-        `${product} is placed nearby, ready to be used. The product must match the reference exactly.`,
-        `Realistic photography, clear lighting that shows the dirt clearly.${extra}`,
-      ].join(' ');
+        `Task: A realistic "BEFORE cleaning" photo set in ${bg}. The dominant subject is a visibly dirty surface — show realistic grime, soap scum, water stains, mildew, dust, or buildup that genuinely looks like it needs to be cleaned.`,
+        `${product} is placed neatly nearby (e.g., on the counter, in the corner) — ready to be used but NOT in active use yet.`,
+        IDENTITY_GUARD,
+        `Lighting should be clear and slightly cool, showing the dirt honestly.`,
+        QUALITY_TAIL,
+        extra,
+      ].filter(Boolean).join(' ');
 
     case 'beforeAfter':
       // After 컷: 깨끗하게 청소된 표면 + 제품
       return [
-        `An "AFTER" cleaning photo: a sparkling clean and shiny surface in ${bg} that has just been cleaned.`,
-        `${product} is placed proudly in the scene as the tool that achieved this result. The product must match the reference image exactly.`,
-        `Bright, fresh, satisfying atmosphere — emphasize cleanliness with reflective shine, soft highlights, and a sense of "wow, so clean!".`,
-        `${mood}.`,
-        `Commercial photography, photorealistic, sharp focus, bright clean lighting.${extra}`,
-      ].join(' ');
+        `Task: A satisfying "AFTER cleaning" photo set in ${bg}. The surface is sparkling clean, shiny, and reflective — with subtle highlights and a fresh, bright atmosphere that conveys "wow, so clean".`,
+        `${product} is proudly placed in the scene as the tool that delivered this result.`,
+        IDENTITY_GUARD,
+        `Mood: ${mood}, with fresh and bright lighting.`,
+        QUALITY_TAIL,
+        extra,
+      ].filter(Boolean).join(' ');
 
     case 'multiAngle':
       return [
-        `Product photography of ${product} from a different angle than the reference image, in ${bg}.`,
-        `Show the product from a fresh perspective (e.g., side view, top-down, or 3/4 angle) while keeping the exact same product design, color, and material.`,
-        `${mood}.`,
-        `Professional commercial product photography, clean studio lighting, sharp focus, photorealistic.${extra}`,
-      ].join(' ');
+        `Task: Product photography showing ${product} from a different camera angle than the reference image, set in ${bg}.`,
+        IDENTITY_GUARD,
+        `Only the camera angle and pose of the product changes — the product itself (color, material, design, proportions) must remain identical.`,
+        `Mood: ${mood}.`,
+        QUALITY_TAIL,
+        extra,
+      ].filter(Boolean).join(' ');
 
     default:
       return [
-        `Photorealistic product photography of ${product} in ${bg}.`,
-        `Keep the product matching the reference image exactly.`,
-        `${mood}.${extra}`,
-      ].join(' ');
+        `Task: Photorealistic product photography of ${product} in ${bg}.`,
+        IDENTITY_GUARD,
+        `Mood: ${mood}.`,
+        QUALITY_TAIL,
+        extra,
+      ].filter(Boolean).join(' ');
   }
 }
 
