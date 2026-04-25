@@ -43,7 +43,53 @@ export default function P1Hero({
 
   // 사진 추가 패널 (썸네일 그리드 + 파일 업로드)
   const [showPicker, setShowPicker] = useState(false);
+  // 레이어 패널 표시
+  const [showLayers, setShowLayers] = useState(false);
   const validImages = (allImages || []).filter(Boolean);
+
+  // 메인사진의 z-index (override.zIndex가 없으면 기본 500)
+  const mainZ = imageOverrides['P1.heroImage']?.zIndex ?? 500;
+
+  // 메인사진 레이어 변경 (EditableImage와 동일 정책)
+  const changeMainLayer = (action) => {
+    const cur = mainZ;
+    let newZ = cur;
+    if (action === 'front') newZ = 999;
+    else if (action === 'back') newZ = 1;
+    else if (action === 'forward') {
+      newZ = cur + 1;
+      if (newZ === 500) newZ = 501;
+      if (newZ > 999) newZ = 999;
+    } else if (action === 'backward') {
+      newZ = cur - 1;
+      if (newZ === 500) newZ = 499;
+      if (newZ < 1) newZ = 1;
+    }
+    onImageOverrideChange('P1.heroImage', { zIndex: newZ });
+  };
+
+  // 모든 레이어 통합 목록 (z-index 내림차순 = 위에서 아래)
+  const allLayers = [
+    {
+      kind: 'main',
+      id: 'P1.heroImage',
+      label: '🖼 메인 사진',
+      src: imageOverrides['P1.heroImage']?.src || image,
+      zIndex: mainZ,
+    },
+    ...(freeImages || []).map((it, i) => ({
+      kind: 'free',
+      id: it.id,
+      label: `📷 추가 사진 ${i + 1}`,
+      src: it.src,
+      zIndex: it.zIndex ?? 501,
+    })),
+  ].sort((a, b) => b.zIndex - a.zIndex);
+
+  const handleLayerAction = (layer, action) => {
+    if (layer.kind === 'main') changeMainLayer(action);
+    else onChangeLayer(layer.id, action);
+  };
 
   // 파일 업로드 → base64 DataURL → onAddFreeImage
   const handleFileUpload = (e) => {
@@ -247,11 +293,12 @@ export default function P1Hero({
         />
       ))}
 
-      {/* ─── 사진 추가 플로팅 버튼 (편집모드에서만) ─── */}
+      {/* ─── 플로팅 버튼 영역 (편집모드에서만) ─── */}
       {editMode && (
         <>
+          {/* 사진 추가 버튼 */}
           <button
-            onClick={() => setShowPicker((s) => !s)}
+            onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
             style={{
               position: 'absolute',
               right: 16,
@@ -290,6 +337,110 @@ export default function P1Hero({
               </span>
             )}
           </button>
+
+          {/* 레이어 패널 토글 버튼 */}
+          <button
+            onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
+            style={{
+              position: 'absolute',
+              right: 16,
+              top: 60,
+              zIndex: 9999,
+              backgroundColor: showLayers ? '#1e293b' : '#475569',
+              color: '#fff',
+              border: '2px solid #fff',
+              padding: '8px 12px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            title="모든 레이어 목록 (겹쳐서 선택 안 되는 요소도 여기서 선택)"
+          >
+            📋 레이어 <span style={{
+              backgroundColor: '#fbbf24', color: '#1e293b',
+              borderRadius: 999, padding: '1px 6px',
+              fontSize: 10, fontWeight: 900,
+            }}>{allLayers.length}</span>
+          </button>
+
+          {/* 레이어 패널 */}
+          {showLayers && (
+            <div
+              style={{
+                position: 'absolute',
+                right: 16,
+                top: 100,
+                zIndex: 9998,
+                width: 280,
+                maxHeight: 480,
+                overflow: 'auto',
+                backgroundColor: '#fff',
+                border: '1px solid #e2ddd4',
+                borderRadius: 12,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+                padding: 12,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#2F2A26' }}>
+                  📋 레이어 ({allLayers.length})
+                </div>
+                <button
+                  onClick={() => setShowLayers(false)}
+                  style={{ border: 'none', background: 'transparent', color: '#64748b', fontSize: 16, cursor: 'pointer' }}
+                >✕</button>
+              </div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 8, lineHeight: 1.5 }}>
+                💡 위 = 앞쪽, 아래 = 뒤쪽. 항목 클릭 = 선택, ▲▼로 순서 변경.
+              </div>
+              {allLayers.map((layer) => (
+                <div
+                  key={layer.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: 6, marginBottom: 4,
+                    border: '1px solid #e2ddd4', borderRadius: 6,
+                    backgroundColor: layer.kind === 'main' ? '#eff6ff' : '#fafaf9',
+                  }}
+                >
+                  <img src={layer.src} alt="" crossOrigin="anonymous"
+                    style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#2F2A26',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {layer.label}
+                    </div>
+                    <div style={{ fontSize: 9, color: '#64748b' }}>z{layer.zIndex}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <button onClick={() => handleLayerAction(layer, 'front')}
+                      style={layerBtn('#475569')} title="맨 앞으로">▲▲</button>
+                    <button onClick={() => handleLayerAction(layer, 'back')}
+                      style={layerBtn('#475569')} title="맨 뒤로">▼▼</button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <button onClick={() => handleLayerAction(layer, 'forward')}
+                      style={layerBtn('#64748b')} title="한 단계 앞">▲</button>
+                    <button onClick={() => handleLayerAction(layer, 'backward')}
+                      style={layerBtn('#64748b')} title="한 단계 뒤">▼</button>
+                  </div>
+                  {layer.kind === 'free' && (
+                    <button
+                      onClick={() => { if (window.confirm('이 사진을 삭제할까요?')) onDeleteFreeImage(layer.id); }}
+                      style={{ ...layerBtn('#dc2626'), padding: '4px 6px' }}
+                      title="삭제"
+                    >🗑</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {showPicker && (
             <div
@@ -409,4 +560,20 @@ export default function P1Hero({
       )}
     </PageFrame>
   );
+}
+
+// 레이어 패널 작은 버튼 스타일
+function layerBtn(color) {
+  return {
+    backgroundColor: color,
+    color: '#fff',
+    border: 'none',
+    padding: '2px 5px',
+    borderRadius: 3,
+    fontSize: 8,
+    fontWeight: 800,
+    cursor: 'pointer',
+    minWidth: 22,
+    lineHeight: 1.1,
+  };
 }
