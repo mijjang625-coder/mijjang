@@ -234,13 +234,13 @@ export function useFreeImageLayer({
           }}>{allLayers.length}</span>
         </button>
 
-        {/* 레이어 패널 — fixed 로 화면 우측에 고정, 스크롤 시 따라옴 */}
+        {/* 레이어 패널 — fixed 로 화면 우측에 고정 (버튼들과 겹치지 않게 왼쪽으로 펼침), 스크롤 시 따라옴 */}
         {showLayers && (
           <div
             style={{
-              position: 'fixed', right: 24, top: 264,
+              position: 'fixed', right: 180, top: 168,
               zIndex: 9998,
-              width: 300, maxHeight: 'calc(100vh - 300px)', overflow: 'auto',
+              width: 320, maxHeight: 'calc(100vh - 200px)', overflow: 'auto',
               backgroundColor: '#fff', border: '1px solid #e2ddd4',
               borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.22)', padding: 12,
             }}
@@ -432,12 +432,12 @@ export function useFreeImageLayer({
           </div>
         )}
 
-        {/* 사진 추가 패널 — fixed */}
+        {/* 사진 추가 패널 — fixed (버튼들과 겹치지 않게 왼쪽으로 펼침) */}
         {showPicker && (
           <div
             style={{
-              position: 'fixed', right: 24, top: 220, zIndex: 9998,
-              width: 320, maxHeight: 'calc(100vh - 260px)', overflow: 'auto',
+              position: 'fixed', right: 180, top: 168, zIndex: 9998,
+              width: 320, maxHeight: 'calc(100vh - 200px)', overflow: 'auto',
               backgroundColor: '#fff', border: '1px solid #e2ddd4',
               borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.22)', padding: 14,
             }}

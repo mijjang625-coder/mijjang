@@ -97,8 +97,8 @@ export default function ShapeLayer({
           {showPicker && (
             <div
               style={{
-                position: 'absolute', right: 0, top: '110%',
-                width: 220,
+                position: 'absolute', right: '110%', top: 0,
+                width: 240,
                 backgroundColor: '#fff', border: '1px solid #e2ddd4',
                 borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
                 padding: 10,
