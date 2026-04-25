@@ -91,11 +91,11 @@ export function CheckIcon({ size = 22, color = BRAND.colors.accent, variant = 0 
           <path d="M13 24 L20.5 31.5 L35 17" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       );
-    case 3: // 별모양 내부 체크
+    case 3: // 하트 모양 체크
       return (
         <svg {...common}>
-          <path d="M24 3 L29.5 17 L44 18.5 L33 28 L37 43 L24 35 L11 43 L15 28 L4 18.5 L18.5 17 Z" fill={color} />
-          <path d="M15 25 L21 31 L33 18" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <path d="M24 44 C24 44 4 30 4 16.5 C4 10 9 5 15 5 C19 5 22 7 24 10 C26 7 29 5 33 5 C39 5 44 10 44 16.5 C44 30 24 44 24 44 Z" fill={color} />
+          <path d="M14 22 L21 28.5 L34 15.5" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       );
     case 4: // 육각형(헥사곤) 체크
@@ -105,11 +105,19 @@ export function CheckIcon({ size = 22, color = BRAND.colors.accent, variant = 0 
           <path d="M13 24.5 L20.5 32 L35 16.5" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       );
-    case 5: // 다이아(마름모) 체크
+    case 5: // 꽃(플라워) 모양 체크 — 5장 꽃잎
       return (
         <svg {...common}>
-          <path d="M24 2 L46 24 L24 46 L2 24 Z" fill={color} />
-          <path d="M13 24.5 L20.5 32 L35 16.5" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          {/* 5장 꽃잎: 중심(24,24) 기준 원 5개를 72도 간격으로 배치 */}
+          {[0, 72, 144, 216, 288].map((deg) => {
+            const rad = (deg - 90) * (Math.PI / 180);
+            const cx = 24 + 13 * Math.cos(rad);
+            const cy = 24 + 13 * Math.sin(rad);
+            return <circle key={deg} cx={cx} cy={cy} r="10.5" fill={color} />;
+          })}
+          {/* 중앙 원(흰색) + 체크 */}
+          <circle cx="24" cy="24" r="11" fill={color} />
+          <path d="M16 24.5 L22 30 L33 18.5" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       );
     default: // 0 — 기본 원형 체크

@@ -41,6 +41,7 @@ export default function P1Hero({
   const cardCfg = {
     iconVariant: 0,
     iconSize: 28,
+    iconColor: '',
     cardMinHeight: 220,
     cardPaddingY: 18,
     cardPaddingYBottom: 20,
@@ -264,7 +265,11 @@ export default function P1Hero({
               }}
             >
               {/* 체크 아이콘 — 모든 카드 동일 모양 (사용자가 1.사이드바에서 선택) */}
-              <CheckIcon size={cardCfg.iconSize} variant={checkVariant} />
+              <CheckIcon
+                size={cardCfg.iconSize}
+                variant={checkVariant}
+                {...(cardCfg.iconColor ? { color: cardCfg.iconColor } : {})}
+              />
 
               {/* 타이틀 — 1줄 고정 */}
               <EditableText

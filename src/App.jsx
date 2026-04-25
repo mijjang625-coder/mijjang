@@ -96,8 +96,9 @@ const DEFAULT_BRIEF = {
   fontId: 'pretendard',
   // P1 강점카드 디자인 설정 (사용자가 직접 조정)
   p1CardSettings: {
-    iconVariant: 0,    // 0~5 (0:원형, 1:사각, 2:방패, 3:별, 4:육각, 5:다이아)
+    iconVariant: 0,    // 0~5 (0:원형, 1:사각, 2:방패, 3:하트, 4:육각, 5:꽃)
     iconSize: 28,      // 16 ~ 56
+    iconColor: '',     // 빈문자열 = 테마색 사용, 그 외 hex 코드
     cardMinHeight: 220, // 140 ~ 320
     cardPaddingY: 18,   // 8 ~ 40 (위쪽)
     cardPaddingYBottom: 20, // 8 ~ 40 (아래쪽)
@@ -1239,6 +1240,10 @@ export default function App() {
               P1 페이지의 3개 강점 카드(체크 아이콘 + 박스)를 직접 조정합니다.
             </div>
 
+            <div className="text-[10px] -mt-1 mb-2 p-1.5 rounded" style={{ backgroundColor: '#dcfce7', color: '#166534' }}>
+              💡 아래 옵션을 바꾸면 <b>오른쪽 P1 미리보기에 즉시 반영</b>됩니다 (별도 적용 버튼 없음)
+            </div>
+
             {/* 아이콘 모양 6종 선택 */}
             <Field label="✓ 체크 아이콘 모양 (모든 카드 동일하게 적용)">
               <div className="grid grid-cols-6 gap-1.5">
@@ -1246,11 +1251,12 @@ export default function App() {
                   { v: 0, name: '원형' },
                   { v: 1, name: '사각' },
                   { v: 2, name: '방패' },
-                  { v: 3, name: '별' },
+                  { v: 3, name: '하트' },
                   { v: 4, name: '육각' },
-                  { v: 5, name: '다이아' },
+                  { v: 5, name: '꽃' },
                 ].map(({ v, name }) => {
                   const active = (brief.p1CardSettings?.iconVariant ?? 0) === v;
+                  const previewColor = brief.p1CardSettings?.iconColor || '#C8B6A6';
                   return (
                     <button
                       key={v}
@@ -1265,11 +1271,86 @@ export default function App() {
                         boxShadow: active ? '0 0 0 2px rgba(200,182,166,0.3)' : 'none',
                       }}
                     >
-                      <CheckIconPreview variant={v} />
+                      <CheckIconPreview variant={v} color={previewColor} size={28} />
                       <div className="text-[9px]" style={{ color: '#2F2A26' }}>{name}</div>
                     </button>
                   );
                 })}
+              </div>
+            </Field>
+
+            {/* 아이콘 색상 선택 */}
+            <Field label="🎨 체크 아이콘 색상">
+              <div className="grid grid-cols-8 gap-1.5 mb-1.5">
+                {[
+                  { c: '', name: '테마' },                 // 빈값 = 테마색
+                  { c: '#C8B6A6', name: '베이지' },
+                  { c: '#2F2A26', name: '딥브라운' },
+                  { c: '#ef4444', name: '레드' },
+                  { c: '#f97316', name: '오렌지' },
+                  { c: '#eab308', name: '옐로우' },
+                  { c: '#22c55e', name: '그린' },
+                  { c: '#3b82f6', name: '블루' },
+                  { c: '#8b5cf6', name: '퍼플' },
+                  { c: '#ec4899', name: '핑크' },
+                  { c: '#06b6d4', name: '시안' },
+                  { c: '#000000', name: '블랙' },
+                  { c: '#ffffff', name: '화이트' },
+                  { c: '#84cc16', name: '라임' },
+                  { c: '#f59e0b', name: '앰버' },
+                  { c: '#a855f7', name: '바이올렛' },
+                ].map(({ c, name }) => {
+                  const cur = brief.p1CardSettings?.iconColor ?? '';
+                  const active = cur === c;
+                  return (
+                    <button
+                      key={c || 'theme'}
+                      type="button"
+                      onClick={() => updateBrief({
+                        p1CardSettings: { ...(brief.p1CardSettings || {}), iconColor: c },
+                      })}
+                      title={name + (c ? ` (${c})` : '')}
+                      className="aspect-square rounded-md border-2 transition-all flex items-center justify-center text-[8px] font-bold"
+                      style={{
+                        borderColor: active ? '#2F2A26' : '#e2ddd4',
+                        backgroundColor: c || 'linear-gradient(135deg,#C8B6A6,#F7F3EE)',
+                        background: c
+                          ? c
+                          : 'linear-gradient(135deg,#C8B6A6 0%,#F7F3EE 100%)',
+                        boxShadow: active ? '0 0 0 2px rgba(47,42,38,0.4)' : 'none',
+                        color: c === '#ffffff' || c === '' ? '#2F2A26' : '#fff',
+                      }}
+                    >
+                      {!c && 'T'}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* 커스텀 색상 입력 */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={brief.p1CardSettings?.iconColor || '#C8B6A6'}
+                  onChange={(e) => updateBrief({
+                    p1CardSettings: { ...(brief.p1CardSettings || {}), iconColor: e.target.value },
+                  })}
+                  className="w-10 h-7 rounded border cursor-pointer"
+                  style={{ borderColor: '#e2ddd4' }}
+                  title="커스텀 색상 선택"
+                />
+                <input
+                  type="text"
+                  value={brief.p1CardSettings?.iconColor || ''}
+                  onChange={(e) => updateBrief({
+                    p1CardSettings: { ...(brief.p1CardSettings || {}), iconColor: e.target.value },
+                  })}
+                  placeholder="#C8B6A6 (비우면 테마색)"
+                  className="input flex-1 text-[10px] font-mono"
+                  style={{ padding: '4px 8px' }}
+                />
+              </div>
+              <div className="text-[9px] text-slate-400 mt-0.5">
+                💡 'T'(테마) 버튼: 현재 톤앤매너 색상 자동 사용
               </div>
             </Field>
 
