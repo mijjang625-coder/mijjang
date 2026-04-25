@@ -26,6 +26,8 @@ export default function ReviewAnalyzer({
   onAdoptedHeadlinesChange = () => {},
   // 키워드를 사이드바 검색량 키워드 영역에 추가할 때 사용 (선택)
   onAddKeywordsToSearch = () => {},
+  // 🆕 분석 결과 전체를 부모에 전달 (CompetitorAnalyzer 갭 매칭 등에 활용)
+  onAnalyzed = () => {},
 }) {
   // 입력 모드: 'excel' | 'txt' | 'paste'
   const [inputMode, setInputMode] = useState('excel');
@@ -74,6 +76,12 @@ export default function ReviewAnalyzer({
     const list = result.headlines.filter((h) => adopted[h.id]);
     onAdoptedHeadlinesChange(list);
   }, [adopted, result]);
+
+  // 🆕 분석 결과 전체를 부모에 전달 (경쟁사 분석기 등에서 활용)
+  useEffect(() => {
+    onAnalyzed(result);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   // ── 엑셀/CSV 업로드 처리 ──
   const handleExcelUpload = (e) => {

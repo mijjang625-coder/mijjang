@@ -16,6 +16,7 @@ import {
 } from './lib/exporters.js';
 import { CheckIcon as CheckIconPreview } from './components/pages/Shared.jsx';
 import ReviewAnalyzer from './components/ReviewAnalyzer.jsx';
+import CompetitorAnalyzer from './components/CompetitorAnalyzer.jsx';
 import AISynthesisFloatingButton from './components/AISynthesisFloatingButton.jsx';
 import { THEME_PRESETS, applyTheme, FONT_PRESETS, applyFont } from './lib/theme.js';
 import {
@@ -115,6 +116,9 @@ export default function App() {
   const [apiKey, setApiKey] = useState('');
   const [falApiKey, setFalApiKey] = useState(''); // fal.ai (nano-banana-2/pro 합성용)
   const [model, setModel] = useState('gpt-4o-mini');
+
+  // 🆕 리뷰 분석 결과 (CompetitorAnalyzer 갭 매칭용)
+  const [reviewInsights, setReviewInsights] = useState(null);
 
   // 브리프 + 이미지
   const [brief, setBrief] = useState(DEFAULT_BRIEF);
@@ -2321,6 +2325,7 @@ Q5. / A5.
               model={model}
               productName={brief.productName}
               productType={brief.productType}
+              onAnalyzed={setReviewInsights}
               onAddKeywordsToSearch={(reviewKeywords) => {
                 // ReviewAnalyzer 의 키워드({rank, keyword, count, category}) →
                 // 사이드바 keywords 형식({rank, keyword, type}) 으로 변환 후 병합 (중복 제거)
@@ -2342,6 +2347,47 @@ Q5. / A5.
                 }));
                 setKeywords(merged);
                 alert(`✅ 리뷰 키워드 ${mapped.length}개를 검색어 목록에 추가했습니다.`);
+              }}
+            />
+          </Section>
+
+          <Section title="🕵️ 경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed>
+            <CompetitorAnalyzer
+              apiKey={apiKey}
+              model={model}
+              productName={brief.productName}
+              productType={brief.productType}
+              toneNote={brief.brandTone || ''}
+              reviewInsights={reviewInsights}
+              onApplyToBrief={(updates) => {
+                // USP/갭/카피/구조 힌트를 brief 의 메모 필드에 누적 추가
+                const lines = [];
+                if (updates.uspHints?.length) {
+                  lines.push('━━ 경쟁사 USP (벤치마크) ━━');
+                  updates.uspHints.forEach((u, i) => lines.push(`${i + 1}. ${u}`));
+                }
+                if (updates.gapHints?.length) {
+                  lines.push('\n━━ 우리가 보완할 부분 (Gap) ━━');
+                  updates.gapHints.forEach((g, i) => lines.push(`${i + 1}. ${g}`));
+                }
+                if (updates.headlineHints?.length) {
+                  lines.push('\n━━ 추천 헤드라인 (변형) ━━');
+                  updates.headlineHints.forEach((h, i) => lines.push(`${i + 1}. ${h}`));
+                }
+                if (updates.structureHint) {
+                  lines.push(`\n━━ 추천 구조 ━━\n${updates.structureHint}`);
+                }
+                const block = lines.join('\n');
+                if (!block) return;
+                // brief.extraNotes 에 누적 추가 (페이지 생성 시 자동 참고됨)
+                setBrief((prev) => {
+                  const prevNote = prev.extraNotes || '';
+                  const newNote = prevNote
+                    ? `${prevNote}\n\n${block}`
+                    : block;
+                  return { ...prev, extraNotes: newNote };
+                });
+                alert('✅ 경쟁사 분석 결과가 브리프(추가 메모)에 반영되었습니다. P1~P10 생성 시 자동 참고됩니다.');
               }}
             />
           </Section>
