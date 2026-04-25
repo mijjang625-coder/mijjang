@@ -12,7 +12,8 @@ export function PageFrame({ children, height = 1200, bg = BRAND.colors.white }) 
         minHeight: height,
         backgroundColor: bg,
         color: BRAND.colors.text,
-        fontFamily: BRAND.fontFamily,
+        // CSS 변수로 폰트 적용 — 사용자가 폰트 카드 선택 시 즉시 반영
+        fontFamily: 'var(--app-font, ' + BRAND.fontFamily + ')',
         position: 'relative',
       }}
     >

@@ -1,6 +1,7 @@
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame, Img, SectionTitle, Divider, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
+import EditableImage from '../EditableImage.jsx';
 
 // 배송/A.S. 카드 패널 — 중복 제거용 헬퍼
 function InfoPanel({ sectionTitle, items, bg }) {
@@ -169,7 +170,15 @@ export default function P10Faq({
         </div>
 
         <div style={{ marginTop: 26 }}>
-          <Img src={componentImage} aspect="16 / 10" radius={16} />
+          <EditableImage
+            id="P10.componentImage"
+            src={componentImage}
+            aspect="16 / 10"
+            radius={16}
+            editMode={editMode}
+            override={overrides['P10.componentImage'] || {}}
+            onChange={(partial) => onOverrideChange('P10.componentImage', partial)}
+          />
         </div>
 
         {/* 구성품 체크리스트 — 아이콘 variant로 다양성 */}

@@ -1,6 +1,7 @@
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame, Img } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
+import EditableImage from '../EditableImage.jsx';
 
 // P2: 베네핏 심화 설명 (세로 3섹션, 사진 중심)
 export default function P2Benefits({
@@ -77,7 +78,15 @@ export default function P2Benefits({
                 </EditableText>
               </div>
             </div>
-            <Img src={images[i]} aspect="4 / 3" radius={16} />
+            <EditableImage
+              id={`P2.images.${i}`}
+              src={images[i]}
+              aspect="4 / 3"
+              radius={16}
+              editMode={editMode}
+              override={overrides[`P2.images.${i}`] || {}}
+              onChange={(partial) => onOverrideChange(`P2.images.${i}`, partial)}
+            />
           </div>
         ))}
       </div>

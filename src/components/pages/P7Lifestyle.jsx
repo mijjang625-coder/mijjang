@@ -1,6 +1,7 @@
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame, Img } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
+import EditableImage from '../EditableImage.jsx';
 
 // P7: 감성 라이프스타일 (세로 3모듈)
 export default function P7Lifestyle({
@@ -60,7 +61,15 @@ export default function P7Lifestyle({
       <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
         {modules.slice(0, 3).map((m, i) => (
           <div key={i}>
-            <Img src={images[i]} aspect="4 / 3" radius={16} />
+            <EditableImage
+              id={`P7.images.${i}`}
+              src={images[i]}
+              aspect="4 / 3"
+              radius={16}
+              editMode={editMode}
+              override={overrides[`P7.images.${i}`] || {}}
+              onChange={(partial) => onOverrideChange(`P7.images.${i}`, partial)}
+            />
             <EditableText
               {...editPropsFor(`P7.modules.${i}.caption`)}
               as="div"

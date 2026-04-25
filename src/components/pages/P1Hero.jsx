@@ -1,6 +1,7 @@
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame, Img, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
+import EditableImage from '../EditableImage.jsx';
 
 // P1: 메인 히어로 + 강점 카드 3개
 // editMode / overrides / onOverrideChange: 인라인 편집 지원
@@ -69,7 +70,15 @@ export default function P1Hero({
           </div>
         )}
         <div style={{ marginTop: 36 }}>
-          <Img src={image} aspect="1 / 1" radius={20} />
+          <EditableImage
+            id="P1.heroImage"
+            src={image}
+            aspect="1 / 1"
+            radius={20}
+            editMode={editMode}
+            override={overrides['P1.heroImage'] || {}}
+            onChange={(partial) => onOverrideChange('P1.heroImage', partial)}
+          />
         </div>
       </div>
 

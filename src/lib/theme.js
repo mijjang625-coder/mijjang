@@ -160,9 +160,13 @@ export function applyTheme(themeId) {
   return preset;
 }
 
-// 선택된 폰트로 BRAND.fontFamily 스왑 (전체 페이지 일괄 변경)
+// 선택된 폰트로 BRAND.fontFamily 스왑 + document에 CSS 변수 적용
+// (전체 페이지 일괄 변경 — Shared.jsx 등이 var(--app-font)를 사용)
 export function applyFont(fontId) {
   const preset = FONT_PRESETS[fontId] || FONT_PRESETS.pretendard;
   BRAND.fontFamily = preset.family;
+  if (typeof document !== 'undefined') {
+    document.documentElement.style.setProperty('--app-font', preset.family);
+  }
   return preset;
 }
