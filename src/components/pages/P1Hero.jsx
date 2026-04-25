@@ -22,6 +22,7 @@ export default function P1Hero({
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
   onChangeLayer = () => {},
+  onReorderLayers = () => {},
 }) {
   const {
     mainHeadline = '제품의 핵심을 한 줄로',
@@ -45,6 +46,9 @@ export default function P1Hero({
   const [showPicker, setShowPicker] = useState(false);
   // 레이어 패널 표시
   const [showLayers, setShowLayers] = useState(false);
+  // 드래그앤드롭 상태 (레이어 패널)
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
   const validImages = (allImages || []).filter(Boolean);
 
   // 메인사진의 z-index (override.zIndex가 없으면 기본 500)
@@ -397,18 +401,63 @@ export default function P1Hero({
                 >✕</button>
               </div>
               <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 8, lineHeight: 1.5 }}>
-                💡 위 = 앞쪽, 아래 = 뒤쪽. 항목 클릭 = 선택, ▲▼로 순서 변경.
+                💡 위 = 앞쪽, 아래 = 뒤쪽. ⠿ 영역 드래그로 순서 변경, ▲▼ 버튼으로도 가능.
               </div>
-              {allLayers.map((layer) => (
+              {allLayers.map((layer, idx) => (
                 <div
                   key={layer.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragIdx(idx);
+                    e.dataTransfer.effectAllowed = 'move';
+                    // Firefox 호환
+                    try { e.dataTransfer.setData('text/plain', layer.id); } catch (_) {}
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverIdx !== idx) setDragOverIdx(idx);
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverIdx === idx) setDragOverIdx(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = dragIdx;
+                    const to = idx;
+                    setDragIdx(null);
+                    setDragOverIdx(null);
+                    if (from === null || from === to) return;
+                    // 새 순서 만들기
+                    const next = allLayers.slice();
+                    const [moved] = next.splice(from, 1);
+                    next.splice(to, 0, moved);
+                    onReorderLayers(next.map((l) => ({ kind: l.kind, id: l.id })));
+                  }}
+                  onDragEnd={() => {
+                    setDragIdx(null);
+                    setDragOverIdx(null);
+                  }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: 6, marginBottom: 4,
-                    border: '1px solid #e2ddd4', borderRadius: 6,
+                    border: dragOverIdx === idx ? '2px solid #2563eb' : '1px solid #e2ddd4',
+                    borderRadius: 6,
                     backgroundColor: layer.kind === 'main' ? '#eff6ff' : '#fafaf9',
+                    opacity: dragIdx === idx ? 0.4 : 1,
+                    cursor: 'grab',
+                    transition: 'border-color 0.1s',
                   }}
                 >
+                  {/* 드래그 핸들 표시 */}
+                  <div style={{
+                    fontSize: 14,
+                    color: '#94a3b8',
+                    cursor: 'grab',
+                    userSelect: 'none',
+                    flexShrink: 0,
+                    paddingRight: 2,
+                  }} title="드래그로 순서 변경">⠿</div>
                   <img src={layer.src} alt="" crossOrigin="anonymous"
                     style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>

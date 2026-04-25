@@ -230,6 +230,47 @@ export default function App() {
     });
   };
 
+  // 레이어 순서 일괄 재정렬 (드래그앤드롭 결과 적용)
+  // newOrder: [{ kind: 'main'|'free', id: string }, ...]  -> 위에서부터 아래 순서
+  // 정책:
+  //   - 메인 사진은 항상 z=500 (CONTENT_Z) 고정
+  //   - 메인보다 위에 있는 자유 이미지: 위에서부터 차례로 큰 z 부여 (메인+1 ~ 메인+N)
+  //   - 메인보다 아래에 있는 자유 이미지: 아래에서부터 작은 z 부여 (메인-1 ~ 메인-M)
+  //   - 메인 사진의 zIndex override도 명시적으로 500으로 설정
+  const reorderLayers = (pageNum, newOrder) => {
+    if (!Array.isArray(newOrder) || newOrder.length === 0) return;
+    const mainIdx = newOrder.findIndex((l) => l.kind === 'main');
+    // 메인 위쪽(앞쪽)에 있는 자유 이미지들 — 위에서 아래 순서대로 (z는 큰→작은)
+    const aboveFree = mainIdx >= 0 ? newOrder.slice(0, mainIdx).filter((l) => l.kind === 'free') : [];
+    // 메인 아래쪽(뒤쪽)에 있는 자유 이미지들 — 위에서 아래 순서대로 (z는 큰→작은)
+    const belowFree = mainIdx >= 0
+      ? newOrder.slice(mainIdx + 1).filter((l) => l.kind === 'free')
+      : newOrder.filter((l) => l.kind === 'free'); // 메인 없으면 전부 위쪽으로 간주
+
+    // 자유 이미지 id → 새 z-index 매핑
+    const zMap = {};
+    // above: 첫 번째가 가장 앞 = 가장 큰 z = CONTENT_Z + aboveFree.length
+    aboveFree.forEach((l, i) => {
+      zMap[l.id] = CONTENT_Z + (aboveFree.length - i); // 501, 502, ...
+    });
+    // below: 첫 번째(메인 바로 아래)가 z = CONTENT_Z - 1, 마지막(맨 아래)가 가장 작은 z
+    belowFree.forEach((l, i) => {
+      zMap[l.id] = CONTENT_Z - 1 - i; // 499, 498, ...
+    });
+
+    setFreeImages((prev) => {
+      const list = (prev[pageNum] || []).map((it) =>
+        zMap[it.id] !== undefined ? { ...it, zIndex: zMap[it.id] } : it
+      );
+      return { ...prev, [pageNum]: list };
+    });
+    // 메인 사진 zIndex override를 500으로 명시
+    if (mainIdx >= 0) {
+      const mainLayer = newOrder[mainIdx];
+      updateImageOverride(pageNum, mainLayer.id, { zIndex: CONTENT_Z });
+    }
+  };
+
   // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
   const updateTextOverride = (pageNum, textId, partial) => {
     setTextOverrides((prev) => {
@@ -1692,6 +1733,7 @@ export default function App() {
                   onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
                   onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
                   onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
+                  onReorderLayers={(newOrder) => reorderLayers(currentPage, newOrder)}
                 />
               ) : (
                 <div className="text-xs text-slate-400 py-20 text-center">
