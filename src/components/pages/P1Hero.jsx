@@ -225,7 +225,7 @@ export default function P1Hero({
       {(freeImages || []).map((item) => (
         <FreeImage
           key={item.id}
-          item={item}
+          item={{ ...item, galleryImages: validImages }}
           editMode={editMode}
           canvasWidth={780}
           onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}

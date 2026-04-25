@@ -30,8 +30,9 @@ const HANDLES = [
 
 const SNAP_THRESHOLD = 8;
 const MIN_SIZE = 40;
-const MIN_IMG_SCALE = 1.0;
-const MAX_IMG_SCALE = 4.0;
+const MIN_IMG_SCALE = 0.5;   // 50%까지 축소 가능 (EditableImage v4와 동일)
+const MAX_IMG_SCALE = 4.0;   // 400%까지 확대
+const FREE_RADIUS = 16;      // 자유 이미지 기본 모서리 둥글기 (메인 사진과 통일)
 
 function coverSize(boxW, boxH, natW = 1, natH = 1) {
   const boxRatio = boxW / boxH;
@@ -60,7 +61,9 @@ export default function FreeImage({
 
   const { id, src, x = 0, y = 0, w = 200, h = 200, crop, zIndex = 100 } = item;
   const cover = coverSize(w, h, imgNatural.w, imgNatural.h);
-  const currentScale = Math.max(MIN_IMG_SCALE, crop?.scale ?? 1.0);
+  // 크롭 모드에서는 50%까지 축소 허용, idle 모드에서는 cover 보장(>=1)
+  const rawScale = crop?.scale ?? 1.0;
+  const currentScale = Math.max(MIN_IMG_SCALE, Math.min(MAX_IMG_SCALE, rawScale));
   const imgW = cover.w * currentScale;
   const imgH = cover.h * currentScale;
   const offsetX = (crop?.offsetXR ?? 0) * w;
@@ -263,9 +266,27 @@ export default function FreeImage({
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
 
+  // ─── 사진 교체 패널 ──────────────────────
+  const [showReplace, setShowReplace] = useState(false);
+
+  // 사진 교체 패널 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showReplace) return;
+    const onDocClick = (e) => {
+      if (e.target.closest('[data-replace-panel]')) return;
+      if (e.target.closest('[data-replace-trigger]')) return;
+      setShowReplace(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showReplace]);
+
   // ─── 렌더 ──────────────────────
   const showHandles = editMode && (selected || hovering || resizing) && mode === 'idle';
   const showToolbar = editMode && (selected || hovering) && mode === 'idle';
+
+  // 툴바 위치: 박스가 페이지 상단에 있으면 박스 아래에 표시
+  const toolbarBelow = y < 50;
 
   return (
     <div
@@ -282,6 +303,7 @@ export default function FreeImage({
         height: h,
         backgroundColor: '#e8e5e1',
         overflow: 'hidden',
+        borderRadius: FREE_RADIUS,
         outline:
           mode === 'cropping' ? '2px solid #f97316'
           : selected ? '2px solid #3b82f6'
@@ -340,25 +362,32 @@ export default function FreeImage({
         );
       })}
 
-      {/* idle 툴바 (좌상단) */}
+      {/* idle 툴바 (좌상단 또는 좌하단 자동 배치) */}
       {showToolbar && (
         <div
           data-free-toolbar
           style={{
             position: 'absolute',
             left: 0,
-            top: -36,
+            top: toolbarBelow ? h + 6 : -36,
             display: 'flex',
             gap: 3,
             zIndex: 30,
+            backgroundColor: 'rgba(30,41,59,0.92)',
+            padding: '4px 5px',
+            borderRadius: 6,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            whiteSpace: 'nowrap',
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button onClick={() => setMode('cropping')} style={btn('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)">🔍 크롭</button>
+          <button onClick={() => setMode('cropping')} style={btn('#3b82f6')} title="크롭 모드 (더블클릭으로도 진입)">🔍</button>
+          <span style={{ color: '#475569', fontSize: 12, padding: '0 2px', alignSelf: 'center' }}>|</span>
           <button onClick={() => onChangeLayer('front')} style={btn('#475569')} title="맨 앞으로">▲▲</button>
           <button onClick={() => onChangeLayer('forward')} style={btn('#64748b')} title="한 단계 앞으로">▲</button>
           <button onClick={() => onChangeLayer('backward')} style={btn('#64748b')} title="한 단계 뒤로">▼</button>
           <button onClick={() => onChangeLayer('back')} style={btn('#475569')} title="맨 뒤로">▼▼</button>
+          <span style={{ color: '#475569', fontSize: 12, padding: '0 2px', alignSelf: 'center' }}>|</span>
           <button onClick={() => { if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }} style={btn('#dc2626')} title="삭제">🗑</button>
         </div>
       )}
@@ -375,32 +404,120 @@ export default function FreeImage({
         </div>
       )}
 
-      {/* B모드 툴바 */}
+      {/* B모드 툴바 (자동 위/아래) */}
       {mode === 'cropping' && (
         <div
           data-free-toolbar
           style={{
-            position: 'absolute', left: 0, top: -50,
-            display: 'flex', gap: 6, alignItems: 'center',
+            position: 'absolute',
+            left: 0,
+            top: toolbarBelow ? h + 6 : -50,
+            display: 'flex', gap: 8, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '8px 12px',
             borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             zIndex: 40,
+            whiteSpace: 'nowrap',
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>확대:</span>
+          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>확대</span>
           <input
             type="range" min={MIN_IMG_SCALE} max={MAX_IMG_SCALE} step="0.05"
             value={currentScale}
             onChange={(e) => handleScaleChange(parseFloat(e.target.value))}
-            style={{ width: 110, accentColor: '#f97316' }}
+            style={{ width: 180, accentColor: '#f97316' }}
             onMouseDown={(e) => e.stopPropagation()}
+            title="50% ~ 400%"
           />
-          <span style={{ color: '#fff', fontSize: 11, fontWeight: 700, minWidth: 36 }}>
+          <span style={{ color: '#fbbf24', fontSize: 12, fontWeight: 800, minWidth: 44, textAlign: 'right' }}>
             {Math.round(currentScale * 100)}%
           </span>
-          <button onClick={() => onUpdate({ crop: null })} style={btn('#7c2d12')} title="크롭 초기화">↺</button>
+          <span style={{ color: '#475569', fontSize: 12, padding: '0 2px' }}>|</span>
+          <button
+            data-replace-trigger
+            onClick={(e) => { e.stopPropagation(); setShowReplace((s) => !s); }}
+            style={btn('#0ea5e9')} title="사진 교체"
+          >🔄</button>
+          <button onClick={() => onUpdate({ crop: null })} style={btn('#7c2d12')} title="크롭(확대/위치) 초기화">↺</button>
           <button onClick={() => setMode('idle')} style={btn('#16a34a')} title="완료 (ESC)">✓</button>
+        </div>
+      )}
+
+      {/* 사진 교체 패널 — 크롭모드에서만, 박스 우측 또는 아래쪽으로 floating */}
+      {mode === 'cropping' && showReplace && (
+        <div
+          data-replace-panel
+          style={{
+            position: 'absolute',
+            left: w + 12,
+            top: 0,
+            width: 280,
+            maxHeight: 360,
+            overflow: 'auto',
+            backgroundColor: '#fff',
+            border: '1px solid #e2ddd4',
+            borderRadius: 10,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
+            padding: 12,
+            zIndex: 50,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#2F2A26' }}>🔄 사진 교체</div>
+            <button
+              onClick={() => setShowReplace(false)}
+              style={{ border: 'none', background: 'transparent', color: '#64748b', fontSize: 14, cursor: 'pointer' }}
+            >✕</button>
+          </div>
+          <label
+            style={{
+              display: 'block', border: '2px dashed #93c5fd', backgroundColor: '#eff6ff',
+              borderRadius: 8, padding: '10px 8px', textAlign: 'center', fontSize: 11,
+              fontWeight: 700, color: '#1d4ed8', cursor: 'pointer', marginBottom: 8,
+            }}
+          >
+            ⬆️ 내 컴퓨터에서 업로드
+            <input
+              type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  if (ev.target?.result) {
+                    onUpdate({ src: ev.target.result, crop: null });
+                    setShowReplace(false);
+                  }
+                };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>또는 갤러리에서 선택</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5 }}>
+            {(item.galleryImages || []).filter(Boolean).map((gsrc, gi) => (
+              <button
+                key={gi}
+                onClick={() => { onUpdate({ src: gsrc, crop: null }); setShowReplace(false); }}
+                style={{
+                  border: gsrc === src ? '2px solid #3b82f6' : '1px solid #e2ddd4',
+                  borderRadius: 6, padding: 0, overflow: 'hidden', cursor: 'pointer',
+                  aspectRatio: '1 / 1', backgroundColor: '#f3f4f6',
+                }}
+                title={`사진 ${gi + 1}로 교체`}
+              >
+                <img src={gsrc} alt="" crossOrigin="anonymous"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              </button>
+            ))}
+          </div>
+          {(!item.galleryImages || item.galleryImages.filter(Boolean).length === 0) && (
+            <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '6px 0' }}>
+              (생성된 사진이 없습니다)
+            </div>
+          )}
         </div>
       )}
 
