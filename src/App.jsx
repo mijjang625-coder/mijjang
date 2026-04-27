@@ -1871,10 +1871,11 @@ export default function App() {
                 >
                   {[
                     { key: 'pc',         label: '🖥 PC',        sub: '780px' },
+                    { key: 'tablet',     label: '📲 태블릿',    sub: '560px' },
                     { key: 'mobile',     label: '📱 모바일',    sub: '360px' },
                     { key: 'mobileFull', label: '📜 전체',      sub: 'P1~P10 모바일' },
                     { key: 'split',      label: '🔀 동시',      sub: 'PC+모바일' },
-                  ].map((m) => (
+                  ].map((m, idx, arr) => (
                     <button
                       key={m.key}
                       onClick={() => setPreviewMode(m.key)}
@@ -1882,7 +1883,7 @@ export default function App() {
                       style={{
                         backgroundColor: previewMode === m.key ? '#2F2A26' : '#fff',
                         color: previewMode === m.key ? '#fff' : '#2F2A26',
-                        borderRight: m.key !== 'split' ? '1px solid #e2ddd4' : 'none',
+                        borderRight: idx < arr.length - 1 ? '1px solid #e2ddd4' : 'none',
                         whiteSpace: 'nowrap',
                       }}
                       title={`${m.label} — ${m.sub}`}
@@ -1895,10 +1896,12 @@ export default function App() {
             </div>
             {editMode && (
               <div
-                className="text-[11px] mb-2 px-3 py-2 rounded-lg border"
+                className="text-[11px] mb-2 px-3 py-2 rounded-lg border leading-relaxed"
                 style={{ backgroundColor: '#FFF8F0', borderColor: '#FDBA74', color: '#9A3412' }}
               >
                 ✏️ <b>편집 모드</b> — 텍스트: <b>더블클릭</b>으로 글자 수정 · <b>클릭</b>으로 폰트/크기/색상 툴바 · <b>드래그</b>로 위치 이동 / 사진: 우하단 <b>파란 핸들</b>을 드래그해서 크기 조절 (ESC로 편집 종료)
+                <br />
+                ⌨️ <b>미세 이동</b> — 요소 선택 후 <b>화살표 키 = 1px</b> · <b>Shift+화살표 = 10px</b> · <b>Alt+드래그 = 자동 정렬(스냅) OFF</b> (자유 이동)
               </div>
             )}
             <div className="rounded-xl overflow-auto flex justify-center py-4 gap-6" style={{ backgroundColor: '#f0ebe4', maxHeight: 'calc(100vh - 260px)' }}>
@@ -2010,6 +2013,38 @@ export default function App() {
                           {renderPage(pageRefs[currentPage], 'mobile')}
                         </ScaledHeightWrap>
                       </MobileFrame>
+                    </div>
+                  );
+                }
+
+                // 📲 태블릿 모드 (560px ≈ 0.72배 축소)
+                if (previewMode === 'tablet') {
+                  const TABLET_W = 560;
+                  const TABLET_SCALE = TABLET_W / 780;
+                  return (
+                    <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                      <div
+                        style={{
+                          width: TABLET_W + 24,
+                          padding: 12,
+                          background: '#1f2937',
+                          borderRadius: 28,
+                          boxShadow: '0 16px 40px rgba(0,0,0,0.18)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: TABLET_W,
+                            background: '#fff',
+                            borderRadius: 18,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <ScaledHeightWrap scale={TABLET_SCALE}>
+                            {renderPage(pageRefs[currentPage], 'tablet')}
+                          </ScaledHeightWrap>
+                        </div>
+                      </div>
                     </div>
                   );
                 }
