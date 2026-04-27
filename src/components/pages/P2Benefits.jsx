@@ -214,7 +214,9 @@ export default function P2Benefits({
                 <div style={{ marginBottom: 22, pointerEvents: editMode ? 'auto' : 'inherit' }}>
                   <div
                     style={{
-                      display: 'inline-block',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       backgroundColor: BRAND.colors.main,
                       color: '#fff',
                       fontSize: 22,
@@ -222,6 +224,8 @@ export default function P2Benefits({
                       padding: '6px 16px',
                       borderRadius: 999,
                       marginBottom: 14,
+                      lineHeight: 1.2,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     POINT {String(i + 1).padStart(2, '0')}

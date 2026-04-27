@@ -197,14 +197,20 @@ export default function P9HowTo({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, pointerEvents: editMode ? 'auto' : 'inherit' }}>
                     <div
+                      className="step-circle-badge"
                       style={{
                         width: 58, height: 58, borderRadius: '50%',
                         backgroundColor: BRAND.colors.main, color: '#fff',
-                        fontWeight: 900, fontSize: 22, display: 'flex',
-                        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        fontWeight: 900, fontSize: 18, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                        flexDirection: 'column',
+                        flexShrink: 0,
+                        lineHeight: 1.05,
+                        textAlign: 'center',
                       }}
                     >
-                      STEP<br />{s.stepNo || i + 1}
+                      <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.95 }}>STEP</span>
+                      <span style={{ fontSize: 22, fontWeight: 900, marginTop: 1 }}>{s.stepNo || i + 1}</span>
                     </div>
                     <EditableText
                       {...editPropsFor(`P9.steps.${i}.desc`)}

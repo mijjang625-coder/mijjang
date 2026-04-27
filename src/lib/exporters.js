@@ -11,28 +11,70 @@ async function getHtml2Canvas() {
 const NANUMSQUARE_CSS_URL =
   'https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css';
 
+// 🆕 캡처 직전 호출 — 폰트 로딩 + 추가 1프레임 대기
+// document.fonts.ready를 기다리지 않으면 fallback 폰트로 캡처되어
+// 한글 폰트의 ascent/descent가 달라지고 라벨/배지 텍스트가 위로/아래로 밀림.
+async function prepareForCapture() {
+  // 1) 모든 webfont 로딩 완료 대기
+  if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+    try { await document.fonts.ready; } catch {}
+  }
+  // 2) 다음 프레임까지 대기 (layout 안정화)
+  await new Promise((r) => requestAnimationFrame(() => r()));
+  // 3) 한 프레임 더 (Safari 안전망)
+  await new Promise((r) => requestAnimationFrame(() => r()));
+}
+
+// 🆕 캡처 시 텍스트 위치 보정용 클래스 일시 적용
+// .coupang-page에 .pre-capture 추가 → CSS가 라벨/배지 line-height/align을 강제 통일
+function applyCaptureClass(node) {
+  node.classList.add('pre-capture');
+  return () => node.classList.remove('pre-capture');
+}
+
+// 🆕 공통 html2canvas 옵션 — 텍스트 어긋남을 최소화하는 설정
+// - foreignObjectRendering: false (true면 SVG로 렌더해서 폰트 metric이 또 달라짐)
+// - letterRendering: true → 글자 단위로 위치 측정 (한글 정렬 정확도 향상)
+// - imageTimeout: 0 → 이미지 로딩 무한 대기 (이미 waitForImages로 보장됨)
+const CAPTURE_OPTIONS = {
+  scale: 2,
+  useCORS: true,
+  allowTaint: true,
+  backgroundColor: '#ffffff',
+  logging: false,
+  letterRendering: true,
+  foreignObjectRendering: false,
+  imageTimeout: 0,
+  // onclone: 캡처 직전 cloned DOM을 추가 보정
+  onclone: (clonedDoc) => {
+    // cloned 문서에서도 .pre-capture 클래스가 적용되도록 보장
+    const pages = clonedDoc.querySelectorAll('.coupang-page');
+    pages.forEach((p) => p.classList.add('pre-capture'));
+  },
+};
+
 /* ───────── 단일 페이지 ───────── */
 
 /** Render a DOM node to a PNG image and trigger download. */
 export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   if (!node) throw new Error('렌더링할 노드가 없습니다.');
   await waitForImages(node);
-  const html2canvas = await getHtml2Canvas();
-  const canvas = await html2canvas(node, {
-    scale: 2,
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: '#ffffff',
-    logging: false,
-  });
-  await new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return resolve();
-      const url = URL.createObjectURL(blob);
-      triggerDownload(url, filename);
-      setTimeout(() => { URL.revokeObjectURL(url); resolve(); }, 1000);
-    }, 'image/png');
-  });
+  await prepareForCapture();
+  const removeClass = applyCaptureClass(node);
+  try {
+    const html2canvas = await getHtml2Canvas();
+    const canvas = await html2canvas(node, CAPTURE_OPTIONS);
+    await new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) return resolve();
+        const url = URL.createObjectURL(blob);
+        triggerDownload(url, filename);
+        setTimeout(() => { URL.revokeObjectURL(url); resolve(); }, 1000);
+      }, 'image/png');
+    });
+  } finally {
+    removeClass();
+  }
 }
 
 /** Build a standalone HTML document and download it. */
@@ -58,18 +100,19 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
   const total = pages.length;
   const canvases = [];
   const html2canvas = await getHtml2Canvas();
-  for (let i = 0; i < pages.length; i++) {
-    const { key, node } = pages[i];
-    onProgress?.({ done: i, total, label: `${key} 캡처 중...` });
-    await waitForImages(node);
-    const c = await html2canvas(node, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-    });
-    canvases.push(c);
+  // 🆕 모든 페이지에 캡처 클래스 적용 (한 번에) + 폰트 로딩
+  await prepareForCapture();
+  const cleanups = pages.map(({ node }) => applyCaptureClass(node));
+  try {
+    for (let i = 0; i < pages.length; i++) {
+      const { key, node } = pages[i];
+      onProgress?.({ done: i, total, label: `${key} 캡처 중...` });
+      await waitForImages(node);
+      const c = await html2canvas(node, CAPTURE_OPTIONS);
+      canvases.push(c);
+    }
+  } finally {
+    cleanups.forEach((fn) => fn());
   }
   onProgress?.({ done: total, total, label: '이미지 합치는 중...' });
   const width = Math.max(...canvases.map((c) => c.width));
@@ -156,17 +199,18 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
 
   // 각 페이지 PNG로 다운로드
   const html2canvas = await getHtml2Canvas();
+  await prepareForCapture();
   for (let i = 0; i < pages.length; i++) {
     const { key, node } = pages[i];
     onProgress?.({ done: i, total: pages.length + 2, label: `${key} → PNG` });
     await waitForImages(node);
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-    });
+    const removeClass = applyCaptureClass(node);
+    let canvas;
+    try {
+      canvas = await html2canvas(node, CAPTURE_OPTIONS);
+    } finally {
+      removeClass();
+    }
     const pngName = `${productName}-${key}.png`;
     await new Promise((resolve) => {
       canvas.toBlob((blob) => {

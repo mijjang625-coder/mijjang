@@ -53,3 +53,51 @@ body {
 .p1-content-layer [data-handle] {
   pointer-events: auto;
 }
+
+/* ─────────────────────────────────────────────────────────
+   🎯 캡처 모드 — html2canvas 직전 적용되어 라벨/배지 텍스트 정렬을 강제 통일
+   ─────────────────────────────────────────────────────────
+   문제: 화면에서는 STEP/POINT 라벨이 박스 정중앙에 보이지만,
+        html2canvas가 캡처할 때 한글 폰트(Pretendard, NanumSquare)의 ascent/descent
+        계산이 달라져서 텍스트가 박스 아래로 밀리거나 잘리는 현상 발생.
+   해결: .pre-capture 클래스를 캡처 직전에 .coupang-page에 추가하고,
+        라벨/배지 안의 텍스트에 line-height와 정렬을 명시적으로 강제.
+*/
+.coupang-page.pre-capture * {
+  /* 모든 텍스트의 line-height 안정화 — 폰트 metrics 차이 무시 */
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 라벨/배지 — display:flex + alignItems:center 조합이 흔히 사용되는 곳.
+   html2canvas는 inline-block + line-height 트릭을 종종 잘못 해석하므로
+   pre-capture 모드에서는 모든 inline-block 라벨에 명시적 line-height 부여 */
+.coupang-page.pre-capture div[style*="border-radius: 999"],
+.coupang-page.pre-capture div[style*="borderRadius:999"] {
+  /* 라벨/배지의 텍스트가 정확히 중앙 정렬되도록 */
+  line-height: 1;
+}
+
+/* 원형 배지 (border-radius:50%) 안의 텍스트는 항상 정중앙 */
+.coupang-page.pre-capture div[style*="border-radius: 50%"],
+.coupang-page.pre-capture div[style*="borderRadius:50%"] {
+  /* flex 정렬은 이미 inline style에 있고, line-height 추가 강제 */
+  line-height: 1.1;
+}
+
+/* P9 STEP 원형 배지 — STEP<br/>{n} 패턴이 가장 잘 어긋남.
+   inline style에 있는 height와 동일한 line-height로 보정하는 대신,
+   block-level로 변환하여 flex가 확실히 적용되도록 */
+.coupang-page.pre-capture .step-circle-badge {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: column;
+  line-height: 1.05 !important;
+  text-align: center;
+  padding: 0;
+}
+.coupang-page.pre-capture .step-circle-badge > br {
+  /* STEP과 숫자 사이 줄바꿈 간격 통일 */
+  line-height: 1;
+}

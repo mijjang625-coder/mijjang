@@ -118,6 +118,7 @@ export default function P8Usages({
                       fontWeight: 900, fontSize: 20, display: 'flex',
                       alignItems: 'center', justifyContent: 'center',
                       pointerEvents: 'none', zIndex: 5,
+                      lineHeight: 1, // 🎯 캡처 시 어긋남 방지
                     }}
                   >
                     {String(i + 1).padStart(2, '0')}
