@@ -91,6 +91,10 @@ export default function EditableImage({
   const wrapperRef = useRef(null);
   const frameRef = useRef(null);
   const imgRef = useRef(null);
+  // 🎯 onChange를 ref에 보관 — 부모가 매 렌더 inline arrow를 만들어도
+  // 드래그/리사이즈 mousemove 리스너가 재등록되지 않게 한다 (이벤트 누락 방지)
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   const [hovering, setHovering] = useState(false);
   const [mode, setMode] = useState('idle'); // 'idle' | 'cropping'
   const [resizing, setResizing] = useState(null);
@@ -280,7 +284,7 @@ export default function EditableImage({
       }
       setSnapLines({ v: snapV, h: null });
 
-      onChange({
+      onChangeRef.current({
         frame: { width: Math.round(w), height: Math.round(h), x: Math.round(fx), y: Math.round(fy) },
       });
     };
@@ -291,7 +295,7 @@ export default function EditableImage({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [resizing, onChange]);
+  }, [resizing]);
 
   // ─── A모드: 프레임 위치 이동 ──────────────────────
   const handleFrameDragStart = (e) => {
@@ -330,7 +334,7 @@ export default function EditableImage({
       }
       setSnapLines({ v: snapV, h: null });
 
-      onChange({
+      onChangeRef.current({
         frame: {
           width: frame?.width ?? naturalSize.w,
           height: frame?.height ?? naturalSize.h,
@@ -346,7 +350,7 @@ export default function EditableImage({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [draggingFrame, frame, naturalSize, onChange]);
+  }, [draggingFrame, frame, naturalSize]);
 
   // 오프셋 클램핑: 사진이 박스 밖으로 너무 나가서 빈 공간 생기지 않도록 제한
   // 사진 표시 크기(imgW/H)와 박스 크기(boxW/H) 차이의 절반까지만 이동 가능
@@ -382,7 +386,7 @@ export default function EditableImage({
       // px → 비율로 변환해서 저장
       const newXR = boxW > 0 ? clamped.x / boxW : 0;
       const newYR = boxH > 0 ? clamped.y / boxH : 0;
-      onChange({
+      onChangeRef.current({
         crop: {
           scale: currentScale,
           offsetXR: newXR,
