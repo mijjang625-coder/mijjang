@@ -310,6 +310,7 @@ export default function P2Benefits({
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {
+          console.log('[P2] onChangeShapeLayer called:', shapeId, action, 'mainLayers=', mainLayers, 'onChangeLayerKind=', typeof onChangeLayerKind);
           if (onChangeLayerKind) {
             onChangeLayerKind('shape', shapeId, action, mainLayers);
           }

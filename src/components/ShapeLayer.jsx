@@ -673,13 +673,13 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
           }}
         >
           {/* 레이어 순서 (FreeImage / InlineFreeImage 와 동일) */}
-          <button onClick={() => onChangeLayer('front')}
+          <button onClick={() => { console.log('[Shape] layer btn:', 'front', 'id=', id); onChangeLayer('front'); }}
             style={btn('#475569')} title="맨 앞으로">▲▲</button>
-          <button onClick={() => onChangeLayer('forward')}
+          <button onClick={() => { console.log('[Shape] layer btn:', 'forward', 'id=', id); onChangeLayer('forward'); }}
             style={btn('#64748b')} title="한 단계 앞으로">▲</button>
-          <button onClick={() => onChangeLayer('backward')}
+          <button onClick={() => { console.log('[Shape] layer btn:', 'backward', 'id=', id); onChangeLayer('backward'); }}
             style={btn('#64748b')} title="한 단계 뒤로">▼</button>
-          <button onClick={() => onChangeLayer('back')}
+          <button onClick={() => { console.log('[Shape] layer btn:', 'back', 'id=', id); onChangeLayer('back'); }}
             style={btn('#475569')} title="맨 뒤로">▼▼</button>
           <span style={{
             backgroundColor: '#fbbf24', color: '#1e293b',
