@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getScaledDelta } from '../lib/dragScale.js';
+import FloatingToolbarWrapper from './FloatingToolbarWrapper.jsx';
 
 /**
  * ShapeLayer — 페이지 위에 자유롭게 그릴 수 있는 도형 레이어
@@ -818,50 +819,6 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
         </div>,
         document.body
       )}
-    </div>
-  );
-}
-
-// 🆕 마우스 커서 근처에 떠있는 툴바 래퍼 — viewport 경계 자동 flip
-function FloatingToolbarWrapper({ toolbarRef, pos, children }) {
-  // 마우스 좌표 + 12px offset 기본, viewport 경계 초과 시 반대쪽으로 flip
-  const [coord, setCoord] = useState({ left: pos.x + 12, top: pos.y + 12 });
-  useEffect(() => {
-    // 다음 프레임에서 실제 툴바 크기 측정 후 보정
-    const id = requestAnimationFrame(() => {
-      const el = toolbarRef.current;
-      const tw = el?.offsetWidth || 320;
-      const th = el?.offsetHeight || 36;
-      const margin = 12;
-      let left = pos.x + margin;
-      let top = pos.y + margin;
-      // 오른쪽 초과 → 마우스 왼쪽으로 flip
-      if (left + tw + margin > window.innerWidth) {
-        left = pos.x - tw - margin;
-      }
-      // 아래쪽 초과 → 마우스 위쪽으로 flip
-      if (top + th + margin > window.innerHeight) {
-        top = pos.y - th - margin;
-      }
-      // 화면 밖으로 나가지 않도록 최소값 보정
-      left = Math.max(8, left);
-      top = Math.max(8, top);
-      setCoord({ left, top });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [pos.x, pos.y, toolbarRef]);
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        left: coord.left,
-        top: coord.top,
-        zIndex: 9999,
-        pointerEvents: 'auto',
-      }}
-    >
-      {children}
     </div>
   );
 }

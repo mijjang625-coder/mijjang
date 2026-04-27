@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getScaledDelta } from '../lib/dragScale.js';
+import FloatingToolbarWrapper from './FloatingToolbarWrapper.jsx';
 
 /**
  * FreeImage — 자유 배치 이미지 (페이지 캠버스 위에서 절대 위치)
@@ -134,10 +136,33 @@ export default function FreeImage({
       if (e.target.closest('[data-free-toolbar]')) return;
       setSelected(false);
       setMode('idle');
+      setToolbarPos((p) => ({ ...p, visible: false }));
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [selected]);
+
+  // 선택 해제 / ESC 키 → 툴바 닫기
+  useEffect(() => {
+    if (!selected) {
+      setToolbarPos((p) => ({ ...p, visible: false }));
+      return;
+    }
+    const onEsc = (e) => {
+      if (e.key === 'Escape') {
+        setToolbarPos((p) => ({ ...p, visible: false }));
+        setSelected(false);
+        setMode('idle');
+      }
+    };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [selected]);
+
+  // 🆕 마우스 좌표 기준 툴바 위치 (viewport fixed)
+  const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0, visible: false });
+  const toolbarRef = useRef(null);
+  const adjustPanelRef = useRef(null);
 
   // ─── 위치 드래그 (3px 임계값으로 클릭/더블클릭과 구분) ──────────────────────
   const handlePosDragStart = (e) => {
@@ -150,6 +175,8 @@ export default function FreeImage({
     e.stopPropagation();
     // preventDefault 제거 — dblclick 발화 보장
     setSelected(true);
+    // 클릭한 마우스 좌표 기록 → 툴바를 거기 근처에 표시
+    setToolbarPos({ x: e.clientX, y: e.clientY, visible: true });
     setDraggingPos({
       startX: e.clientX, startY: e.clientY, sx: x, sy: y,
       active: false,  // 임계값 넘기 전: 아직 실제 드래그 아님
@@ -166,6 +193,8 @@ export default function FreeImage({
       if (!draggingPos.active && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       if (!draggingPos.active) {
         setDraggingPos((p) => ({ ...p, active: true }));
+        // 실제 드래그 시작 → 툴바 잠시 숨김
+        setToolbarPos((p) => ({ ...p, visible: false }));
       }
       let nx = draggingPos.sx + dx;
       let ny = draggingPos.sy + dy;
@@ -181,7 +210,17 @@ export default function FreeImage({
 
       onUpdate({ x: Math.round(nx), y: Math.round(ny) });
     };
-    const onUp = () => { setDraggingPos(null); setSnapV(null); };
+    const onUp = (e) => {
+      const wasActive = draggingPos.active;
+      setDraggingPos(null);
+      setSnapV(null);
+      // 드래그가 실제로 일어났으면 마우스 종료 좌표로 툴바 다시 표시
+      if (wasActive && e) {
+        setToolbarPos({ x: e.clientX, y: e.clientY, visible: true });
+      } else {
+        // 단순 클릭(드래그 아님): 클릭한 좌표 그대로 유지 (이미 visible:true)
+      }
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
@@ -438,20 +477,18 @@ export default function FreeImage({
         );
       })}
 
-      {/* idle 툴바 — 메인사진 스타일과 통일 (텍스트 라벨 + 색상 구분) */}
-      {showToolbar && (
+      {/* idle 툴바 — 마우스 커서 근처에 portal로 fixed 표시 (큰 박스 선택 시 화면 밖으로 안 나감) */}
+      {showToolbar && toolbarPos.visible && createPortal(
+        <FloatingToolbarWrapper pos={toolbarPos} toolbarRef={toolbarRef}>
         <div
           data-free-toolbar
+          ref={toolbarRef}
           style={{
-            position: 'absolute',
-            left: 0,
-            top: toolbarBelow ? h + 6 : -42,
             display: 'flex', gap: 6, alignItems: 'center',
             backgroundColor: '#1e293b',
             padding: '6px 10px',
             borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 30,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
             whiteSpace: 'nowrap',
           }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -503,23 +540,26 @@ export default function FreeImage({
             style={btnLabel('#dc2626')} title="삭제"
           >🗑 삭제</button>
         </div>
+        </FloatingToolbarWrapper>,
+        document.body
       )}
 
-      {/* 🎨 색상 조정 패널 — idle 모드 + showAdjust ON 일 때 */}
-      {showToolbar && showAdjust && (
+      {/* 🎨 색상 조정 패널 — idle 모드 + showAdjust ON 일 때, 툴바 아래에 fixed 표시 */}
+      {showToolbar && showAdjust && toolbarPos.visible && createPortal(
         <div
           data-free-toolbar
+          ref={adjustPanelRef}
           style={{
-            position: 'absolute',
-            left: 0,
-            top: toolbarBelow ? h + 52 : -250,
+            position: 'fixed',
+            left: Math.min(toolbarPos.x + 12, window.innerWidth - 300),
+            top: Math.min(toolbarPos.y + 56, window.innerHeight - 320),
             width: 280,
             backgroundColor: '#fff',
             border: '1px solid #e2ddd4',
             borderRadius: 10,
-            boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.30)',
             padding: 12,
-            zIndex: 50,
+            zIndex: 10000,
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -585,7 +625,8 @@ export default function FreeImage({
             <PresetBtn label="비비드"
               onClick={() => onUpdate({ adjust: { brightness: 100, contrast: 120, saturate: 145, hue: 0 } })} />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 크기 표시 */}
