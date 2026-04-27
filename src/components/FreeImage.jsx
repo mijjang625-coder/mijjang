@@ -165,11 +165,13 @@ export default function FreeImage({
       let nx = draggingPos.sx + dx;
       let ny = draggingPos.sy + dy;
 
-      // 스냅: 캠버스 좌/우/중앙
+      // 스냅: 캠버스 좌/우/중앙 — Alt 키 누르면 OFF (자유 이동)
       let sV = null;
-      if (Math.abs(nx) < SNAP_THRESHOLD) { nx = 0; sV = 'left'; }
-      if (Math.abs(nx + w - canvasWidth) < SNAP_THRESHOLD) { nx = canvasWidth - w; sV = 'right'; }
-      if (Math.abs(nx + w / 2 - canvasWidth / 2) < SNAP_THRESHOLD) { nx = canvasWidth / 2 - w / 2; sV = 'center'; }
+      if (!e.altKey) {
+        if (Math.abs(nx) < SNAP_THRESHOLD) { nx = 0; sV = 'left'; }
+        if (Math.abs(nx + w - canvasWidth) < SNAP_THRESHOLD) { nx = canvasWidth - w; sV = 'right'; }
+        if (Math.abs(nx + w / 2 - canvasWidth / 2) < SNAP_THRESHOLD) { nx = canvasWidth / 2 - w / 2; sV = 'center'; }
+      }
       setSnapV(sV);
 
       onUpdate({ x: Math.round(nx), y: Math.round(ny) });

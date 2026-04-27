@@ -260,10 +260,10 @@ export default function EditableImage({
       w = Math.max(MIN_FRAME_SIZE, w);
       h = Math.max(MIN_FRAME_SIZE, h);
 
-      // 스냅
+      // 스냅 — Alt 키 누르면 OFF (자유 이동)
       const parent = getParentRect();
       let snapV = null;
-      if (parent && wrapperRef.current) {
+      if (parent && wrapperRef.current && !e.altKey) {
         const wrapperRect = wrapperRef.current.getBoundingClientRect();
         const availRight = parent.right - wrapperRect.left;
         const wrapperCenter = parent.width / 2 - (wrapperRect.left - parent.left);
@@ -319,7 +319,7 @@ export default function EditableImage({
 
       const parent = getParentRect();
       let snapV = null;
-      if (parent && wrapperRef.current) {
+      if (parent && wrapperRef.current && !e.altKey) {
         const wrapperRect = wrapperRef.current.getBoundingClientRect();
         const fw = frame?.width ?? naturalSize.w;
         const availRight = parent.right - wrapperRect.left;
