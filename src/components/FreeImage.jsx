@@ -100,25 +100,30 @@ export default function FreeImage({
 
   // 🎯 키보드 화살표로 1px 이동 (Shift+화살표 = 10px)
   // 선택된 자유이미지에만 적용. 텍스트 입력 중이면 무시.
+  // ⚠️ x,y를 ref에 보관해 effect 재생성으로 인한 키 이벤트 누락 방지
+  const posRef = useRef({ x, y });
+  useEffect(() => { posRef.current = { x, y }; }, [x, y]);
   useEffect(() => {
     if (!editMode || !selected) return;
     const onKey = (e) => {
       const tag = (e.target?.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+      if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
       const step = e.shiftKey ? 10 : 1;
-      let nx = x, ny = y, handled = false;
-      if (e.key === 'ArrowLeft')  { nx = x - step; handled = true; }
-      if (e.key === 'ArrowRight') { nx = x + step; handled = true; }
-      if (e.key === 'ArrowUp')    { ny = y - step; handled = true; }
-      if (e.key === 'ArrowDown')  { ny = y + step; handled = true; }
-      if (handled) {
-        e.preventDefault();
-        onUpdate({ x: nx, y: ny });
-      }
+      const cx = posRef.current.x;
+      const cy = posRef.current.y;
+      let nx = cx, ny = cy;
+      if (e.key === 'ArrowLeft')  nx = cx - step;
+      if (e.key === 'ArrowRight') nx = cx + step;
+      if (e.key === 'ArrowUp')    ny = cy - step;
+      if (e.key === 'ArrowDown')  ny = cy + step;
+      onUpdate({ x: nx, y: ny });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editMode, selected, x, y, onUpdate]);
+  }, [editMode, selected, onUpdate]);
 
   // 클릭 외부 시 선택 해제
   useEffect(() => {

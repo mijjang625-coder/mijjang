@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getScaledDelta } from '../lib/dragScale.js';
 
 /**
@@ -408,6 +409,9 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
   const [draggingPos, setDraggingPos] = useState(null);
   const [resizing, setResizing] = useState(null);
   const [showStyle, setShowStyle] = useState(false);
+  // 🆕 툴바 위치 (마우스 커서 근처에 표시) — viewport 기준 fixed 좌표
+  const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0, visible: false });
+  const toolbarRef = useRef(null);
 
   const {
     id, type, x = 0, y = 0, w = 200, h = 100,
@@ -425,26 +429,32 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
 
   // 🎯 키보드 화살표로 1px 이동 (Shift+화살표 = 10px)
   // 활성화된 도형에만 적용. 텍스트 입력 중이면 무시.
+  // ⚠️ x,y를 ref에 보관해 effect를 재생성하지 않아 키 이벤트 누락 방지
+  const posRef = useRef({ x, y });
+  useEffect(() => { posRef.current = { x, y }; }, [x, y]);
   useEffect(() => {
     if (!editMode || !isActive) return;
     const onKey = (e) => {
       // 입력창에 포커스가 있으면 무시
       const tag = (e.target?.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+      // 화살표 키만 처리
+      if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
       const step = e.shiftKey ? 10 : 1;
-      let nx = x, ny = y, handled = false;
-      if (e.key === 'ArrowLeft')  { nx = x - step; handled = true; }
-      if (e.key === 'ArrowRight') { nx = x + step; handled = true; }
-      if (e.key === 'ArrowUp')    { ny = y - step; handled = true; }
-      if (e.key === 'ArrowDown')  { ny = y + step; handled = true; }
-      if (handled) {
-        e.preventDefault();
-        onUpdate({ x: nx, y: ny });
-      }
+      const cx = posRef.current.x;
+      const cy = posRef.current.y;
+      let nx = cx, ny = cy;
+      if (e.key === 'ArrowLeft')  nx = cx - step;
+      if (e.key === 'ArrowRight') nx = cx + step;
+      if (e.key === 'ArrowUp')    ny = cy - step;
+      if (e.key === 'ArrowDown')  ny = cy + step;
+      onUpdate({ x: nx, y: ny });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editMode, isActive, x, y, onUpdate]);
+  }, [editMode, isActive, onUpdate]);
 
   // 위치 드래그
   const handlePosDragStart = (e) => {
@@ -455,21 +465,31 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
     e.stopPropagation();
     e.preventDefault();
     onActivate();
+    // 🎯 클릭한 마우스 좌표를 기억해 툴바 위치 결정 (viewport 기준)
+    setToolbarPos({ x: e.clientX, y: e.clientY, visible: true });
     setDraggingPos({ startX: e.clientX, startY: e.clientY, sx: x, sy: y });
   };
 
   useEffect(() => {
     if (!draggingPos) return;
+    let dragged = false;
     const onMove = (e) => {
       // 🎯 scale 보정 — 모바일 미리보기에서 transform:scale(0.46) 적용 시
       //    화면 픽셀 변화량을 페이지 좌표(780px 기준)로 환산
       const { dx, dy } = getScaledDelta(draggingPos, e, wrapRef.current);
+      if (Math.hypot(dx, dy) > 2) dragged = true;
+      // 드래그 중에는 툴바 잠시 숨김
+      if (dragged) setToolbarPos((p) => ({ ...p, visible: false }));
       onUpdate({
         x: Math.round(draggingPos.sx + dx),
         y: Math.round(draggingPos.sy + dy),
       });
     };
-    const onUp = () => setDraggingPos(null);
+    const onUp = (e) => {
+      setDraggingPos(null);
+      // 드래그 종료 시점의 마우스 좌표에 툴바 다시 표시
+      setToolbarPos({ x: e.clientX, y: e.clientY, visible: true });
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
@@ -487,6 +507,8 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
 
   useEffect(() => {
     if (!resizing) return;
+    // 리사이즈 중 툴바 숨김
+    setToolbarPos((p) => ({ ...p, visible: false }));
     const onMove = (e) => {
       // 🎯 scale 보정
       const { dx, dy } = getScaledDelta(resizing, e, wrapRef.current);
@@ -503,7 +525,10 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
       nh = Math.max(minH, nh);
       onUpdate({ x: Math.round(nx), y: Math.round(ny), w: Math.round(nw), h: Math.round(nh) });
     };
-    const onUp = () => setResizing(null);
+    const onUp = (e) => {
+      setResizing(null);
+      setToolbarPos({ x: e.clientX, y: e.clientY, visible: true });
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
@@ -511,6 +536,19 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
       window.removeEventListener('mouseup', onUp);
     };
   }, [resizing, type, strokeWidth, onUpdate]);
+
+  // 비활성화 시 툴바 숨김 / ESC 키 닫기
+  useEffect(() => {
+    if (!isActive) {
+      setToolbarPos((p) => ({ ...p, visible: false }));
+      return;
+    }
+    const onEsc = (e) => {
+      if (e.key === 'Escape') setToolbarPos((p) => ({ ...p, visible: false }));
+    };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [isActive]);
 
   // SVG 도형 렌더
   const renderShape = () => {
@@ -633,19 +671,19 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
         />
       ))}
 
-      {/* 툴바 */}
-      {editMode && isActive && (
+      {/* 툴바 — 마우스 커서 근처에 portal로 fixed 위치 */}
+      {editMode && isActive && toolbarPos.visible && createPortal(
+        <FloatingToolbarWrapper toolbarRef={toolbarRef} pos={toolbarPos}>
         <div
           data-shape-toolbar
+          ref={toolbarRef}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute',
-            left: 0, top: -42,
             display: 'flex', gap: 4, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '6px 10px',
-            borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 40, whiteSpace: 'nowrap',
+            borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+            whiteSpace: 'nowrap',
           }}
         >
           {/* 레이어 순서 (FreeImage / InlineFreeImage 와 동일) */}
@@ -706,19 +744,23 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
           <button onClick={() => { if (window.confirm('이 도형을 삭제할까요?')) onDelete(); }}
             style={btn('#dc2626')} title="삭제">🗑</button>
         </div>
+        </FloatingToolbarWrapper>,
+        document.body
       )}
 
-      {/* 색상 패널 */}
-      {editMode && isActive && showStyle && (
+      {/* 색상 패널 — 툴바 아래에 fixed 표시 */}
+      {editMode && isActive && showStyle && toolbarPos.visible && createPortal(
         <div
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', left: 0, top: -240,
+            position: 'fixed',
+            left: Math.min(toolbarPos.x + 12, window.innerWidth - 260),
+            top: Math.min(toolbarPos.y + 56, window.innerHeight - 260),
             width: 240,
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
-            padding: 10, zIndex: 50,
+            padding: 10, zIndex: 10000,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -773,8 +815,53 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
               </div>
             </>
           )}
-        </div>
+        </div>,
+        document.body
       )}
+    </div>
+  );
+}
+
+// 🆕 마우스 커서 근처에 떠있는 툴바 래퍼 — viewport 경계 자동 flip
+function FloatingToolbarWrapper({ toolbarRef, pos, children }) {
+  // 마우스 좌표 + 12px offset 기본, viewport 경계 초과 시 반대쪽으로 flip
+  const [coord, setCoord] = useState({ left: pos.x + 12, top: pos.y + 12 });
+  useEffect(() => {
+    // 다음 프레임에서 실제 툴바 크기 측정 후 보정
+    const id = requestAnimationFrame(() => {
+      const el = toolbarRef.current;
+      const tw = el?.offsetWidth || 320;
+      const th = el?.offsetHeight || 36;
+      const margin = 12;
+      let left = pos.x + margin;
+      let top = pos.y + margin;
+      // 오른쪽 초과 → 마우스 왼쪽으로 flip
+      if (left + tw + margin > window.innerWidth) {
+        left = pos.x - tw - margin;
+      }
+      // 아래쪽 초과 → 마우스 위쪽으로 flip
+      if (top + th + margin > window.innerHeight) {
+        top = pos.y - th - margin;
+      }
+      // 화면 밖으로 나가지 않도록 최소값 보정
+      left = Math.max(8, left);
+      top = Math.max(8, top);
+      setCoord({ left, top });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [pos.x, pos.y, toolbarRef]);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: coord.left,
+        top: coord.top,
+        zIndex: 9999,
+        pointerEvents: 'auto',
+      }}
+    >
+      {children}
     </div>
   );
 }
