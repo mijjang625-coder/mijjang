@@ -100,6 +100,10 @@ export default function EditableImage({
   const [resizing, setResizing] = useState(null);
   const [draggingFrame, setDraggingFrame] = useState(null);
   const [draggingCrop, setDraggingCrop] = useState(null);
+  // 🎯 드래그/리사이즈/크롭 상태 ref — mousemove 리스너를 재등록하지 않기 위함
+  const resizeRef = useRef(null);
+  const dragFrameRef = useRef(null);
+  const dragCropRef = useRef(null);
   const [showSwapPanel, setShowSwapPanel] = useState(false);
   // 🎨 색상 조정 패널 (idle 모드에서)
   const [showAdjust, setShowAdjust] = useState(false);
@@ -213,7 +217,7 @@ export default function EditableImage({
     const h = frame?.height ?? rect.height;
     const fx = frame?.x ?? 0;
     const fy = frame?.y ?? 0;
-    setResizing({
+    resizeRef.current = {
       handle: handleId,
       startX: e.clientX,
       startY: e.clientY,
@@ -222,20 +226,20 @@ export default function EditableImage({
       startFx: fx,
       startFy: fy,
       aspectRatio: w / h,
-    });
+    };
+    setResizing(true);
   };
 
   useEffect(() => {
-    if (!resizing) return;
     const onMove = (e) => {
-      // 🎯 scale 보정
-      const { dx, dy } = getScaledDelta(resizing, e, frameRef.current);
-      // 기본: 비율 잠금 ON / Shift: 자유 변형
+      const r = resizeRef.current;
+      if (!r) return;
+      const { dx, dy } = getScaledDelta(r, e, frameRef.current);
       const ratioLock = !e.shiftKey;
-      let { startW, startH, startFx, startFy } = resizing;
+      let { startW, startH, startFx, startFy } = r;
       let w = startW, h = startH, fx = startFx, fy = startFy;
-      const ar = resizing.aspectRatio;
-      const handle = resizing.handle;
+      const ar = r.aspectRatio;
+      const handle = r.handle;
 
       if (handle.includes('e')) w = startW + dx;
       if (handle.includes('w')) { w = startW - dx; fx = startFx + dx; }
@@ -288,14 +292,18 @@ export default function EditableImage({
         frame: { width: Math.round(w), height: Math.round(h), x: Math.round(fx), y: Math.round(fy) },
       });
     };
-    const onUp = () => { setResizing(null); setSnapLines({ v: null, h: null }); };
+    const onUp = () => {
+      if (resizeRef.current) { resizeRef.current = null; setResizing(false); setSnapLines({ v: null, h: null }); }
+      if (dragFrameRef.current) { dragFrameRef.current = null; setDraggingFrame(false); setSnapLines({ v: null, h: null }); }
+      if (dragCropRef.current) { dragCropRef.current = null; setDraggingCrop(false); }
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [resizing]);
+  }, []);
 
   // ─── A모드: 프레임 위치 이동 ──────────────────────
   const handleFrameDragStart = (e) => {
@@ -305,21 +313,22 @@ export default function EditableImage({
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    setDraggingFrame({
+    dragFrameRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       startFx: frame?.x ?? 0,
       startFy: frame?.y ?? 0,
-    });
+    };
+    setDraggingFrame(true);
   };
 
   useEffect(() => {
-    if (!draggingFrame) return;
     const onMove = (e) => {
-      // 🎯 scale 보정
-      const { dx, dy } = getScaledDelta(draggingFrame, e, frameRef.current);
-      let nx = draggingFrame.startFx + dx;
-      let ny = draggingFrame.startFy + dy;
+      const d = dragFrameRef.current;
+      if (!d) return;
+      const { dx, dy } = getScaledDelta(d, e, frameRef.current);
+      let nx = d.startFx + dx;
+      let ny = d.startFy + dy;
 
       const parent = getParentRect();
       let snapV = null;
@@ -343,14 +352,9 @@ export default function EditableImage({
         },
       });
     };
-    const onUp = () => { setDraggingFrame(null); setSnapLines({ v: null, h: null }); };
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [draggingFrame, frame, naturalSize]);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [frame, naturalSize]);
 
   // 오프셋 클램핑: 사진이 박스 밖으로 너무 나가서 빈 공간 생기지 않도록 제한
   // 사진 표시 크기(imgW/H)와 박스 크기(boxW/H) 차이의 절반까지만 이동 가능
@@ -369,20 +373,21 @@ export default function EditableImage({
     if (e.target.closest('[data-toolbar]')) return;
     e.preventDefault();
     e.stopPropagation();
-    setDraggingCrop({
+    dragCropRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       startOx: offsetX,
       startOy: offsetY,
-    });
+    };
+    setDraggingCrop(true);
   };
 
   useEffect(() => {
-    if (!draggingCrop) return;
     const onMove = (e) => {
-      // 🎯 scale 보정
-      const { dx, dy } = getScaledDelta(draggingCrop, e, frameRef.current);
-      const clamped = clampOffset(draggingCrop.startOx + dx, draggingCrop.startOy + dy);
+      const d = dragCropRef.current;
+      if (!d) return;
+      const { dx, dy } = getScaledDelta(d, e, frameRef.current);
+      const clamped = clampOffset(d.startOx + dx, d.startOy + dy);
       // px → 비율로 변환해서 저장
       const newXR = boxW > 0 ? clamped.x / boxW : 0;
       const newYR = boxH > 0 ? clamped.y / boxH : 0;
@@ -394,15 +399,10 @@ export default function EditableImage({
         },
       });
     };
-    const onUp = () => setDraggingCrop(null);
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
+    return () => window.removeEventListener('mousemove', onMove);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingCrop, boxW, boxH, currentScale, imgW, imgH, onChange]);
+  }, [boxW, boxH, currentScale, imgW, imgH]);
 
   // 휠 확대/축소 (Shift 키 필요 — 페이지 스크롤과 충돌 방지)
   const handleWheel = useCallback((e) => {

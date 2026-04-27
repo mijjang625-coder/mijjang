@@ -408,6 +408,8 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
   const [draggingPos, setDraggingPos] = useState(null);
   const [resizing, setResizing] = useState(null);
   const [showStyle, setShowStyle] = useState(false);
+  const dragRef = useRef(null);
+  const resizeRef = useRef(null);
 
   const {
     id, type, x = 0, y = 0, w = 200, h = 100,
@@ -465,24 +467,24 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
     e.stopPropagation();
     e.preventDefault();
     onActivate();
-    setDraggingPos({ startX: e.clientX, startY: e.clientY, sx: x, sy: y });
+    dragRef.current = { startX: e.clientX, startY: e.clientY, sx: x, sy: y };
+    setDraggingPos(true);
   };
 
+  // 🎯 드래그 리스너는 마운트 시 1회만 등록 (의존성 비움) — 리렌더로 인한 끊김 방지
   useEffect(() => {
-    if (!draggingPos) return;
-    console.log('[Shape] drag START', { id, sx: draggingPos.sx, sy: draggingPos.sy });
     const onMove = (e) => {
-      // 🎯 scale 보정 — 모바일 미리보기에서 transform:scale(0.46) 적용 시
-      //    화면 픽셀 변화량을 페이지 좌표(780px 기준)로 환산
-      const { dx, dy } = getScaledDelta(draggingPos, e, wrapRef.current);
-      const nx = Math.round(draggingPos.sx + dx);
-      const ny = Math.round(draggingPos.sy + dy);
-      console.log('[Shape] move', { id, dx, dy, nx, ny });
-      onUpdateRef.current({ x: nx, y: ny });
+      const d = dragRef.current;
+      if (!d) return;
+      const { dx, dy } = getScaledDelta(d, e, wrapRef.current);
+      onUpdateRef.current({
+        x: Math.round(d.sx + dx),
+        y: Math.round(d.sy + dy),
+      });
     };
     const onUp = () => {
-      console.log('[Shape] drag END', { id });
-      setDraggingPos(null);
+      if (dragRef.current) { dragRef.current = null; setDraggingPos(false); }
+      if (resizeRef.current) { resizeRef.current = null; setResizing(false); }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -490,41 +492,37 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [draggingPos]);
+  }, []);
 
   // 리사이즈
   const handleResizeStart = (e, edge) => {
     e.preventDefault();
     e.stopPropagation();
-    setResizing({ edge, startX: e.clientX, startY: e.clientY, sw: w, sh: h, sx: x, sy: y });
+    resizeRef.current = { edge, startX: e.clientX, startY: e.clientY, sw: w, sh: h, sx: x, sy: y };
+    setResizing(true);
   };
 
+  // 🎯 리사이즈 리스너도 1회 등록 (의존성 최소화)
   useEffect(() => {
-    if (!resizing) return;
     const onMove = (e) => {
-      // 🎯 scale 보정
-      const { dx, dy } = getScaledDelta(resizing, e, wrapRef.current);
-      let nw = resizing.sw, nh = resizing.sh, nx = resizing.sx, ny = resizing.sy;
-      const edge = resizing.edge;
-      if (edge.includes('e')) nw = resizing.sw + dx;
-      if (edge.includes('w')) { nw = resizing.sw - dx; nx = resizing.sx + dx; }
-      if (edge.includes('s')) nh = resizing.sh + dy;
-      if (edge.includes('n')) { nh = resizing.sh - dy; ny = resizing.sy + dy; }
-      // line 은 가로 두께만 의미 → 높이는 strokeWidth 이상으로 유지
+      const r = resizeRef.current;
+      if (!r) return;
+      const { dx, dy } = getScaledDelta(r, e, wrapRef.current);
+      let nw = r.sw, nh = r.sh, nx = r.sx, ny = r.sy;
+      const edge = r.edge;
+      if (edge.includes('e')) nw = r.sw + dx;
+      if (edge.includes('w')) { nw = r.sw - dx; nx = r.sx + dx; }
+      if (edge.includes('s')) nh = r.sh + dy;
+      if (edge.includes('n')) { nh = r.sh - dy; ny = r.sy + dy; }
       const minH = type === 'line' ? Math.max(2, strokeWidth) : 20;
       const minW = 20;
       nw = Math.max(minW, nw);
       nh = Math.max(minH, nh);
       onUpdateRef.current({ x: Math.round(nx), y: Math.round(ny), w: Math.round(nw), h: Math.round(nh) });
     };
-    const onUp = () => setResizing(null);
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [resizing, type, strokeWidth]);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [type, strokeWidth]);
 
   // SVG 도형 렌더
   const renderShape = () => {

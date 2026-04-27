@@ -144,6 +144,16 @@ export default function FreeImage({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [selected]);
 
+  // 🎯 드래그/리사이즈/크롭 상태를 ref에 보관 — 리스너를 재등록하지 않음
+  const dragRef = useRef(null);
+  const resizeRef = useRef(null);
+  const cropRef = useRef(null);
+  // 최신 w/h/canvasWidth/scale 등을 effect 안에서 참조하기 위한 ref
+  const sizeRef = useRef({ w, h, canvasWidth, currentScale, imgW, imgH });
+  useEffect(() => {
+    sizeRef.current = { w, h, canvasWidth, currentScale, imgW, imgH };
+  }, [w, h, canvasWidth, currentScale, imgW, imgH]);
+
   // ─── 위치 드래그 (3px 임계값으로 클릭/더블클릭과 구분) ──────────────────────
   const handlePosDragStart = (e) => {
     if (!editMode) return;
@@ -155,67 +165,68 @@ export default function FreeImage({
     e.stopPropagation();
     // preventDefault 제거 — dblclick 발화 보장
     setSelected(true);
-    setDraggingPos({
-      startX: e.clientX, startY: e.clientY, sx: x, sy: y,
-      active: false,  // 임계값 넘기 전: 아직 실제 드래그 아님
-    });
+    dragRef.current = {
+      startX: e.clientX, startY: e.clientY, sx: x, sy: y, active: false,
+    };
+    setDraggingPos(true);
   };
 
+  // 🎯 마운트 시 1회 등록 — 리렌더에 끊기지 않음
   useEffect(() => {
-    if (!draggingPos) return;
-    const DRAG_THRESHOLD = 3; // 3px 이상 움직여야 실제 드래그로 인식
+    const DRAG_THRESHOLD = 3;
     const onMove = (e) => {
-      // 🎯 scale 보정 — 모바일 미리보기에서 transform:scale 적용 시 자연스러운 이동
-      const { dx, dy } = getScaledDelta(draggingPos, e, wrapRef.current);
-      // 임계값(화면 픽셀 기준이 아닌 페이지 좌표 기준)
-      if (!draggingPos.active && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-      if (!draggingPos.active) {
-        setDraggingPos((p) => ({ ...p, active: true }));
-      }
-      let nx = draggingPos.sx + dx;
-      let ny = draggingPos.sy + dy;
-
-      // 스냅: 캠버스 좌/우/중앙 — Alt 키 누르면 OFF (자유 이동)
+      const d = dragRef.current;
+      if (!d) return;
+      const { dx, dy } = getScaledDelta(d, e, wrapRef.current);
+      if (!d.active && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      d.active = true;
+      const { w: cw, canvasWidth: cWidth } = sizeRef.current;
+      let nx = d.sx + dx;
+      let ny = d.sy + dy;
       let sV = null;
       if (!e.altKey) {
         if (Math.abs(nx) < SNAP_THRESHOLD) { nx = 0; sV = 'left'; }
-        if (Math.abs(nx + w - canvasWidth) < SNAP_THRESHOLD) { nx = canvasWidth - w; sV = 'right'; }
-        if (Math.abs(nx + w / 2 - canvasWidth / 2) < SNAP_THRESHOLD) { nx = canvasWidth / 2 - w / 2; sV = 'center'; }
+        if (Math.abs(nx + cw - cWidth) < SNAP_THRESHOLD) { nx = cWidth - cw; sV = 'right'; }
+        if (Math.abs(nx + cw / 2 - cWidth / 2) < SNAP_THRESHOLD) { nx = cWidth / 2 - cw / 2; sV = 'center'; }
       }
       setSnapV(sV);
-
       onUpdateRef.current({ x: Math.round(nx), y: Math.round(ny) });
     };
-    const onUp = () => { setDraggingPos(null); setSnapV(null); };
+    const onUp = () => {
+      if (dragRef.current) { dragRef.current = null; setDraggingPos(false); setSnapV(null); }
+      if (resizeRef.current) { resizeRef.current = null; setResizing(false); }
+      if (cropRef.current) { cropRef.current = null; setDraggingCrop(false); }
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [draggingPos, w, canvasWidth]);
+  }, []);
 
   // ─── 리사이즈 ──────────────────────
   const handleResizeStart = (e, handleId) => {
     e.preventDefault();
     e.stopPropagation();
     setSelected(true);
-    setResizing({
+    resizeRef.current = {
       handle: handleId,
       startX: e.clientX,
       startY: e.clientY,
       sw: w, sh: h, sx: x, sy: y,
       ar: w / h,
-    });
+    };
+    setResizing(true);
   };
 
   useEffect(() => {
-    if (!resizing) return;
     const onMove = (e) => {
-      // 🎯 scale 보정
-      const { dx, dy } = getScaledDelta(resizing, e, wrapRef.current);
+      const r = resizeRef.current;
+      if (!r) return;
+      const { dx, dy } = getScaledDelta(r, e, wrapRef.current);
       const ratioLock = !e.shiftKey;
-      let { sw, sh, sx, sy, handle, ar } = resizing;
+      let { sw, sh, sx, sy, handle, ar } = r;
       let nw = sw, nh = sh, nx = sx, ny = sy;
 
       if (handle.includes('e')) nw = sw + dx;
@@ -243,31 +254,27 @@ export default function FreeImage({
         x: Math.round(nx), y: Math.round(ny),
       });
     };
-    const onUp = () => setResizing(null);
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [resizing]);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, []);
 
   // ─── 크롭 (사진 위치) ──────────────────────
   const handleCropDragStart = (e) => {
     if (mode !== 'cropping') return;
     e.preventDefault();
     e.stopPropagation();
-    setDraggingCrop({
+    cropRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       sox: offsetX,
       soy: offsetY,
-    });
+    };
+    setDraggingCrop(true);
   };
 
-  const clampOffset = (ox, oy, _imgW = imgW, _imgH = imgH) => {
-    const maxOx = Math.max(0, (_imgW - w) / 2);
-    const maxOy = Math.max(0, (_imgH - h) / 2);
+  const clampOffset = (ox, oy, _imgW, _imgH, _w, _h) => {
+    const maxOx = Math.max(0, (_imgW - _w) / 2);
+    const maxOy = Math.max(0, (_imgH - _h) / 2);
     return {
       x: Math.max(-maxOx, Math.min(maxOx, ox)),
       y: Math.max(-maxOy, Math.min(maxOy, oy)),
@@ -275,33 +282,29 @@ export default function FreeImage({
   };
 
   useEffect(() => {
-    if (!draggingCrop) return;
     const onMove = (e) => {
-      const dx = e.clientX - draggingCrop.startX;
-      const dy = e.clientY - draggingCrop.startY;
-      const c = clampOffset(draggingCrop.sox + dx, draggingCrop.soy + dy);
+      const c = cropRef.current;
+      if (!c) return;
+      const dx = e.clientX - c.startX;
+      const dy = e.clientY - c.startY;
+      const s = sizeRef.current;
+      const cl = clampOffset(c.sox + dx, c.soy + dy, s.imgW, s.imgH, s.w, s.h);
       onUpdateRef.current({
         crop: {
-          scale: currentScale,
-          offsetXR: w > 0 ? c.x / w : 0,
-          offsetYR: h > 0 ? c.y / h : 0,
+          scale: s.currentScale,
+          offsetXR: s.w > 0 ? cl.x / s.w : 0,
+          offsetYR: s.h > 0 ? cl.y / s.h : 0,
         },
       });
     };
-    const onUp = () => setDraggingCrop(null);
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingCrop, w, h, currentScale, imgW, imgH]);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, []);
 
   const handleScaleChange = (newScale) => {
     const newImgW = cover.w * newScale;
     const newImgH = cover.h * newScale;
-    const c = clampOffset(offsetX, offsetY, newImgW, newImgH);
+    const c = clampOffset(offsetX, offsetY, newImgW, newImgH, w, h);
     onUpdate({
       crop: {
         scale: newScale,
