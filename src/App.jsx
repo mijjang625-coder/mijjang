@@ -400,43 +400,64 @@ export default function App() {
   };
 
   // ─── 🟦 도형 CRUD ─────────────────────────────────────────────────
-  // 도형 추가 (페이지 가운데 근처에 기본 크기로)
-  const addShape = (pageNum, type) => {
+  // 도형 추가
+  // - geometry 인자가 있으면 사용자가 드래그한 위치/크기로 생성 (Photoshop 방식)
+  // - geometry가 없으면 기존 동작: 페이지 하단에 기본 크기로 배치
+  // geometry: { x, y, w, h } — 페이지 좌표(780px 기준) 정수
+  const addShape = (pageNum, type, geometry = null) => {
     pushHistory(`${pageNum} 도형 추가 (${type})`);
     setShapes((prev) => {
       const list = prev[pageNum] || [];
       const id = 'shape_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-      // 페이지별 본문 baseHeight (도형은 자유 위치라 본문과 안 겹치게 아래쪽에 배치)
-      const PAGE_BASE_HEIGHT = {
-        P1: 1500, P2: 1300, P3: 1450, P4: 1300, P5: 1300,
-        P6: 1300, P7: 1500, P8: 1350, P9: 1300, P10: 1500,
-      };
-      const baseY = (PAGE_BASE_HEIGHT[pageNum] || 1300);
-      // 페이지 폭 780, 가운데 배치
-      const PAGE_W = 780;
 
-      // 종류별 기본 모양
-      const presets = {
-        rect:      { w: 240, h: 160, stroke: '#ef4444', strokeWidth: 4, fill: 'none',          opacity: 1 },
-        circle:    { w: 200, h: 200, stroke: '#ef4444', strokeWidth: 4, fill: 'none',          opacity: 1 },
-        line:      { w: 280, h: 4,   stroke: '#1f2937', strokeWidth: 4, fill: 'none',          opacity: 1 },
-        arrow:     { w: 240, h: 60,  stroke: '#1f2937', strokeWidth: 4, fill: 'none',          opacity: 1 },
-        highlight: { w: 320, h: 80,  stroke: 'none',    strokeWidth: 0, fill: '#fde047',       opacity: 0.5 },
+      // 종류별 스타일 프리셋 (색상/두께/투명도)
+      const stylePresets = {
+        rect:      { stroke: '#ef4444', strokeWidth: 4, fill: 'none',    opacity: 1 },
+        circle:    { stroke: '#ef4444', strokeWidth: 4, fill: 'none',    opacity: 1 },
+        line:      { stroke: '#1f2937', strokeWidth: 4, fill: 'none',    opacity: 1 },
+        arrow:     { stroke: '#1f2937', strokeWidth: 4, fill: 'none',    opacity: 1 },
+        highlight: { stroke: 'none',    strokeWidth: 0, fill: '#fde047', opacity: 0.5 },
       };
-      const p = presets[type] || presets.rect;
+      const styleP = stylePresets[type] || stylePresets.rect;
 
-      // 같은 페이지에 이미 있는 도형들의 가장 아래 끝 + 24px (겹침 방지)
-      const existingMaxBottom = list.reduce(
-        (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
-        0
-      );
-      const y = Math.max(baseY, existingMaxBottom) + 24;
+      let x, y, w, h;
+      if (geometry && geometry.w >= 5 && geometry.h >= 5) {
+        // 🆕 사용자가 드래그한 위치/크기 사용
+        x = Math.round(geometry.x);
+        y = Math.round(geometry.y);
+        w = Math.round(geometry.w);
+        h = Math.round(geometry.h);
+        // line은 기본 높이 보정 (너무 얇으면 안 보임)
+        if (type === 'line' && h > 0 && h < 4) h = 4;
+      } else {
+        // 📦 fallback: 기존 동작 (기본 크기 + 자동 배치)
+        const sizePresets = {
+          rect:      { w: 240, h: 160 },
+          circle:    { w: 200, h: 200 },
+          line:      { w: 280, h: 4   },
+          arrow:     { w: 240, h: 60  },
+          highlight: { w: 320, h: 80  },
+        };
+        const sz = sizePresets[type] || sizePresets.rect;
+        const PAGE_BASE_HEIGHT = {
+          P1: 1500, P2: 1300, P3: 1450, P4: 1300, P5: 1300,
+          P6: 1300, P7: 1500, P8: 1350, P9: 1300, P10: 1500,
+        };
+        const baseY = PAGE_BASE_HEIGHT[pageNum] || 1300;
+        const PAGE_W = 780;
+        const existingMaxBottom = list.reduce(
+          (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
+          0
+        );
+        x = Math.round((PAGE_W - sz.w) / 2);
+        y = Math.max(baseY, existingMaxBottom) + 24;
+        w = sz.w;
+        h = sz.h;
+      }
 
       const newShape = {
-        id, type,
-        x: Math.round((PAGE_W - p.w) / 2),
-        y,
-        ...p,
+        id, type, x, y, w, h,
+        ...styleP,
         zIndex: 700 + list.length,
       };
       return { ...prev, [pageNum]: [...list, newShape] };
@@ -1903,7 +1924,7 @@ export default function App() {
                     onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
                     onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
                     shapes={shapes[currentPage] || []}
-                    onAddShape={(type) => addShape(currentPage, type)}
+                    onAddShape={(type, geometry) => addShape(currentPage, type, geometry)}
                     onUpdateShape={(id, partial) => updateShape(currentPage, id, partial)}
                     onDeleteShape={(id) => deleteShape(currentPage, id)}
                     onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}

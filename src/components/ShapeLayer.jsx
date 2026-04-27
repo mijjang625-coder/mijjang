@@ -47,6 +47,14 @@ export default function ShapeLayer({
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef(null);
 
+  // 🆕 Drag-to-Draw 상태
+  // drawingType: null | 'rect' | 'circle' | 'line' | 'arrow' | 'highlight'
+  const [drawingType, setDrawingType] = useState(null);
+  // 현재 드래그 중인 미리보기 도형 (없으면 null)
+  // { x, y, w, h }  — 페이지 좌표 (780px 기준)
+  const [previewBox, setPreviewBox] = useState(null);
+  const drawStartRef = useRef(null); // { x, y } 페이지 좌표
+
   // 외부 클릭 시 picker 닫기
   useEffect(() => {
     if (!showPicker) return;
@@ -55,8 +63,83 @@ export default function ShapeLayer({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showPicker]);
 
+  // ESC로 그리기 취소
+  useEffect(() => {
+    if (!drawingType) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setDrawingType(null);
+        setPreviewBox(null);
+        drawStartRef.current = null;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawingType]);
+
+  // 도형 버튼 클릭 — 즉시 생성하지 말고 drawingType만 설정
+  const handlePickShape = (type) => {
+    setDrawingType(type);
+    setShowPicker(false);
+    setPreviewBox(null);
+    drawStartRef.current = null;
+  };
+
   return (
     <>
+      {/* 🆕 Drag-to-Draw 오버레이 — 페이지 전체를 덮어서 pointer 이벤트를 받음
+          페이지 좌표(780px 기준)로 변환하여 도형을 그린다.
+          PageFrame이 position:relative + width:780이므로,
+          이 오버레이도 absolute + inset:0 + width:100% (= 780px)로 페이지를 그대로 덮음.
+          getBoundingClientRect()로 실제 화면 크기를 측정하여 scale을 자동 보정.
+      */}
+      {editMode && drawingType && (
+        <DrawOverlay
+          drawingType={drawingType}
+          previewBox={previewBox}
+          onPointerDown={(pos) => {
+            drawStartRef.current = pos;
+            setPreviewBox({ x: pos.x, y: pos.y, w: 0, h: 0 });
+          }}
+          onPointerMove={(pos, shiftKey) => {
+            if (!drawStartRef.current) return;
+            const sx = drawStartRef.current.x;
+            const sy = drawStartRef.current.y;
+            let dx = pos.x - sx;
+            let dy = pos.y - sy;
+            // Shift: 1:1 비율 (정사각형/정원형)
+            if (shiftKey) {
+              const m = Math.max(Math.abs(dx), Math.abs(dy));
+              dx = dx < 0 ? -m : m;
+              dy = dy < 0 ? -m : m;
+            }
+            setPreviewBox({
+              x: Math.min(sx, sx + dx),
+              y: Math.min(sy, sy + dy),
+              w: Math.abs(dx),
+              h: Math.abs(dy),
+            });
+          }}
+          onPointerUp={() => {
+            const box = previewBox;
+            const type = drawingType;
+            // 상태 정리는 무조건
+            setDrawingType(null);
+            setPreviewBox(null);
+            drawStartRef.current = null;
+            // 5px 미만이면 생성 안 함 (실수 클릭 방지)
+            if (!box || box.w < 5 || box.h < 5) return;
+            onAddShape(type, box);
+          }}
+          onCancel={() => {
+            setDrawingType(null);
+            setPreviewBox(null);
+            drawStartRef.current = null;
+          }}
+        />
+      )}
+
       {/* 도형 렌더 */}
       {shapes.map((shape) => (
         <Shape
@@ -113,7 +196,7 @@ export default function ShapeLayer({
               {SHAPE_TYPES.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => { onAddShape(t.id); setShowPicker(false); }}
+                  onClick={() => handlePickShape(t.id)}
                   style={{
                     width: '100%', display: 'block',
                     padding: '8px 10px', marginBottom: 4,
@@ -128,13 +211,193 @@ export default function ShapeLayer({
                 </button>
               ))}
               <div style={{ marginTop: 6, fontSize: 10, color: '#94a3b8', lineHeight: 1.4 }}>
-                💡 추가 후 도형을 드래그로 이동, 핸들로 크기 조절,<br/>툴바에서 색상·두께 변경
+                💡 도형 선택 후 페이지에서 드래그하여 그립니다 (Shift = 정사각형/정원, ESC = 취소)
               </div>
             </div>
           )}
         </div>
       )}
+
+      {/* 🆕 그리는 중 안내 토스트 — 화면 하단 중앙 (fixed) */}
+      {editMode && drawingType && (
+        <div style={{
+          position: 'fixed',
+          bottom: 30, left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: '#1f2937', color: '#fff',
+          padding: '10px 20px', borderRadius: 999,
+          fontSize: 13, fontWeight: 700,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          zIndex: 99999,
+          display: 'flex', alignItems: 'center', gap: 10,
+          pointerEvents: 'none', // 토스트가 클릭 막지 않도록
+        }}>
+          <span style={{
+            backgroundColor: '#a855f7', borderRadius: 999,
+            padding: '2px 8px', fontSize: 11,
+          }}>
+            {SHAPE_TYPES.find((t) => t.id === drawingType)?.label || drawingType}
+          </span>
+          <span>페이지에서 드래그하여 그리세요</span>
+          <span style={{ color: '#9ca3af', fontSize: 11 }}>
+            · Shift = 1:1 비율 · ESC = 취소
+          </span>
+        </div>
+      )}
     </>
+  );
+}
+
+// ─── 🆕 Drag-to-Draw 오버레이 ─────────────────────────────
+// PageFrame(width:780, position:relative) 안에 absolute로 위치하여
+// 페이지 전체를 덮고 pointer 이벤트를 받음.
+// getBoundingClientRect()로 실제 화면 픽셀을 측정해 scale을 자동 보정한다.
+function DrawOverlay({ drawingType, previewBox, onPointerDown, onPointerMove, onPointerUp, onCancel }) {
+  const overlayRef = useRef(null);
+
+  // 화면 좌표 → 페이지 좌표 변환
+  // 페이지 내부 좌표는 항상 780px 기준 (transform:scale 보정)
+  const toPageCoords = (clientX, clientY) => {
+    const el = overlayRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    // rect.width 가 실제 화면상 픽셀(예: 780 또는 360 등),
+    // 우리는 페이지 좌표(원본 780 기준)로 변환
+    const PAGE_W = 780;
+    const scale = rect.width / PAGE_W;
+    const safe = scale > 0 ? scale : 1;
+    return {
+      x: (clientX - rect.left) / safe,
+      y: (clientY - rect.top) / safe,
+    };
+  };
+
+  const handlePointerDown = (e) => {
+    if (e.button !== 0) return; // 좌클릭만
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const pos = toPageCoords(e.clientX, e.clientY);
+    onPointerDown(pos);
+  };
+
+  const handlePointerMove = (e) => {
+    e.preventDefault();
+    const pos = toPageCoords(e.clientX, e.clientY);
+    onPointerMove(pos, e.shiftKey);
+  };
+
+  const handlePointerUp = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
+    onPointerUp();
+  };
+
+  // 미리보기 도형 렌더 (드래그 중에만)
+  const showPreview = previewBox && (previewBox.w > 0 || previewBox.h > 0);
+
+  return (
+    <div
+      ref={overlayRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={onCancel}
+      style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
+        // PageFrame이 minHeight를 쓰기 때문에 height:100%가 부족할 수 있음 → inset:0 + height:100%
+        width: '100%',
+        height: '100%',
+        cursor: 'crosshair',
+        zIndex: 9000, // 도형(700~)보다 위, 도형 추가 패널(9999)보다 아래
+        // 반투명 마스크 (그리기 모드 시각적 표시)
+        backgroundColor: 'rgba(168, 85, 247, 0.05)',
+        userSelect: 'none',
+        touchAction: 'none',
+      }}
+    >
+      {showPreview && (
+        <PreviewShape type={drawingType} box={previewBox} />
+      )}
+    </div>
+  );
+}
+
+// 미리보기 도형 (점선 테두리)
+function PreviewShape({ type, box }) {
+  const baseStyle = {
+    position: 'absolute',
+    left: box.x,
+    top: box.y,
+    width: box.w,
+    height: box.h,
+    pointerEvents: 'none',
+  };
+
+  if (type === 'circle') {
+    return (
+      <div style={{
+        ...baseStyle,
+        border: '2px dashed #a855f7',
+        borderRadius: '50%',
+        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+      }} />
+    );
+  }
+  if (type === 'highlight') {
+    return (
+      <div style={{
+        ...baseStyle,
+        border: '2px dashed #fbbf24',
+        backgroundColor: 'rgba(253, 224, 71, 0.4)',
+      }} />
+    );
+  }
+  if (type === 'line' || type === 'arrow') {
+    // 선/화살표는 가로선만 표시 (drag 영역 시각화)
+    return (
+      <div style={{
+        ...baseStyle,
+        border: '2px dashed #1f2937',
+        backgroundColor: 'rgba(31, 41, 55, 0.05)',
+      }}>
+        <div style={{
+          position: 'absolute',
+          left: 0, right: 0, top: '50%',
+          height: 2, backgroundColor: '#1f2937',
+          transform: 'translateY(-50%)',
+        }} />
+        {type === 'arrow' && (
+          <div style={{
+            position: 'absolute',
+            right: 0, top: '50%',
+            transform: 'translate(0, -50%)',
+            color: '#1f2937', fontSize: 18, fontWeight: 900,
+          }}>▶</div>
+        )}
+      </div>
+    );
+  }
+  // rect (default)
+  return (
+    <div style={{
+      ...baseStyle,
+      border: '2px dashed #ef4444',
+      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    }}>
+      {/* 크기 라벨 */}
+      <div style={{
+        position: 'absolute',
+        bottom: -22, right: 0,
+        backgroundColor: '#1f2937', color: '#fff',
+        fontSize: 10, fontWeight: 700,
+        padding: '2px 6px', borderRadius: 4,
+        whiteSpace: 'nowrap',
+      }}>
+        {Math.round(box.w)} × {Math.round(box.h)}
+      </div>
+    </div>
   );
 }
 
