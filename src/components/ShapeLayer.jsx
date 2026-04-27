@@ -470,16 +470,20 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
 
   useEffect(() => {
     if (!draggingPos) return;
+    console.log('[Shape] drag START', { id, sx: draggingPos.sx, sy: draggingPos.sy });
     const onMove = (e) => {
       // 🎯 scale 보정 — 모바일 미리보기에서 transform:scale(0.46) 적용 시
       //    화면 픽셀 변화량을 페이지 좌표(780px 기준)로 환산
       const { dx, dy } = getScaledDelta(draggingPos, e, wrapRef.current);
-      onUpdateRef.current({
-        x: Math.round(draggingPos.sx + dx),
-        y: Math.round(draggingPos.sy + dy),
-      });
+      const nx = Math.round(draggingPos.sx + dx);
+      const ny = Math.round(draggingPos.sy + dy);
+      console.log('[Shape] move', { id, dx, dy, nx, ny });
+      onUpdateRef.current({ x: nx, y: ny });
     };
-    const onUp = () => setDraggingPos(null);
+    const onUp = () => {
+      console.log('[Shape] drag END', { id });
+      setDraggingPos(null);
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
