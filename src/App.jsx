@@ -568,6 +568,7 @@ export default function App() {
   const changeLayerNormalized = (pageNum, kind, id, action, mainLayers = []) => {
     const ordered = getOrderedLayers(pageNum, mainLayers);
     const idx = ordered.findIndex((l) => l.kind === kind && l.id === id);
+    console.log('[App] changeLayerNormalized:', pageNum, kind, id, action, 'idx=', idx, 'ordered=', ordered);
     if (idx < 0) return;
     const next = ordered.slice();
     const [target] = next.splice(idx, 1);

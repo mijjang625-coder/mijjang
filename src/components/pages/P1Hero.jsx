@@ -787,6 +787,7 @@ export default function P1Hero({
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {
+          console.log('[P1] onChangeShapeLayer:', shapeId, action, 'kindFn=', typeof onChangeLayerKind, 'MAIN=', MAIN_LAYERS);
           if (typeof onChangeLayerKind === 'function') {
             onChangeLayerKind('shape', shapeId, action, MAIN_LAYERS);
           }
