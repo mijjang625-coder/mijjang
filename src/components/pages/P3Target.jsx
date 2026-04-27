@@ -134,28 +134,7 @@ export default function P3Target({
               hasActiveOther={editMode && layer.hasActiveLayer && !mainActive}
               onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: mainImgId }, action)}
             />
-            {/* 포인트 배지 */}
-            {badgePoint && (
-              <div
-                style={{
-                  position: 'absolute', right: -40, bottom: -20,
-                  backgroundColor: BRAND.colors.accent, color: '#fff',
-                  fontWeight: 900, fontSize: 22, padding: '14px 20px',
-                  borderRadius: 999, boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-                  letterSpacing: '-0.02em', maxWidth: 210, lineHeight: 1.2,
-                  textAlign: 'center', wordBreak: 'keep-all', zIndex: 2,
-                  pointerEvents: editMode ? 'auto' : 'inherit',
-                }}
-              >
-                <EditableText
-                  {...editPropsFor('P3.badgePoint')}
-                  as="span"
-                  defaultStyle={{ color: '#fff', fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em' }}
-                >
-                  {badgePoint}
-                </EditableText>
-              </div>
-            )}
+            {/* 🗑️ 포인트 배지(주황 라벨)는 모바일에서 우측이 잘리는 문제로 완전 삭제 */}
           </div>
         </div>
 
@@ -175,7 +154,7 @@ export default function P3Target({
                   borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
                 }}
               >
-                <CheckIcon size={24} variant={variant + i} />
+                <CheckIcon size={24} variant={1} color="#E8590C" />
                 <EditableText
                   {...editPropsFor(`P3.checklist.${i}`)}
                   as="div"

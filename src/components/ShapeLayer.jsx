@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getScaledDelta } from '../lib/dragScale.js';
 
 /**
  * ShapeLayer — 페이지 위에 자유롭게 그릴 수 있는 도형 레이어
@@ -422,6 +423,29 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showStyle]);
 
+  // 🎯 키보드 화살표로 1px 이동 (Shift+화살표 = 10px)
+  // 활성화된 도형에만 적용. 텍스트 입력 중이면 무시.
+  useEffect(() => {
+    if (!editMode || !isActive) return;
+    const onKey = (e) => {
+      // 입력창에 포커스가 있으면 무시
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+      const step = e.shiftKey ? 10 : 1;
+      let nx = x, ny = y, handled = false;
+      if (e.key === 'ArrowLeft')  { nx = x - step; handled = true; }
+      if (e.key === 'ArrowRight') { nx = x + step; handled = true; }
+      if (e.key === 'ArrowUp')    { ny = y - step; handled = true; }
+      if (e.key === 'ArrowDown')  { ny = y + step; handled = true; }
+      if (handled) {
+        e.preventDefault();
+        onUpdate({ x: nx, y: ny });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editMode, isActive, x, y, onUpdate]);
+
   // 위치 드래그
   const handlePosDragStart = (e) => {
     if (!editMode) return;
@@ -437,9 +461,12 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
   useEffect(() => {
     if (!draggingPos) return;
     const onMove = (e) => {
+      // 🎯 scale 보정 — 모바일 미리보기에서 transform:scale(0.46) 적용 시
+      //    화면 픽셀 변화량을 페이지 좌표(780px 기준)로 환산
+      const { dx, dy } = getScaledDelta(draggingPos, e, wrapRef.current);
       onUpdate({
-        x: Math.round(draggingPos.sx + (e.clientX - draggingPos.startX)),
-        y: Math.round(draggingPos.sy + (e.clientY - draggingPos.startY)),
+        x: Math.round(draggingPos.sx + dx),
+        y: Math.round(draggingPos.sy + dy),
       });
     };
     const onUp = () => setDraggingPos(null);
@@ -461,8 +488,8 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
   useEffect(() => {
     if (!resizing) return;
     const onMove = (e) => {
-      const dx = e.clientX - resizing.startX;
-      const dy = e.clientY - resizing.startY;
+      // 🎯 scale 보정
+      const { dx, dy } = getScaledDelta(resizing, e, wrapRef.current);
       let nw = resizing.sw, nh = resizing.sh, nx = resizing.sx, ny = resizing.sy;
       const edge = resizing.edge;
       if (edge.includes('e')) nw = resizing.sw + dx;

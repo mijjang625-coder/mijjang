@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { getScaledDelta } from '../lib/dragScale.js';
 
 /**
  * EditableImage v3 — 박스/이미지 완전 분리
@@ -43,7 +44,7 @@ const HANDLES = [
   { id: 'w',  cursor: 'ew-resize',   top: '50%', left: -6 },
 ];
 
-const SNAP_THRESHOLD = 8;
+const SNAP_THRESHOLD = 3;
 const MIN_FRAME_SIZE = 40;
 const MIN_IMG_SCALE = 1.0;   // 사진은 항상 박스를 cover (빈 공간 X)
 const MAX_IMG_SCALE = 4.0;
@@ -223,8 +224,8 @@ export default function EditableImage({
   useEffect(() => {
     if (!resizing) return;
     const onMove = (e) => {
-      const dx = e.clientX - resizing.startX;
-      const dy = e.clientY - resizing.startY;
+      // 🎯 scale 보정
+      const { dx, dy } = getScaledDelta(resizing, e, frameRef.current);
       // 기본: 비율 잠금 ON / Shift: 자유 변형
       const ratioLock = !e.shiftKey;
       let { startW, startH, startFx, startFy } = resizing;
@@ -311,8 +312,8 @@ export default function EditableImage({
   useEffect(() => {
     if (!draggingFrame) return;
     const onMove = (e) => {
-      const dx = e.clientX - draggingFrame.startX;
-      const dy = e.clientY - draggingFrame.startY;
+      // 🎯 scale 보정
+      const { dx, dy } = getScaledDelta(draggingFrame, e, frameRef.current);
       let nx = draggingFrame.startFx + dx;
       let ny = draggingFrame.startFy + dy;
 
@@ -375,8 +376,8 @@ export default function EditableImage({
   useEffect(() => {
     if (!draggingCrop) return;
     const onMove = (e) => {
-      const dx = e.clientX - draggingCrop.startX;
-      const dy = e.clientY - draggingCrop.startY;
+      // 🎯 scale 보정
+      const { dx, dy } = getScaledDelta(draggingCrop, e, frameRef.current);
       const clamped = clampOffset(draggingCrop.startOx + dx, draggingCrop.startOy + dy);
       // px → 비율로 변환해서 저장
       const newXR = boxW > 0 ? clamped.x / boxW : 0;

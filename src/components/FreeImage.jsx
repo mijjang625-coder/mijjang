@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { getScaledDelta } from '../lib/dragScale.js';
 
 /**
  * FreeImage — 자유 배치 이미지 (페이지 캠버스 위에서 절대 위치)
@@ -28,7 +29,7 @@ const HANDLES = [
   { id: 'w',  cursor: 'ew-resize' },
 ];
 
-const SNAP_THRESHOLD = 8;
+const SNAP_THRESHOLD = 3;
 const MIN_SIZE = 40;
 const MIN_IMG_SCALE = 0.5;   // 50%까지 축소 가능 (EditableImage v4와 동일)
 const MAX_IMG_SCALE = 4.0;   // 400%까지 확대
@@ -97,6 +98,28 @@ export default function FreeImage({
     }
   }, [editMode]);
 
+  // 🎯 키보드 화살표로 1px 이동 (Shift+화살표 = 10px)
+  // 선택된 자유이미지에만 적용. 텍스트 입력 중이면 무시.
+  useEffect(() => {
+    if (!editMode || !selected) return;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+      const step = e.shiftKey ? 10 : 1;
+      let nx = x, ny = y, handled = false;
+      if (e.key === 'ArrowLeft')  { nx = x - step; handled = true; }
+      if (e.key === 'ArrowRight') { nx = x + step; handled = true; }
+      if (e.key === 'ArrowUp')    { ny = y - step; handled = true; }
+      if (e.key === 'ArrowDown')  { ny = y + step; handled = true; }
+      if (handled) {
+        e.preventDefault();
+        onUpdate({ x: nx, y: ny });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editMode, selected, x, y, onUpdate]);
+
   // 클릭 외부 시 선택 해제
   useEffect(() => {
     if (!selected) return;
@@ -132,9 +155,9 @@ export default function FreeImage({
     if (!draggingPos) return;
     const DRAG_THRESHOLD = 3; // 3px 이상 움직여야 실제 드래그로 인식
     const onMove = (e) => {
-      const dx = e.clientX - draggingPos.startX;
-      const dy = e.clientY - draggingPos.startY;
-      // 임계값 미만이면 아직 드래그 아님
+      // 🎯 scale 보정 — 모바일 미리보기에서 transform:scale 적용 시 자연스러운 이동
+      const { dx, dy } = getScaledDelta(draggingPos, e, wrapRef.current);
+      // 임계값(화면 픽셀 기준이 아닌 페이지 좌표 기준)
       if (!draggingPos.active && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       if (!draggingPos.active) {
         setDraggingPos((p) => ({ ...p, active: true }));
@@ -177,8 +200,8 @@ export default function FreeImage({
   useEffect(() => {
     if (!resizing) return;
     const onMove = (e) => {
-      const dx = e.clientX - resizing.startX;
-      const dy = e.clientY - resizing.startY;
+      // 🎯 scale 보정
+      const { dx, dy } = getScaledDelta(resizing, e, wrapRef.current);
       const ratioLock = !e.shiftKey;
       let { sw, sh, sx, sy, handle, ar } = resizing;
       let nw = sw, nh = sh, nx = sx, ny = sy;
