@@ -139,7 +139,7 @@ export default function P10Faq({
           />
         </div>
 
-        {/* 구성품 체크리스트 — 아이콘 variant로 다양성 */}
+        {/* 구성품 체크리스트 — 🆕 모든 항목을 동일한 variant로 통일 (사용자 요청 2026-04-28) */}
         <div
           style={{
             marginTop: 24,
@@ -162,7 +162,7 @@ export default function P10Faq({
                     : `1px solid ${BRAND.colors.neutral}`,
               }}
             >
-              <CheckIcon size={26} variant={variant + i} />
+              <CheckIcon size={26} variant={variant} />
               <EditableText
                 {...editPropsFor(`P10.components.bullets.${i}`)}
                 as="span"

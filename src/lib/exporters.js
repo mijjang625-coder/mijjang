@@ -57,6 +57,28 @@ const CAPTURE_OPTIONS = {
         p.style.paddingBottom = '8px';
         p.dataset._capturePad = '1';
       }
+      // 🆕 (P1/P2 글씨 밀림 핵심 수정)
+      // inline style에 fontFamily가 박혀 있는 요소들도 NanumSquare로 강제 변경.
+      // !important CSS만으로는 안 잡히는 경우(인라인 style 우선순위)를 위해
+      // JS에서 직접 inline style을 덮어씀.
+      const all = p.querySelectorAll('*');
+      const SAFE_FONT = "'NanumSquare', 'Nanum Square', 'Apple SD Gothic Neo', sans-serif";
+      all.forEach((el) => {
+        if (el.style && el.style.fontFamily) {
+          el.style.fontFamily = SAFE_FONT;
+        }
+        // letter-spacing이 em 단위로 박혀 있으면 캡처 시 폰트 metric 차이로 글자가 밀림.
+        // px 단위로 변환하지는 않지만, 너무 큰 음수값이 있으면 0에 가깝게 보정
+        if (el.style && el.style.letterSpacing && el.style.letterSpacing.includes('em')) {
+          const v = parseFloat(el.style.letterSpacing);
+          // -0.02em 같은 작은 값은 그대로 두고, -0.05em 이상 음수만 줄임
+          if (v < -0.04) {
+            el.style.letterSpacing = '-0.02em';
+          }
+        }
+      });
+      // 페이지 자체에도 명시적 폰트 지정
+      p.style.fontFamily = SAFE_FONT;
     });
   },
 };
