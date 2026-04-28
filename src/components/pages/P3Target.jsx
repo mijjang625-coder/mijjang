@@ -86,7 +86,7 @@ export default function P3Target({
               as="h2"
               defaultStyle={{
                 fontSize: 42, fontWeight: 800, color: BRAND.colors.text, margin: 0,
-                textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.3,
+                textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.4,
               }}
             >
               {mainTitle}
