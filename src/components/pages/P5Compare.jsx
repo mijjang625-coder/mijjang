@@ -5,25 +5,23 @@ import EditableImage from '../EditableImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 
-// 일반 제품용 자동 생성 실루엣 이미지 (무채색 + 블러 효과, 텍스트 없음)
-// SVG data URL — 외부 네트워크 없이 항상 렌더링됨
-const GENERIC_PRODUCT_SILHOUETTE =
+// 🆕 (2026-04-28) 일반 제품 이미지 = 우리 제품 이미지를 자동으로 무채색·블러 처리해 사용
+//   사용자가 generalImage 를 직접 지정하지 않은 경우, 우리 제품 사진(ourImage)을
+//   그대로 사용하면서 CSS filter 로 grayscale + blur + brightness 보정 → "비슷한 실루엣"
+//   효과. 우리 제품 이미지가 바뀌면 자동으로 반영된다.
+//
+// 🛟 ourImage 도 없는 경우의 fallback: 무채색 그라디언트 빈 박스 (제품 윤곽 없음)
+const GENERIC_FALLBACK_BG =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#d9d9d9"/>
-      <stop offset="1" stop-color="#a8a8a8"/>
+      <stop offset="0" stop-color="#e0e0e0"/>
+      <stop offset="1" stop-color="#b8b8b8"/>
     </linearGradient>
-    <filter id="blur"><feGaussianBlur stdDeviation="5"/></filter>
   </defs>
   <rect width="400" height="400" fill="url(#bg)"/>
-  <g filter="url(#blur)" fill="#5a5a5a" opacity="0.65">
-    <ellipse cx="200" cy="330" rx="150" ry="26"/>
-    <path d="M 125 310 L 140 155 Q 140 120 175 115 L 225 115 Q 260 120 260 155 L 275 310 Z"/>
-    <circle cx="200" cy="105" r="32"/>
-  </g>
 </svg>
   `.trim());
 
@@ -93,8 +91,21 @@ export default function P5Compare({
     generalSubLabel = '',   // 예: "GENERAL", "기존 방식"
   } = copy;
 
-  // 일반 제품 이미지: 사용자가 따로 제공하지 않았으면 자동 생성 실루엣 사용
-  const resolvedGeneralImage = generalImage || GENERIC_PRODUCT_SILHOUETTE;
+  // 🆕 일반 제품 이미지 결정 우선순위 (2026-04-28):
+  //   1) 사용자가 직접 generalImage 를 지정 → 그대로 사용 (필터 없음)
+  //   2) 미지정 → 우리 제품 사진(ourImage)을 가져와 CSS filter로 흐리게 처리
+  //      → 우리 제품이 바뀌면 일반 제품도 자동으로 비슷한 실루엣으로 따라 바뀜
+  //   3) 둘 다 없음 → fallback 빈 그라디언트 박스
+  const useOurAsGeneralBase = !generalImage && !!ourImage;
+  const resolvedGeneralImage = generalImage || ourImage || GENERIC_FALLBACK_BG;
+  const generalImageFilter = useOurAsGeneralBase
+    // 우리 제품 사진을 자동으로 일반 제품 실루엣처럼 보이게 처리
+    ? 'grayscale(100%) brightness(0.8) contrast(0.85) blur(4px)'
+    : generalImage
+      // 사용자 지정 일반 이미지: 약한 무채색 처리만
+      ? 'grayscale(100%) brightness(0.85) blur(1px)'
+      // fallback (그라디언트만)
+      : 'none';
 
   // ── 모든 텍스트 셀의 공통 스타일 (비교항목 라벨 + 우리/일반 콘텐츠) ──
   // 요청사항: 좌측 '비교 항목'부터 '병 입구'까지 글씨 크기 동일 + 가운데 정렬
@@ -113,6 +124,8 @@ export default function P5Compare({
         justifyContent: 'center',
         minHeight: 72,
         opacity: isOurs ? 1 : 0.85,
+        // 🆕 (2026-04-28) 컬럼 사이 세로 구분선 — 우리/일반 헤더 모두 좌측에 선
+        borderLeft: `1px solid ${BRAND.colors.neutral}`,
       }}
     >
       {subLabel && (
@@ -174,6 +187,8 @@ export default function P5Compare({
         fontSize: UNIFORM_FONT_SIZE,          // 동일 크기
         fontWeight: isOurs ? 700 : 400,       // 굵기로만 차등
         borderBottom: `1px solid ${BRAND.colors.neutral}`,
+        // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
+        borderLeft: `1px solid ${BRAND.colors.neutral}`,
         textAlign: 'center',                  // 가운데 정렬
         lineHeight: 1.4,
         wordBreak: 'keep-all',
@@ -266,6 +281,8 @@ export default function P5Compare({
                 style={{
                   padding: 10,
                   borderTop: `1px solid ${BRAND.colors.neutral}`,
+                  // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
+                  borderLeft: `1px solid ${BRAND.colors.neutral}`,
                   backgroundColor: 'rgba(200,182,166,0.12)',
                   display: 'flex',
                   alignItems: 'center',
@@ -307,6 +324,8 @@ export default function P5Compare({
                 style={{
                   padding: 10,
                   borderTop: `1px solid ${BRAND.colors.neutral}`,
+                  // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
+                  borderLeft: `1px solid ${BRAND.colors.neutral}`,
                   backgroundColor: '#f5f5f5',
                   display: 'flex',
                   alignItems: 'center',
@@ -332,7 +351,7 @@ export default function P5Compare({
                       height: '100%',
                       objectFit: 'cover',
                       display: 'block',
-                      filter: generalImage ? 'grayscale(100%) brightness(0.85) blur(1px)' : 'none',
+                      filter: generalImageFilter,
                     }}
                   />
                 </div>
@@ -354,6 +373,8 @@ export default function P5Compare({
                   padding: '10px 8px',        // 컨테이너 padding 축소
                   backgroundColor: '#f5f5f5',
                   borderBottom: `1px solid ${BRAND.colors.neutral}`,
+                  // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
+                  borderLeft: `1px solid ${BRAND.colors.neutral}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
