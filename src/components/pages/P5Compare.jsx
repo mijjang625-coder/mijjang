@@ -346,11 +346,9 @@ export default function P5Compare({
                     position: 'relative',
                     pointerEvents: 'auto',
                     zIndex: imageOverrides[generalImgId]?.zIndex ?? 1,
-                    // 사용자가 일반 제품 사진을 직접 지정하지 않은 경우에만
-                    // 부모 div 에 무채색 필터를 걸어 "흐릿한 일반 제품 실루엣" 효과
-                    filter: useOurAsGeneralBase
-                      ? 'grayscale(100%) brightness(0.9) contrast(0.9) blur(3px)'
-                      : 'none',
+                    // 🐛 (2026-04-28 v2) 부모 div 의 filter 제거.
+                    //   filter 는 자식 전체(편집 툴바/핸들 포함)에 적용되어 툴바도 흐려졌었음.
+                    //   → EditableImage 의 extraFilter prop 으로 이미지 element 에만 적용함.
                   }}
                 >
                   <EditableImage
@@ -366,6 +364,9 @@ export default function P5Compare({
                     onActivate={() => layer.activateLayer('main', generalImgId)}
                     hasActiveOther={editMode && layer.hasActiveLayer && !generalActive}
                     onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: generalImgId }, action)}
+                    // 🆕 (2026-04-28) 사용자가 일반 제품 사진을 따로 지정하지 않은 경우에만
+                    //   이미지에만 grayscale+blur 적용 → 툴바/핸들은 선명하게 유지
+                    extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.9) contrast(0.9) blur(3px)' : ''}
                   />
                 </div>
               </div>

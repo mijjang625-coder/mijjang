@@ -86,6 +86,10 @@ export default function EditableImage({
   onActivate = null,
   // 다른 레이어가 활성화되어 있으면 이 레이어는 클릭 통과 (피그마 방식)
   hasActiveOther = false,
+  // 🆕 (2026-04-28) 외부에서 추가로 적용할 CSS filter 문자열
+  //   예: 'grayscale(100%) blur(3px)' — 이미지 element 에만 적용되고 툴바/핸들엔 영향 없음
+  //   기존 색상 조정용 cssFilter 와 합쳐져 적용됨
+  extraFilter = '',
 }) {
   const wrapperRef = useRef(null);
   const frameRef = useRef(null);
@@ -118,6 +122,9 @@ export default function EditableImage({
     hue:        adjust?.hue        ?? 0,
   };
   const cssFilter = `brightness(${adj.brightness}%) contrast(${adj.contrast}%) saturate(${adj.saturate}%) hue-rotate(${adj.hue}deg)`;
+  // 🆕 (2026-04-28) extraFilter 가 있으면 색상 조정 필터와 합쳐서 적용
+  //   순서: 색상 조정 → 추가 필터 (grayscale/blur 등이 가장 마지막에 와야 의도대로 작동)
+  const combinedFilter = extraFilter ? `${cssFilter} ${extraFilter}` : cssFilter;
   const isAdjusted = adj.brightness !== 100 || adj.contrast !== 100 || adj.saturate !== 100 || adj.hue !== 0;
 
   // 메인사진 레이어 변경
@@ -493,7 +500,7 @@ export default function EditableImage({
               objectFit: 'cover',
               display: 'block',
               userSelect: 'none',
-              filter: cssFilter,
+              filter: combinedFilter,
             }}
           />
         </div>
@@ -601,7 +608,7 @@ export default function EditableImage({
             display: 'block',
             userSelect: 'none',
             pointerEvents: mode === 'cropping' ? 'auto' : 'none',
-            filter: cssFilter,
+            filter: combinedFilter,
           }}
         />
 
