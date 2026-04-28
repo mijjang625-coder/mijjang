@@ -112,17 +112,22 @@ const CAPTURE_OPTIONS = {
             }
           }
         }
-        // 5) 🆕🆕 (2026-04-28 사용자 가설 검증)
+        // 5) 🆕🆕 (2026-04-28 사용자 가설 검증 — v2)
         //    "흰색이 글씨를 덮어서 잘려 보이는 것" → overflow:hidden + line-clamp 해제
-        //    화면에선 line-clamp가 자연스럽게 잘 보이지만,
-        //    html2canvas가 line-box 높이를 살짝 다르게 계산하면 마지막 글자 위/아래가
-        //    overflow:hidden 경계 밖으로 나가서 잘림.
-        //    캡처 시에만 visible로 풀어주면 글씨가 온전히 그려짐.
+        //    ⚠️ 단, 사진 박스의 overflow:hidden은 그대로 유지해야 함 (사진이 튀어나옴)
+        //    조건: 자손에 <img> 없는 "텍스트 전용 박스"만 해제
         const ovf = el.style.overflow;
         const wlc = el.style.webkitLineClamp || el.style.WebkitLineClamp;
         const txOv = el.style.textOverflow;
         if (ovf === 'hidden') {
-          el.style.overflow = 'visible';
+          // 자손 중 <img>가 있으면 사진 마스킹용 → 건드리지 않음
+          // background-image가 있으면 배경 사진용 → 건드리지 않음
+          const hasImg = el.querySelector && el.querySelector('img');
+          const bgImg = el.style.backgroundImage;
+          const hasBgImg = bgImg && bgImg !== 'none' && bgImg !== '';
+          if (!hasImg && !hasBgImg) {
+            el.style.overflow = 'visible';
+          }
         }
         if (wlc) {
           el.style.webkitLineClamp = 'unset';
