@@ -296,8 +296,10 @@ export default function P1Hero({
               />
 
               {/* 🆕🆕 타이틀+설명을 시각적으로 한 박스 (2026-04-28)
-                    — 두 EditableText는 유지(데이터/AI 호환), 다만 사이 gap을 0으로 +
-                      한 컨테이너로 감싸 점선 outline이 두 개로 보여도 한 덩어리처럼 묶음. */}
+                    — 두 EditableText는 유지(데이터/AI 호환).
+                    — style prop으로 inline outline을 'none'으로 덮어써 분리감 제거.
+                    — 편집 시(hover/focus)에는 EditableText 자체 hover 상태로 backgroundColor가
+                      살짝 강조되어 클릭 가능 영역 표시됨. */}
               <div
                 className="p1-strength-text-group"
                 style={{
@@ -312,6 +314,7 @@ export default function P1Hero({
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.title`)}
                   as="div"
+                  style={{ outline: 'none' }}
                   defaultStyle={{
                     width: '100%',
                     fontSize: 20,
@@ -335,6 +338,7 @@ export default function P1Hero({
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.desc`)}
                   as="div"
+                  style={{ outline: 'none' }}
                   defaultStyle={{
                     width: '100%',
                     fontSize: 22,
