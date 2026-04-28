@@ -315,6 +315,8 @@ export default function P10Faq({
                   letterSpacing: '-0.02em',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
                 }}
               >
                 {row.label}
@@ -330,6 +332,8 @@ export default function P10Faq({
                   wordBreak: 'keep-all',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
                 }}
               >
                 {row.value}
@@ -340,9 +344,12 @@ export default function P10Faq({
       </div>
 
       {/* ─────────── 5. 마감 CTA 영역 ─────────── */}
+      {/* 🆕 하단 50px 여백을 margin이 아닌 padding으로 적용 — html2canvas가
+            margin을 캡처에서 누락시키는 문제 방지 (마지막 글자 잘림 현상 수정) */}
+      <div style={{ padding: '0 0 50px' }}>
       <div
         style={{
-          margin: '20px 40px 50px',
+          margin: '20px 40px 0',
           backgroundColor: BRAND.colors.main,
           borderRadius: 18,
           padding: '30px 28px',
@@ -376,6 +383,7 @@ export default function P10Faq({
         >
           문의 사항이 있으시면 구매 페이지의 문의하기로 편하게 남겨주세요.
         </div>
+      </div>
       </div>
     </div>
 

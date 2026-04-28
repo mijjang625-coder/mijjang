@@ -49,9 +49,54 @@ const CAPTURE_OPTIONS = {
   onclone: (clonedDoc) => {
     // cloned 문서에서도 .pre-capture 클래스가 적용되도록 보장
     const pages = clonedDoc.querySelectorAll('.coupang-page');
-    pages.forEach((p) => p.classList.add('pre-capture'));
+    pages.forEach((p) => {
+      p.classList.add('pre-capture');
+      // 🆕 캡처 시 마지막 자식의 margin-bottom이 잘리는 것을 방지
+      // html2canvas는 collapsing margin을 누락하므로 명시적 padding-bottom 추가
+      if (!p.dataset._capturePad) {
+        p.style.paddingBottom = '8px';
+        p.dataset._capturePad = '1';
+      }
+    });
   },
 };
+
+// 🆕 노드의 실제 콘텐츠 높이를 정확히 측정 (margin 포함)
+// html2canvas는 자체 측정이 종종 마지막 자식의 margin-bottom을 누락시킴 →
+// scrollHeight + 자식 마지막 margin을 더해서 안전한 높이를 반환
+function getCaptureHeight(node) {
+  if (!node) return 0;
+  // 1) 기본 scrollHeight (대부분 정확)
+  let h = node.scrollHeight || node.offsetHeight || 0;
+  // 2) 마지막 자식의 margin-bottom 보정 (collapsing margin 누락 방지)
+  try {
+    const last = node.lastElementChild;
+    if (last) {
+      const cs = window.getComputedStyle(last);
+      const mb = parseFloat(cs.marginBottom) || 0;
+      if (mb > 0) h += mb;
+    }
+  } catch {}
+  return Math.ceil(h);
+}
+
+// 🆕 캡처 직전, 노드에 명시적 height를 설정해서 html2canvas가
+// 정확한 영역을 캡처하도록 함. 캡처 후 원래대로 복원.
+function lockHeightForCapture(node) {
+  if (!node) return () => {};
+  const h = getCaptureHeight(node);
+  const prev = {
+    height: node.style.height,
+    minHeight: node.style.minHeight,
+  };
+  // .coupang-page 내부 첫 div(.position:relative)에는 손대지 않고,
+  // ref 래퍼(=node)에만 높이를 명시
+  node.style.minHeight = h + 'px';
+  return () => {
+    node.style.height = prev.height;
+    node.style.minHeight = prev.minHeight;
+  };
+}
 
 /* ───────── 단일 페이지 ───────── */
 
@@ -61,9 +106,16 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   await waitForImages(node);
   await prepareForCapture();
   const removeClass = applyCaptureClass(node);
+  const restoreHeight = lockHeightForCapture(node);
   try {
     const html2canvas = await getHtml2Canvas();
-    const canvas = await html2canvas(node, CAPTURE_OPTIONS);
+    // 🆕 명시적 height 전달 — html2canvas가 마지막 콘텐츠를 잘리지 않게 보장
+    const captureH = getCaptureHeight(node);
+    const canvas = await html2canvas(node, {
+      ...CAPTURE_OPTIONS,
+      height: captureH,
+      windowHeight: captureH,
+    });
     await new Promise((resolve) => {
       canvas.toBlob((blob) => {
         if (!blob) return resolve();
@@ -73,6 +125,7 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
       }, 'image/png');
     });
   } finally {
+    restoreHeight();
     removeClass();
   }
 }
@@ -103,15 +156,25 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
   // 🆕 모든 페이지에 캡처 클래스 적용 (한 번에) + 폰트 로딩
   await prepareForCapture();
   const cleanups = pages.map(({ node }) => applyCaptureClass(node));
+  const heightRestores = [];
   try {
     for (let i = 0; i < pages.length; i++) {
       const { key, node } = pages[i];
       onProgress?.({ done: i, total, label: `${key} 캡처 중...` });
       await waitForImages(node);
-      const c = await html2canvas(node, CAPTURE_OPTIONS);
+      // 🆕 명시적 height 전달 — 마지막 콘텐츠 잘림 방지
+      const restoreH = lockHeightForCapture(node);
+      heightRestores.push(restoreH);
+      const captureH = getCaptureHeight(node);
+      const c = await html2canvas(node, {
+        ...CAPTURE_OPTIONS,
+        height: captureH,
+        windowHeight: captureH,
+      });
       canvases.push(c);
     }
   } finally {
+    heightRestores.forEach((fn) => fn());
     cleanups.forEach((fn) => fn());
   }
   onProgress?.({ done: total, total, label: '이미지 합치는 중...' });
@@ -205,10 +268,17 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
     onProgress?.({ done: i, total: pages.length + 2, label: `${key} → PNG` });
     await waitForImages(node);
     const removeClass = applyCaptureClass(node);
+    const restoreH = lockHeightForCapture(node);
     let canvas;
     try {
-      canvas = await html2canvas(node, CAPTURE_OPTIONS);
+      const captureH = getCaptureHeight(node);
+      canvas = await html2canvas(node, {
+        ...CAPTURE_OPTIONS,
+        height: captureH,
+        windowHeight: captureH,
+      });
     } finally {
+      restoreH();
       removeClass();
     }
     const pngName = `${productName}-${key}.png`;
