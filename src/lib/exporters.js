@@ -112,34 +112,8 @@ const CAPTURE_OPTIONS = {
             }
           }
         }
-        // 4-c) 🆕🆕 (2026-04-28 사용자 가설) 알약/뱃지 라벨 — line-height 1.4 보장
-        //    조건: 알약 모양 (borderRadius 50px+ / 999px / 50%) + 박스 작음 + 텍스트만
-        //    효과: 한글 폰트 ascent 잘림 방지. 폰트는 절대 건드리지 않음.
-        if (br) {
-          const isPill =
-            br === '999px' || br === '9999px' || br === '50%' ||
-            (parseFloat(br) >= 50 && !isNaN(parseFloat(br)));
-          const h = el.offsetHeight || 0;
-          const hasText = el.textContent && el.textContent.trim().length > 0;
-          const childCount = el.children ? el.children.length : 0;
-          if (isPill && hasText && h > 0 && h < 80 && childCount <= 2) {
-            // line-height 1.2 미만이면 1.4로, 이미 1.4 이상이면 손대지 않음
-            const curLh = el.style.lineHeight;
-            const curLhNum = parseFloat(curLh);
-            const isUnitless = curLh && !curLh.includes('px') && !curLh.includes('em');
-            if (!curLh || (isUnitless && curLhNum < 1.4)) {
-              el.style.lineHeight = '1.4';
-            }
-            // padding 위/아래 불균등 시 평균값으로 정렬 (정중앙 보장)
-            const curPt = parseFloat(el.style.paddingTop) || 0;
-            const curPb = parseFloat(el.style.paddingBottom) || 0;
-            if (Math.abs(curPt - curPb) > 0.5) {
-              const avg = (curPt + curPb) / 2;
-              el.style.paddingTop = avg + 'px';
-              el.style.paddingBottom = avg + 'px';
-            }
-          }
-        }
+        // 4-c) 알약/뱃지 라벨 line-height 처리는 컴포넌트 자체(Shared.jsx PillBadge)에
+        //      lineHeight: 1.4 박는 것으로 일원화 → onclone 동적 감지 코드 제거 (2026-04-28)
         // 5) 🆕🆕 (2026-04-28 사용자 가설 검증 — v2)
         //    "흰색이 글씨를 덮어서 잘려 보이는 것" → overflow:hidden + line-clamp 해제
         //    ⚠️ 단, 사진 박스의 overflow:hidden은 그대로 유지해야 함 (사진이 튀어나옴)

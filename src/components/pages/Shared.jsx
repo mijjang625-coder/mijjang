@@ -142,6 +142,7 @@ export function PillBadge({ children }) {
         fontSize: 22,
         fontWeight: 800,
         letterSpacing: '-0.02em',
+        lineHeight: 1.4,
       }}
     >
       {children}
