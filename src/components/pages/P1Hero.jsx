@@ -295,55 +295,67 @@ export default function P1Hero({
                 {...(cardCfg.iconColor ? { color: cardCfg.iconColor } : {})}
               />
 
-              {/* 타이틀 — 1줄 고정 */}
-              <EditableText
-                {...editPropsFor(`P1.strengthCards.${i}.title`)}
-                as="div"
-                defaultStyle={{
+              {/* 🆕 타이틀 + 설명을 하나의 박스로 합침 (사용자 요청 2026-04-28)
+                    — PNG 캡처 시 두 박스 padding/lineHeight 누적 측정 오류로
+                      글씨가 잘리는 현상 해결.
+                    — 한 컨테이너 안에 두 EditableText를 넣어 PNG 측정이 한 번만 일어나게 함. */}
+              <div
+                style={{
                   width: '100%',
-                  fontSize: 20,
-                  fontWeight: 900,
-                  color: BRAND.colors.main,
-                  lineHeight: 1.2,
-                  letterSpacing: '-0.04em',
-                  wordBreak: 'keep-all',
-                  whiteSpace: editMode ? 'normal' : 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  minHeight: 26,
-                  padding: '0 4px',
-                  textAlign: 'center',
-                }}
-              >
-                {c.title}
-              </EditableText>
-
-              {/* 설명 — 서브글씨 150% 확대 (15 → 22.5pt), 3줄까지 허용 */}
-              <EditableText
-                {...editPropsFor(`P1.strengthCards.${i}.desc`)}
-                as="div"
-                defaultStyle={{
-                  width: '100%',
-                  fontSize: 22,                 // 요청: 기존 15pt → 150% (≈22pt)
-                  fontWeight: 500,
-                  color: BRAND.colors.text,
-                  lineHeight: 1.35,
-                  letterSpacing: '-0.03em',
-                  wordBreak: 'keep-all',
-                  whiteSpace: 'pre-line',
-                  display: editMode ? 'block' : '-webkit-box',
-                  WebkitLineClamp: 3,           // 3줄 허용
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  // 22 × 1.35 × 3 ≈ 89px
-                  minHeight: 90,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 6,
                   padding: '0 2px',
-                  textAlign: 'center',
                 }}
               >
-                {c.desc}
-              </EditableText>
+                {/* 타이틀 — 1줄 고정 */}
+                <EditableText
+                  {...editPropsFor(`P1.strengthCards.${i}.title`)}
+                  as="div"
+                  defaultStyle={{
+                    width: '100%',
+                    fontSize: 20,
+                    fontWeight: 900,
+                    color: BRAND.colors.main,
+                    lineHeight: 1.4,
+                    letterSpacing: '-0.04em',
+                    wordBreak: 'keep-all',
+                    whiteSpace: editMode ? 'normal' : 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    minHeight: 30,
+                    textAlign: 'center',
+                  }}
+                >
+                  {c.title}
+                </EditableText>
+
+                {/* 설명 — 서브글씨 */}
+                <EditableText
+                  {...editPropsFor(`P1.strengthCards.${i}.desc`)}
+                  as="div"
+                  defaultStyle={{
+                    width: '100%',
+                    fontSize: 22,
+                    fontWeight: 500,
+                    color: BRAND.colors.text,
+                    lineHeight: 1.5,
+                    letterSpacing: '-0.03em',
+                    wordBreak: 'keep-all',
+                    whiteSpace: 'pre-line',
+                    display: editMode ? 'block' : '-webkit-box',
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    minHeight: 100,
+                    textAlign: 'center',
+                  }}
+                >
+                  {c.desc}
+                </EditableText>
+              </div>
             </div>
           ))}
         </div>

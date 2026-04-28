@@ -212,24 +212,10 @@ export default function P2Benefits({
                 }}
               >
                 <div style={{ marginBottom: 22, pointerEvents: editMode ? 'auto' : 'inherit' }}>
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: BRAND.colors.main,
-                      color: '#fff',
-                      fontSize: 22,
-                      fontWeight: 800,
-                      padding: '6px 16px',
-                      borderRadius: 999,
-                      marginBottom: 14,
-                      lineHeight: 1.2,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    POINT {String(i + 1).padStart(2, '0')}
-                  </div>
+                  {/* 🆕 POINT 01/02/03 알약 라벨 제거 (사용자 요청 2026-04-28)
+                        — PNG 캡처 시 알약 박스 안의 글씨가 박스 아래로 밀려
+                          절반만 보이는 현상의 근본 해결.
+                        — 데이터 인덱스(i)는 그대로 사용되므로 AI/저장 호환성 유지. */}
                   <EditableText
                     {...editPropsFor(`P2.sections.${i}.title`)}
                     as="h3"
