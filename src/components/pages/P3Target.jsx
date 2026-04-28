@@ -153,13 +153,12 @@ export default function P3Target({
                   display: 'flex', alignItems: 'center', gap: 14,
                   height: 60, padding: '0 6px',
                   borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
-                  transform: 'translateY(5px)',
                 }}
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
                   <CheckIcon size={24} variant={1} color="#E8590C" />
                 </span>
-                <div style={{ flex: 1, transform: 'translateY(5px)' }}>
+                <div style={{ flex: 1, transform: 'translateY(-5px)' }}>
                   <EditableText
                     {...editPropsFor(`P3.checklist.${i}`)}
                     as="div"
