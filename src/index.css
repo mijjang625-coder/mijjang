@@ -126,3 +126,66 @@ body {
   /* STEP과 숫자 사이 줄바꿈 간격 통일 */
   line-height: 1;
 }
+
+/* 🆕🆕 (2026-04-28) P1/P2/P3 글씨 잘림·밀림 핵심 수정
+   ─────────────────────────────────────────────────────────
+   증상: 화면에서는 멀쩡한데 PNG로 변환하면
+        - P1 강점 카드의 "완벽한 청소 도구" 등이 박스 위쪽으로 잘림
+        - P2 "POINT 01" 라벨이 박스 아래로 밀려서 절반만 보임
+        - P3 체크 항목 텍스트들의 줄간격이 들쑥날쑥
+   원인: html2canvas가 한글 폰트의 line-box height를 잘못 계산.
+        inline에 line-height: 1.4 같은 값이 있을 때 폰트의 ascent보다
+        line-box가 작아져서 위/아래로 글자가 잘림.
+   해결: 캡처 시에만 모든 텍스트 요소의 line-height를 1.5 이상으로 끌어올려
+        line-box가 충분한 높이를 갖도록 강제. */
+
+/* 모든 EditableText/일반 텍스트 — line-height 최소 1.5 보장 */
+.coupang-page.pre-capture h1,
+.coupang-page.pre-capture h2,
+.coupang-page.pre-capture h3,
+.coupang-page.pre-capture h4 {
+  /* 큰 제목 — line-height: 1.2~1.3이 보통이라 PNG에서 위/아래가 잘림.
+     여기서는 1.4로 살짝 올려서 안전하게 */
+  line-height: 1.4 !important;
+  padding-top: 0.05em;
+  padding-bottom: 0.05em;
+}
+
+.coupang-page.pre-capture p,
+.coupang-page.pre-capture span,
+.coupang-page.pre-capture div[data-edit-text],
+.coupang-page.pre-capture [contenteditable] {
+  /* 본문/라벨 — 1.5로 통일하면 PNG에서 위/아래 잘림 사라짐.
+     주의: !important 없이 inline style에 lineHeight가 있으면 덮어쓸 수 없음.
+     따라서 onclone에서 JS로 inline style.lineHeight도 강제 보정 */
+  line-height: 1.5 !important;
+}
+
+/* 라벨/배지 같은 작은 박스 (padding이 적은 inline-block)
+   - "POINT 01" 같은 알약 모양 — 박스 높이가 작아서 line-height 1.5 강제하면
+     박스가 커져버림. 이런 경우엔 1.2 + 미세 padding-top 보정 */
+.coupang-page.pre-capture span[style*="border-radius: 999"],
+.coupang-page.pre-capture span[style*="borderRadius:999"],
+.coupang-page.pre-capture div[style*="border-radius: 999"],
+.coupang-page.pre-capture div[style*="borderRadius:999"] {
+  line-height: 1.2 !important;
+  /* 글자가 박스 아래로 밀려 절반 잘리는 현상 → padding-top 미세 추가로 보정 */
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
+  /* display: flex로 강제하면 vertical center가 폰트 metric 무관하게 작동 */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 강조 카드(P1) — 박스 안쪽 padding이 폰트 ascent보다 작을 때 위가 잘림.
+   border-radius와 backgroundColor가 있는 div는 강조 카드일 가능성 높음 */
+.coupang-page.pre-capture div[style*="border-radius: 16"],
+.coupang-page.pre-capture div[style*="border-radius: 18"],
+.coupang-page.pre-capture div[style*="border-radius: 20"],
+.coupang-page.pre-capture div[style*="borderRadius: 16"],
+.coupang-page.pre-capture div[style*="borderRadius: 18"],
+.coupang-page.pre-capture div[style*="borderRadius: 20"] {
+  /* 박스 위쪽에 5px 추가 패딩 — 폰트 ascent 잘림 방지 */
+  padding-top: calc(var(--orig-pt, 0px) + 4px);
+}

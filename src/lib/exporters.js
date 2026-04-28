@@ -64,16 +64,52 @@ const CAPTURE_OPTIONS = {
       const all = p.querySelectorAll('*');
       const SAFE_FONT = "'NanumSquare', 'Nanum Square', 'Apple SD Gothic Neo', sans-serif";
       all.forEach((el) => {
-        if (el.style && el.style.fontFamily) {
+        if (!el.style) return;
+        // 1) 폰트 통일
+        if (el.style.fontFamily) {
           el.style.fontFamily = SAFE_FONT;
         }
-        // letter-spacing이 em 단위로 박혀 있으면 캡처 시 폰트 metric 차이로 글자가 밀림.
-        // px 단위로 변환하지는 않지만, 너무 큰 음수값이 있으면 0에 가깝게 보정
-        if (el.style && el.style.letterSpacing && el.style.letterSpacing.includes('em')) {
+        // 2) letterSpacing 큰 음수 보정
+        if (el.style.letterSpacing && el.style.letterSpacing.includes('em')) {
           const v = parseFloat(el.style.letterSpacing);
-          // -0.02em 같은 작은 값은 그대로 두고, -0.05em 이상 음수만 줄임
           if (v < -0.04) {
             el.style.letterSpacing = '-0.02em';
+          }
+        }
+        // 3) 🆕 lineHeight 보정 — html2canvas는 작은 line-height에서 한글이 잘림.
+        //    inline style.lineHeight가 1.4 미만이면 1.5로 끌어올림 (큰 제목/라벨 제외)
+        const tag = el.tagName;
+        const lh = el.style.lineHeight;
+        if (lh) {
+          const lhNum = parseFloat(lh);
+          // 단위 없는 숫자 (1.2, 1.4 등) — 작은 값이면 1.5로
+          if (!isNaN(lhNum) && !lh.includes('px') && !lh.includes('em') && lhNum < 1.5) {
+            // h1~h4 같은 큰 제목은 1.3 유지 (1.5면 너무 벌어짐)
+            if (['H1', 'H2', 'H3', 'H4'].includes(tag)) {
+              el.style.lineHeight = Math.max(lhNum, 1.3) + '';
+            } else {
+              el.style.lineHeight = '1.5';
+            }
+          }
+        } else if (el.textContent && el.textContent.trim() && !['BR', 'IMG', 'SVG', 'PATH', 'CIRCLE', 'RECT'].includes(tag)) {
+          // lineHeight 명시 안 된 텍스트 요소엔 1.5 부여
+          if (['SPAN', 'P', 'DIV'].includes(tag) && el.children.length === 0) {
+            el.style.lineHeight = '1.5';
+          }
+        }
+        // 4) 🆕 강조 카드(border-radius + backgroundColor) — padding-top 4px 추가
+        //    P1 강점 카드처럼 글자가 박스 위쪽으로 잘리는 현상 방지
+        const br = el.style.borderRadius;
+        const bg = el.style.backgroundColor;
+        if (br && bg && bg !== 'transparent' && bg !== 'none') {
+          const brNum = parseFloat(br);
+          // 12px 이상 둥근 박스 = 카드/강조 박스
+          if (!isNaN(brNum) && brNum >= 12 && brNum < 100) {
+            const curPt = parseFloat(el.style.paddingTop) || 0;
+            // 이미 큰 padding이면 손대지 않음 (24px 이상은 충분)
+            if (curPt < 20) {
+              el.style.paddingTop = (curPt + 4) + 'px';
+            }
           }
         }
       });
