@@ -112,37 +112,6 @@ const CAPTURE_OPTIONS = {
             }
           }
         }
-        // 4-b) 🆕🆕 (2026-04-28) 알약/배지 라벨 — PNG 캡처 시 텍스트가 위로 밀리는 현상 해결
-        //     화면에선 한글 폰트 ascent/descent로 자연스럽게 정중앙이지만,
-        //     html2canvas는 line-box 계산이 달라서 텍스트가 박스 위쪽으로 잘려 보임.
-        //     조건: 알약 모양 (borderRadius가 매우 큼: 50px+ or 999 등) → 강제 flex center
-        if (br) {
-          // "999px", "9999px", "100px", "50%" 등 알약/원형 후보
-          const isPill =
-            br === '999px' || br === '9999px' || br === '50%' ||
-            (parseFloat(br) >= 50 && !isNaN(parseFloat(br)));
-          // 텍스트가 들어 있는 작은 박스만 (큰 카드는 제외 — display:flex로 바꾸면 레이아웃 깨짐)
-          const h = el.offsetHeight || 0;
-          const hasText = el.textContent && el.textContent.trim().length > 0;
-          // 자식이 텍스트 노드뿐이거나 1개의 inline 요소만 (= 라벨임)
-          const childCount = el.children ? el.children.length : 0;
-          if (isPill && hasText && h > 0 && h < 80 && childCount <= 2) {
-            el.style.display = 'inline-flex';
-            el.style.alignItems = 'center';
-            el.style.justifyContent = 'center';
-            el.style.lineHeight = '1';
-            // 박스 위쪽으로 밀리는 미세 보정: padding-top 1px만 더해줌
-            const curPt = parseFloat(el.style.paddingTop) || 0;
-            const curPb = parseFloat(el.style.paddingBottom) || 0;
-            // 위/아래 padding이 다르면 균등하게 맞춰서 정중앙 보장
-            if (Math.abs(curPt - curPb) > 0.5) {
-              const avg = (curPt + curPb) / 2;
-              el.style.paddingTop = avg + 'px';
-              el.style.paddingBottom = avg + 'px';
-            }
-          }
-        }
-
         // 5) 🆕🆕 (2026-04-28 사용자 가설 검증 — v2)
         //    "흰색이 글씨를 덮어서 잘려 보이는 것" → overflow:hidden + line-clamp 해제
         //    ⚠️ 단, 사진 박스의 overflow:hidden은 그대로 유지해야 함 (사진이 튀어나옴)
