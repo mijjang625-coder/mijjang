@@ -174,6 +174,21 @@ body {
   line-height: 1.5 !important;
 }
 
+/* 🆕 (2026-04-28) P1 강점 카드 텍스트 — 화면 = PNG 동일하게 보이도록 보호
+   → 타이틀(line-height 1.4) / 설명(1.5)이 PNG에서 강제 1.5/패딩으로 변경되던 문제 해결.
+   주의: 타이틀 1.4를 그대로 쓰면 한글 ascent 문제로 PNG에서 글자가 잘릴 수 있어,
+        타이틀에는 미세 padding-top/bottom 만 살짝 부여 (line-height는 inline 그대로). */
+.coupang-page.pre-capture .p1-strength-text-group [data-edit-text],
+.coupang-page.pre-capture .p1-strength-text-group div,
+.coupang-page.pre-capture .p1-strength-text-group span,
+.coupang-page.pre-capture .p1-strength-text-group p {
+  /* line-height는 inline style을 그대로 사용하도록 비강제로 둠.
+     onclone JS에서 element.style.lineHeight를 명시 복사해 적용함.
+     padding은 0으로 강제 (borderRadius 18 일괄 padding-top 4px 적용 회피). */
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
 /* 라벨/배지 같은 작은 박스 (padding이 적은 inline-block)
    - "POINT 01" 같은 알약 모양 — 박스 높이가 작아서 line-height 1.5 강제하면
      박스가 커져버림. 이런 경우엔 1.2 + 미세 padding-top 보정 */

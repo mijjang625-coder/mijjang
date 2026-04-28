@@ -89,6 +89,20 @@ const CAPTURE_OPTIONS = {
           el.style.textOverflow = 'clip';
         }
       });
+
+      // 🆕 (2026-04-28) P1 강점 카드 텍스트 — inline lineHeight 를 PNG에서도 동일하게 유지
+      //   index.css의 `.coupang-page.pre-capture div[data-edit-text] { line-height: 1.5 !important }`
+      //   가 P1 강점 타이틀(1.4)/설명(1.5)을 모두 1.5로 강제 변경시켜 화면과 다르게 보였음.
+      //   → 캡처 직전에 inline style.lineHeight 를 setProperty('important')로 명시 적용해 덮어쓴다.
+      const p1StrengthTexts = p.querySelectorAll('.p1-strength-text-group [data-edit-text], .p1-strength-text-group div, .p1-strength-text-group span, .p1-strength-text-group p');
+      p1StrengthTexts.forEach((el) => {
+        if (!el.style) return;
+        const lh = el.style.lineHeight;
+        if (lh) {
+          // important 플래그로 다시 박아 넣기 → CSS의 !important 규칙도 이긴다
+          el.style.setProperty('line-height', lh, 'important');
+        }
+      });
     });
   },
 };

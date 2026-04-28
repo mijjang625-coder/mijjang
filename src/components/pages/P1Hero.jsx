@@ -308,7 +308,9 @@ export default function P1Hero({
                   gap: 0,
                 }}
               >
-                {/* 타이틀 */}
+                {/* 타이틀
+                    🐛 (2026-04-28) 부모 .p1-strength-text-group 클래스로 캡처 시 line-height 강제 적용 제외
+                    → 화면(1.4) = PNG(1.4) 동일 유지하여 글씨 크기/줄간격이 변하지 않음 */}
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.title`)}
                   as="div"
@@ -331,7 +333,8 @@ export default function P1Hero({
                   {c.title}
                 </EditableText>
 
-                {/* 설명 */}
+                {/* 설명
+                    🐛 (2026-04-28) 부모 .p1-strength-text-group 클래스로 캡처 시 line-height 강제 적용 제외 */}
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.desc`)}
                   as="div"

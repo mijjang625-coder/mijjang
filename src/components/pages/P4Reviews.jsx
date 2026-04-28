@@ -64,7 +64,9 @@ export default function P4Reviews({
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
       <div style={{ position: 'relative', pointerEvents: 'auto' }}>
-        <div style={{ padding: '50px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        {/* 🐛 (2026-04-28) padding-top 50→28px 로 축소 — 제목이 너무 아래로 내려와 보이는 문제 해결.
+            전체 모드(P1~P10 이어붙임)에서 P3 끝 → P4 시작 사이에 빈 공간이 너무 커 보임. */}
+        <div style={{ padding: '28px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P4.sectionTitle')}
             as="h2"
