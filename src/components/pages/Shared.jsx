@@ -137,7 +137,7 @@ export function PillBadge({ children }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '6px 20px 14px',
+        padding: '4px 20px 16px',
         borderRadius: 12,
         backgroundColor: BRAND.colors.main,
         color: '#fff',
