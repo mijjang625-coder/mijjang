@@ -195,23 +195,10 @@ export default function P9HowTo({
                     padding: '24px 22px',
                   }}
                 >
+                  {/* 🆕 STEP 동그라미 배지 제거 (사용자 요청 2026-04-28)
+                        — 데이터(s.stepNo)는 그대로 유지해 AI/저장 호환성 보장,
+                          UI에서만 동그라미를 숨기고 설명 텍스트만 표시. */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, pointerEvents: editMode ? 'auto' : 'inherit' }}>
-                    <div
-                      className="step-circle-badge"
-                      style={{
-                        width: 58, height: 58, borderRadius: '50%',
-                        backgroundColor: BRAND.colors.main, color: '#fff',
-                        fontWeight: 900, fontSize: 18, display: 'flex',
-                        alignItems: 'center', justifyContent: 'center',
-                        flexDirection: 'column',
-                        flexShrink: 0,
-                        lineHeight: 1.05,
-                        textAlign: 'center',
-                      }}
-                    >
-                      <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.95 }}>STEP</span>
-                      <span style={{ fontSize: 22, fontWeight: 900, marginTop: 1 }}>{s.stepNo || i + 1}</span>
-                    </div>
                     <EditableText
                       {...editPropsFor(`P9.steps.${i}.desc`)}
                       as="div"
