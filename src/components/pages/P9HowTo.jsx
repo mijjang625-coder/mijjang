@@ -198,11 +198,14 @@ export default function P9HowTo({
                   {/* 🆕 STEP 동그라미 배지 제거 (사용자 요청 2026-04-28)
                         — 데이터(s.stepNo)는 그대로 유지해 AI/저장 호환성 보장,
                           UI에서만 동그라미를 숨기고 설명 텍스트만 표시. */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, pointerEvents: editMode ? 'auto' : 'inherit' }}>
+                  {/* 🆕 가운데 정렬 (사용자 요청 2026-04-28)
+                        — flex 컨테이너 justifyContent:center + 텍스트 자체 textAlign:center
+                          두 줄 이상이 되어도 박스 정중앙 + 줄별로도 가운데. */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 16, pointerEvents: editMode ? 'auto' : 'inherit' }}>
                     <EditableText
                       {...editPropsFor(`P9.steps.${i}.desc`)}
                       as="div"
-                      defaultStyle={{ fontSize: 25, fontWeight: 700, color: BRAND.colors.text, lineHeight: 1.4 }}
+                      defaultStyle={{ fontSize: 25, fontWeight: 700, color: BRAND.colors.text, lineHeight: 1.4, textAlign: 'center', width: '100%' }}
                     >
                       {s.desc}
                     </EditableText>
