@@ -143,18 +143,19 @@ export default function P3Target({
           <div
             style={{
               border: `2px dashed ${BRAND.colors.main}`,
-              borderRadius: 16, padding: '12px 24px 28px', backgroundColor: '#fff',
+              borderRadius: 16, padding: '20px 24px', backgroundColor: '#fff',
             }}
           >
             {checklist.slice(0, 5).map((item, i, arr) => (
               <div
                 key={i}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 14, padding: '11px 6px',
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  height: 60, padding: '0 6px',
                   borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
                 }}
               >
-                <span style={{ display: 'inline-flex', marginTop: 6 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
                   <CheckIcon size={24} variant={1} color="#E8590C" />
                 </span>
                 <EditableText
@@ -162,8 +163,9 @@ export default function P3Target({
                   as="div"
                   defaultStyle={{
                     fontSize: 22, fontWeight: 600, color: BRAND.colors.text,
-                    lineHeight: 1.4, letterSpacing: '-0.02em',
+                    lineHeight: 1, letterSpacing: '-0.02em',
                     wordBreak: 'keep-all', flex: 1,
+                    display: 'flex', alignItems: 'center',
                   }}
                 >
                   {item}
