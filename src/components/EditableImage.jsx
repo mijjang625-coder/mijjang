@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { getScaledDelta } from '../lib/dragScale.js';
 
 /**
  * EditableImage v3 — 박스/이미지 완전 분리
@@ -44,7 +43,7 @@ const HANDLES = [
   { id: 'w',  cursor: 'ew-resize',   top: '50%', left: -6 },
 ];
 
-const SNAP_THRESHOLD = 3;
+const SNAP_THRESHOLD = 8;
 const MIN_FRAME_SIZE = 40;
 const MIN_IMG_SCALE = 1.0;   // 사진은 항상 박스를 cover (빈 공간 X)
 const MAX_IMG_SCALE = 4.0;
@@ -91,27 +90,17 @@ export default function EditableImage({
   const wrapperRef = useRef(null);
   const frameRef = useRef(null);
   const imgRef = useRef(null);
-  // 🎯 onChange를 ref에 보관 — 부모가 매 렌더 inline arrow를 만들어도
-  // 드래그/리사이즈 mousemove 리스너가 재등록되지 않게 한다 (이벤트 누락 방지)
-  const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   const [hovering, setHovering] = useState(false);
   const [mode, setMode] = useState('idle'); // 'idle' | 'cropping'
   const [resizing, setResizing] = useState(null);
   const [draggingFrame, setDraggingFrame] = useState(null);
   const [draggingCrop, setDraggingCrop] = useState(null);
-  // 🎯 드래그/리사이즈/크롭 상태 ref — mousemove 리스너를 재등록하지 않기 위함
-  const resizeRef = useRef(null);
-  const dragFrameRef = useRef(null);
-  const dragCropRef = useRef(null);
   const [showSwapPanel, setShowSwapPanel] = useState(false);
   // 🎨 색상 조정 패널 (idle 모드에서)
   const [showAdjust, setShowAdjust] = useState(false);
   const [snapLines, setSnapLines] = useState({ v: null, h: null });
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });    // wrapper 측정값
   const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });      // 이미지 원본 비율
-  // 🆕 부모 컨테이너 실측 너비 — frame이 부모보다 클 때 자동 축소용 (모바일 미리보기)
-  const [parentWidth, setParentWidth] = useState(0);
 
   const frame = override?.frame || null;
   const crop = override?.crop || null; // null이면 cover 효과
@@ -162,24 +151,6 @@ export default function EditableImage({
     }
   }, [aspect, naturalSize.w]);
 
-  // 🆕 부모 컨테이너 실측 너비 추적 (ResizeObserver)
-  // 모바일 미리보기처럼 부모 너비가 frame.width 보다 작을 때 비율대로 자동 축소하기 위함.
-  // ⚠️ getBoundingClientRect()는 transform: scale 의 영향을 받아 이미 축소된 px 을 반환하므로,
-  //    offsetWidth (CSS px 기준, transform 무시) 를 사용한다.
-  //    → 모바일 미리보기 wrapper(scale 0.46)에서도 실제 컨테이너 너비(700px)로 측정됨.
-  useEffect(() => {
-    const parent = wrapperRef.current?.parentElement;
-    if (!parent) return;
-    const update = () => {
-      const w = parent.offsetWidth || 0;
-      setParentWidth((prev) => (Math.abs(prev - w) > 0.5 ? w : prev));
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(parent);
-    return () => ro.disconnect();
-  }, []);
-
   // 이미지 원본 비율 측정
   const handleImgLoad = (e) => {
     const w = e.target.naturalWidth || 1;
@@ -217,7 +188,7 @@ export default function EditableImage({
     const h = frame?.height ?? rect.height;
     const fx = frame?.x ?? 0;
     const fy = frame?.y ?? 0;
-    resizeRef.current = {
+    setResizing({
       handle: handleId,
       startX: e.clientX,
       startY: e.clientY,
@@ -226,20 +197,20 @@ export default function EditableImage({
       startFx: fx,
       startFy: fy,
       aspectRatio: w / h,
-    };
-    setResizing(true);
+    });
   };
 
   useEffect(() => {
+    if (!resizing) return;
     const onMove = (e) => {
-      const r = resizeRef.current;
-      if (!r) return;
-      const { dx, dy } = getScaledDelta(r, e, frameRef.current);
+      const dx = e.clientX - resizing.startX;
+      const dy = e.clientY - resizing.startY;
+      // 기본: 비율 잠금 ON / Shift: 자유 변형
       const ratioLock = !e.shiftKey;
-      let { startW, startH, startFx, startFy } = r;
+      let { startW, startH, startFx, startFy } = resizing;
       let w = startW, h = startH, fx = startFx, fy = startFy;
-      const ar = r.aspectRatio;
-      const handle = r.handle;
+      const ar = resizing.aspectRatio;
+      const handle = resizing.handle;
 
       if (handle.includes('e')) w = startW + dx;
       if (handle.includes('w')) { w = startW - dx; fx = startFx + dx; }
@@ -268,10 +239,10 @@ export default function EditableImage({
       w = Math.max(MIN_FRAME_SIZE, w);
       h = Math.max(MIN_FRAME_SIZE, h);
 
-      // 스냅 — Alt 키 누르면 OFF (자유 이동)
+      // 스냅
       const parent = getParentRect();
       let snapV = null;
-      if (parent && wrapperRef.current && !e.altKey) {
+      if (parent && wrapperRef.current) {
         const wrapperRect = wrapperRef.current.getBoundingClientRect();
         const availRight = parent.right - wrapperRect.left;
         const wrapperCenter = parent.width / 2 - (wrapperRect.left - parent.left);
@@ -288,22 +259,18 @@ export default function EditableImage({
       }
       setSnapLines({ v: snapV, h: null });
 
-      onChangeRef.current({
+      onChange({
         frame: { width: Math.round(w), height: Math.round(h), x: Math.round(fx), y: Math.round(fy) },
       });
     };
-    const onUp = () => {
-      if (resizeRef.current) { resizeRef.current = null; setResizing(false); setSnapLines({ v: null, h: null }); }
-      if (dragFrameRef.current) { dragFrameRef.current = null; setDraggingFrame(false); setSnapLines({ v: null, h: null }); }
-      if (dragCropRef.current) { dragCropRef.current = null; setDraggingCrop(false); }
-    };
+    const onUp = () => { setResizing(null); setSnapLines({ v: null, h: null }); };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, []);
+  }, [resizing, onChange]);
 
   // ─── A모드: 프레임 위치 이동 ──────────────────────
   const handleFrameDragStart = (e) => {
@@ -313,26 +280,25 @@ export default function EditableImage({
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    dragFrameRef.current = {
+    setDraggingFrame({
       startX: e.clientX,
       startY: e.clientY,
       startFx: frame?.x ?? 0,
       startFy: frame?.y ?? 0,
-    };
-    setDraggingFrame(true);
+    });
   };
 
   useEffect(() => {
+    if (!draggingFrame) return;
     const onMove = (e) => {
-      const d = dragFrameRef.current;
-      if (!d) return;
-      const { dx, dy } = getScaledDelta(d, e, frameRef.current);
-      let nx = d.startFx + dx;
-      let ny = d.startFy + dy;
+      const dx = e.clientX - draggingFrame.startX;
+      const dy = e.clientY - draggingFrame.startY;
+      let nx = draggingFrame.startFx + dx;
+      let ny = draggingFrame.startFy + dy;
 
       const parent = getParentRect();
       let snapV = null;
-      if (parent && wrapperRef.current && !e.altKey) {
+      if (parent && wrapperRef.current) {
         const wrapperRect = wrapperRef.current.getBoundingClientRect();
         const fw = frame?.width ?? naturalSize.w;
         const availRight = parent.right - wrapperRect.left;
@@ -343,7 +309,7 @@ export default function EditableImage({
       }
       setSnapLines({ v: snapV, h: null });
 
-      onChangeRef.current({
+      onChange({
         frame: {
           width: frame?.width ?? naturalSize.w,
           height: frame?.height ?? naturalSize.h,
@@ -352,9 +318,14 @@ export default function EditableImage({
         },
       });
     };
+    const onUp = () => { setDraggingFrame(null); setSnapLines({ v: null, h: null }); };
     window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [frame, naturalSize]);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [draggingFrame, frame, naturalSize, onChange]);
 
   // 오프셋 클램핑: 사진이 박스 밖으로 너무 나가서 빈 공간 생기지 않도록 제한
   // 사진 표시 크기(imgW/H)와 박스 크기(boxW/H) 차이의 절반까지만 이동 가능
@@ -373,25 +344,24 @@ export default function EditableImage({
     if (e.target.closest('[data-toolbar]')) return;
     e.preventDefault();
     e.stopPropagation();
-    dragCropRef.current = {
+    setDraggingCrop({
       startX: e.clientX,
       startY: e.clientY,
       startOx: offsetX,
       startOy: offsetY,
-    };
-    setDraggingCrop(true);
+    });
   };
 
   useEffect(() => {
+    if (!draggingCrop) return;
     const onMove = (e) => {
-      const d = dragCropRef.current;
-      if (!d) return;
-      const { dx, dy } = getScaledDelta(d, e, frameRef.current);
-      const clamped = clampOffset(d.startOx + dx, d.startOy + dy);
+      const dx = e.clientX - draggingCrop.startX;
+      const dy = e.clientY - draggingCrop.startY;
+      const clamped = clampOffset(draggingCrop.startOx + dx, draggingCrop.startOy + dy);
       // px → 비율로 변환해서 저장
       const newXR = boxW > 0 ? clamped.x / boxW : 0;
       const newYR = boxH > 0 ? clamped.y / boxH : 0;
-      onChangeRef.current({
+      onChange({
         crop: {
           scale: currentScale,
           offsetXR: newXR,
@@ -399,10 +369,15 @@ export default function EditableImage({
         },
       });
     };
+    const onUp = () => setDraggingCrop(null);
     window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boxW, boxH, currentScale, imgW, imgH]);
+  }, [draggingCrop, boxW, boxH, currentScale, imgW, imgH, onChange]);
 
   // 휠 확대/축소 (Shift 키 필요 — 페이지 스크롤과 충돌 방지)
   const handleWheel = useCallback((e) => {
@@ -466,42 +441,57 @@ export default function EditableImage({
   }, [isActive]);
 
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
-  // 🆕 정책 변경: 편집 OFF (미리보기/모바일/내보내기) 에서는 frame 을 완전히 무시하고
-  //    부모 컨테이너 너비를 100% 로 가득 채워 aspect ratio 로 렌더링한다.
-  //    → 모바일에서 작아지는 문제, 카드에 회색 여백이 생기는 문제를 한번에 해결.
-  //    → PC 편집 ON 에서는 frame 이 그대로 동작하므로 사용자 편집 자유도는 유지됨.
   if (!editMode) {
+    const hasFrame = !!frame;
     return (
       <div
         ref={wrapperRef}
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: aspect,
-          backgroundColor: '#e8e5e1',
-          borderRadius: radius,
-          overflow: 'hidden',
+          aspectRatio: hasFrame ? undefined : aspect,
+          minHeight: hasFrame ? frame.height + Math.max(0, frame.y) + 20 : undefined,
           zIndex: customZ ?? 1,
+          pointerEvents: hasFrame ? 'none' : 'auto',
         }}
       >
-        <img
-          ref={imgRef}
-          src={currentSrc || fallbackImg}
-          alt={alt}
-          crossOrigin="anonymous"
-          draggable={false}
-          onLoad={handleImgLoad}
+        <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-            userSelect: 'none',
-            filter: cssFilter,
+            position: hasFrame ? 'absolute' : 'relative',
+            left: hasFrame ? frame.x : 0,
+            top: hasFrame ? frame.y : 0,
+            width: hasFrame ? frame.width : '100%',
+            height: hasFrame ? frame.height : undefined,
+            aspectRatio: hasFrame ? undefined : aspect,
+            backgroundColor: '#e8e5e1',
+            borderRadius: radius,
+            overflow: 'hidden',
+            zIndex: override?.zIndex || 'auto',
+            pointerEvents: 'auto',
           }}
-        />
+        >
+          <img
+            ref={imgRef}
+            src={currentSrc || fallbackImg}
+            alt={alt}
+            crossOrigin="anonymous"
+            draggable={false}
+            onLoad={handleImgLoad}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              width: imgW > 0 ? imgW : '100%',
+              height: imgH > 0 ? imgH : '100%',
+              maxWidth: 'none',
+              transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
+              objectFit: 'cover',
+              display: 'block',
+              userSelect: 'none',
+              filter: cssFilter,
+            }}
+          />
+        </div>
       </div>
     );
   }

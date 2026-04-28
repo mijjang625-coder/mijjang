@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { getScaledDelta } from '../lib/dragScale.js';
 
 /**
  * ShapeLayer — 페이지 위에 자유롭게 그릴 수 있는 도형 레이어
@@ -403,13 +402,11 @@ function PreviewShape({ type, box }) {
 }
 
 // ─── 개별 도형 컴포넌트 ────────────────────────────────
-// 🆕 v2: PointerEvents + setPointerCapture 기반 — React 리렌더와 무관하게
-//        한 번 잡힌 포인터는 끝까지 같은 엘리먼트에 이벤트 전달 (끊김 없음)
 function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onChangeLayer = () => {} }) {
   const wrapRef = useRef(null);
+  const [draggingPos, setDraggingPos] = useState(null);
+  const [resizing, setResizing] = useState(null);
   const [showStyle, setShowStyle] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
 
   const {
     id, type, x = 0, y = 0, w = 200, h = 100,
@@ -425,37 +422,8 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showStyle]);
 
-  // onUpdate를 ref에 보관
-  const onUpdateRef = useRef(onUpdate);
-  useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
-
-  // 키보드 화살표 1px (Shift = 10px)
-  const posRef = useRef({ x, y });
-  useEffect(() => { posRef.current = { x, y }; }, [x, y]);
-  useEffect(() => {
-    if (!editMode || !isActive) return;
-    const onKey = (e) => {
-      const tag = (e.target?.tagName || '').toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
-      if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const step = e.shiftKey ? 10 : 1;
-      const cx = posRef.current.x;
-      const cy = posRef.current.y;
-      let nx = cx, ny = cy;
-      if (e.key === 'ArrowLeft')  nx = cx - step;
-      if (e.key === 'ArrowRight') nx = cx + step;
-      if (e.key === 'ArrowUp')    ny = cy - step;
-      if (e.key === 'ArrowDown')  ny = cy + step;
-      onUpdateRef.current({ x: nx, y: ny });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [editMode, isActive]);
-
-  // ─── 위치 드래그 (PointerEvents + setPointerCapture) ──────────────────────
-  const handlePosPointerDown = (e) => {
+  // 위치 드래그
+  const handlePosDragStart = (e) => {
     if (!editMode) return;
     if (e.target.closest('[data-shape-handle]')) return;
     if (e.target.closest('[data-shape-toolbar]')) return;
@@ -463,76 +431,59 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
     e.stopPropagation();
     e.preventDefault();
     onActivate();
-
-    // 🎯 핵심: 이 엘리먼트에 포인터 캡처 → 리렌더와 무관하게 끝까지 이벤트 받음
-    const target = e.currentTarget;
-    const pointerId = e.pointerId;
-    try { target.setPointerCapture(pointerId); } catch {}
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const sx = x, sy = y;
-
-    const onMove = (ev) => {
-      const { dx, dy } = getScaledDelta({ startX, startY }, ev, wrapRef.current);
-      onUpdateRef.current({
-        x: Math.round(sx + dx),
-        y: Math.round(sy + dy),
-      });
-    };
-    const onUp = () => {
-      target.removeEventListener('pointermove', onMove);
-      target.removeEventListener('pointerup', onUp);
-      target.removeEventListener('pointercancel', onUp);
-      try { target.releasePointerCapture(pointerId); } catch {}
-      setIsDragging(false);
-    };
-    target.addEventListener('pointermove', onMove);
-    target.addEventListener('pointerup', onUp);
-    target.addEventListener('pointercancel', onUp);
-    setIsDragging(true);
+    setDraggingPos({ startX: e.clientX, startY: e.clientY, sx: x, sy: y });
   };
 
-  // ─── 리사이즈 (PointerEvents) ──────────────────────
-  const handleResizePointerDown = (e, edge) => {
-    if (!editMode) return;
-    if (e.button !== 0) return;
+  useEffect(() => {
+    if (!draggingPos) return;
+    const onMove = (e) => {
+      onUpdate({
+        x: Math.round(draggingPos.sx + (e.clientX - draggingPos.startX)),
+        y: Math.round(draggingPos.sy + (e.clientY - draggingPos.startY)),
+      });
+    };
+    const onUp = () => setDraggingPos(null);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [draggingPos, onUpdate]);
+
+  // 리사이즈
+  const handleResizeStart = (e, edge) => {
     e.preventDefault();
     e.stopPropagation();
+    setResizing({ edge, startX: e.clientX, startY: e.clientY, sw: w, sh: h, sx: x, sy: y });
+  };
 
-    const target = e.currentTarget;
-    const pointerId = e.pointerId;
-    try { target.setPointerCapture(pointerId); } catch {}
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const sw = w, sh = h, sx = x, sy = y;
-
-    const onMove = (ev) => {
-      const { dx, dy } = getScaledDelta({ startX, startY }, ev, wrapRef.current);
-      let nw = sw, nh = sh, nx = sx, ny = sy;
-      if (edge.includes('e')) nw = sw + dx;
-      if (edge.includes('w')) { nw = sw - dx; nx = sx + dx; }
-      if (edge.includes('s')) nh = sh + dy;
-      if (edge.includes('n')) { nh = sh - dy; ny = sy + dy; }
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e) => {
+      const dx = e.clientX - resizing.startX;
+      const dy = e.clientY - resizing.startY;
+      let nw = resizing.sw, nh = resizing.sh, nx = resizing.sx, ny = resizing.sy;
+      const edge = resizing.edge;
+      if (edge.includes('e')) nw = resizing.sw + dx;
+      if (edge.includes('w')) { nw = resizing.sw - dx; nx = resizing.sx + dx; }
+      if (edge.includes('s')) nh = resizing.sh + dy;
+      if (edge.includes('n')) { nh = resizing.sh - dy; ny = resizing.sy + dy; }
+      // line 은 가로 두께만 의미 → 높이는 strokeWidth 이상으로 유지
       const minH = type === 'line' ? Math.max(2, strokeWidth) : 20;
       const minW = 20;
       nw = Math.max(minW, nw);
       nh = Math.max(minH, nh);
-      onUpdateRef.current({ x: Math.round(nx), y: Math.round(ny), w: Math.round(nw), h: Math.round(nh) });
+      onUpdate({ x: Math.round(nx), y: Math.round(ny), w: Math.round(nw), h: Math.round(nh) });
     };
-    const onUp = () => {
-      target.removeEventListener('pointermove', onMove);
-      target.removeEventListener('pointerup', onUp);
-      target.removeEventListener('pointercancel', onUp);
-      try { target.releasePointerCapture(pointerId); } catch {}
-      setIsResizing(false);
+    const onUp = () => setResizing(null);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
     };
-    target.addEventListener('pointermove', onMove);
-    target.addEventListener('pointerup', onUp);
-    target.addEventListener('pointercancel', onUp);
-    setIsResizing(true);
-  };
+  }, [resizing, type, strokeWidth, onUpdate]);
 
   // SVG 도형 렌더
   const renderShape = () => {
@@ -621,17 +572,16 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
   return (
     <div
       ref={wrapRef}
-      onPointerDown={handlePosPointerDown}
+      onMouseDown={handlePosDragStart}
       style={{
         position: 'absolute',
         left: x, top: y, width: w, height: h,
         zIndex,
         opacity,
-        cursor: editMode ? (isDragging ? 'grabbing' : 'move') : 'default',
+        cursor: editMode ? (draggingPos ? 'grabbing' : 'move') : 'default',
         outline: editMode && isActive ? '2px dashed #a855f7' : 'none',
         outlineOffset: 4,
         pointerEvents: editMode ? 'auto' : 'none',
-        touchAction: 'none', // 모바일 스크롤과 충돌 방지
       }}
     >
       {renderShape()}
@@ -641,7 +591,7 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
         <div
           key={hd.id}
           data-shape-handle
-          onPointerDown={(e) => handleResizePointerDown(e, hd.id)}
+          onMouseDown={(e) => handleResizeStart(e, hd.id)}
           style={{
             position: 'absolute',
             ...hd.style,
@@ -652,7 +602,6 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
             boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
             cursor: hd.cursor,
             zIndex: 30,
-            touchAction: 'none',
           }}
         />
       ))}
@@ -673,13 +622,13 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
           }}
         >
           {/* 레이어 순서 (FreeImage / InlineFreeImage 와 동일) */}
-          <button onClick={() => { console.log('[Shape] layer btn:', 'front', 'id=', id); onChangeLayer('front'); }}
+          <button onClick={() => onChangeLayer('front')}
             style={btn('#475569')} title="맨 앞으로">▲▲</button>
-          <button onClick={() => { console.log('[Shape] layer btn:', 'forward', 'id=', id); onChangeLayer('forward'); }}
+          <button onClick={() => onChangeLayer('forward')}
             style={btn('#64748b')} title="한 단계 앞으로">▲</button>
-          <button onClick={() => { console.log('[Shape] layer btn:', 'backward', 'id=', id); onChangeLayer('backward'); }}
+          <button onClick={() => onChangeLayer('backward')}
             style={btn('#64748b')} title="한 단계 뒤로">▼</button>
-          <button onClick={() => { console.log('[Shape] layer btn:', 'back', 'id=', id); onChangeLayer('back'); }}
+          <button onClick={() => onChangeLayer('back')}
             style={btn('#475569')} title="맨 뒤로">▼▼</button>
           <span style={{
             backgroundColor: '#fbbf24', color: '#1e293b',

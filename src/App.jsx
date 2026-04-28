@@ -317,7 +317,7 @@ export default function App() {
 
   // 자유 이미지 추가 (자유 위치 — slot=null)
   // - 페이지 우상단의 "사진 추가" 버튼으로 추가되는 사진은 자유 위치 모드로 들어감
-  // - 본문 텍스트/사진과 안 겹치도록 페이지 본문 콘텐츠 아래에 떨어뜨림
+  // - 페이지 위쪽(본문 시작 부분)에 가운데 정렬로 추가 — 사용자가 드래그로 원하는 위치로 이동
   const addFreeImage = (pageNum, src) => {
     pushHistory(`${pageNum} 사진 추가`);
     setFreeImages((prev) => {
@@ -325,27 +325,22 @@ export default function App() {
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
       const NEW_W = 480;
       const NEW_H = 360;
-      const GAP = 24;
       const PAGE_W = 780;
       const x = Math.round((PAGE_W - NEW_W) / 2);
 
-      // 페이지별 본문 콘텐츠 baseHeight
-      const PAGE_BASE_HEIGHT = {
-        P1: 1500, P2: 1300, P3: 1450, P4: 1300, P5: 1300,
-        P6: 1300, P7: 1500, P8: 1350, P9: 1300, P10: 1500,
-      };
-      const baseHeight = PAGE_BASE_HEIGHT[pageNum] || 1300;
-
-      // 자유 위치 사진들(slot=null)의 가장 아래 끝
+      // 🆕 페이지 위쪽(y=120)에 추가 — 본문 위에 자연스럽게 겹쳐서 보임
+      // 같은 위치에 이미 사진이 있으면 비스듬히 쌓아서 겹침 표시
       const freeOnly = list.filter((it) => !it.slot);
-      const maxBottom = freeOnly.reduce(
-        (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
-        0
-      );
-      const y = Math.max(baseHeight, maxBottom) + GAP;
+      const BASE_Y = 120;
+      let y = BASE_Y;
+      const occupied = freeOnly.filter((it) => Math.abs((it.y || 0) - y) < 50).length;
+      y = BASE_Y + occupied * 30;
+      const xOffset = occupied * 30;
 
       const newItem = {
-        id, src, x, y, w: NEW_W, h: NEW_H,
+        id, src,
+        x: x + xOffset,
+        y, w: NEW_W, h: NEW_H,
         crop: null, zIndex: 501 + list.length,
         slot: null, // 자유 위치
       };
@@ -2139,12 +2134,8 @@ export default function App() {
                   );
                 }
 
-                // 기본 PC 모드
-                return (
-                  <PCFrame>
-                    {renderPage(pageRefs[currentPage], 'pc')}
-                  </PCFrame>
-                );
+                // 기본 PC 모드 — PCFrame 없이 직접 렌더 (5185 방식, 사진편집 정상화)
+                return renderPage(pageRefs[currentPage], 'pc');
               })() : (
                 <div className="text-xs text-slate-400 py-20 text-center">
                   {currentPage} 생성 후 이곳에 미리보기가 표시됩니다.
