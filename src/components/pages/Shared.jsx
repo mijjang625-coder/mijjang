@@ -134,7 +134,9 @@ export function PillBadge({ children }) {
   return (
     <span
       style={{
-        display: 'inline-block',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: '8px 18px',
         borderRadius: 999,
         backgroundColor: BRAND.colors.main,
