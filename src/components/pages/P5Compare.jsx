@@ -63,8 +63,13 @@ export default function P5Compare({
   });
 
   const mainImgId = 'P5.ourImage';
+  const generalImgId = 'P5.generalImage';
+  // 🆕 (2026-04-28) 일반 제품 이미지도 EditableImage 로 등록 → 사용자가 직접 교체/리사이즈 가능
   const mainLayers = version === 'photo'
-    ? [{ id: mainImgId, defaultName: '🖼 우리 제품 사진', defaultZ: 1 }]
+    ? [
+        { id: mainImgId, defaultName: '🖼 우리 제품 사진', defaultZ: 1 },
+        { id: generalImgId, defaultName: '🖼 일반 제품 사진', defaultZ: 2 },
+      ]
     : [];
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
@@ -81,6 +86,7 @@ export default function P5Compare({
     activeLayerId, onSetActiveLayer,
   });
   const mainActive = layer.isLayerActive('main', mainImgId);
+  const generalActive = layer.isLayerActive('main', generalImgId);
   const {
     headline = '왜 이 제품을 선택해야 할까요?',
     sub = '',
@@ -91,21 +97,14 @@ export default function P5Compare({
     generalSubLabel = '',   // 예: "GENERAL", "기존 방식"
   } = copy;
 
-  // 🆕 일반 제품 이미지 결정 우선순위 (2026-04-28):
-  //   1) 사용자가 직접 generalImage 를 지정 → 그대로 사용 (필터 없음)
-  //   2) 미지정 → 우리 제품 사진(ourImage)을 가져와 CSS filter로 흐리게 처리
+  // 🆕 일반 제품 이미지 결정 우선순위 (2026-04-28 v2):
+  //   1) 사용자가 EditableImage 로 일반 제품 사진을 업로드/교체 → 그대로 사용 (무필터)
+  //   2) 미지정 → 우리 제품 사진(ourImage)을 가져와 CSS filter로 강하게 흐리게 처리
   //      → 우리 제품이 바뀌면 일반 제품도 자동으로 비슷한 실루엣으로 따라 바뀜
-  //   3) 둘 다 없음 → fallback 빈 그라디언트 박스
+  //      → 사용자가 더블클릭/우클릭으로 일반 제품 사진을 따로 지정하면 그 사진으로 교체됨
+  //   3) 둘 다 없음 → fallback 무채색 그라디언트 박스
   const useOurAsGeneralBase = !generalImage && !!ourImage;
   const resolvedGeneralImage = generalImage || ourImage || GENERIC_FALLBACK_BG;
-  const generalImageFilter = useOurAsGeneralBase
-    // 우리 제품 사진을 자동으로 일반 제품 실루엣처럼 보이게 처리
-    ? 'grayscale(100%) brightness(0.8) contrast(0.85) blur(4px)'
-    : generalImage
-      // 사용자 지정 일반 이미지: 약한 무채색 처리만
-      ? 'grayscale(100%) brightness(0.85) blur(1px)'
-      // fallback (그라디언트만)
-      : 'none';
 
   // ── 모든 텍스트 셀의 공통 스타일 (비교항목 라벨 + 우리/일반 콘텐츠) ──
   // 요청사항: 좌측 '비교 항목'부터 '병 입구'까지 글씨 크기 동일 + 가운데 정렬
@@ -319,7 +318,11 @@ export default function P5Compare({
                 </div>
               </div>
 
-              {/* 일반 제품: 전체 사각형 90% 축소 (가운데 정렬) */}
+              {/* 일반 제품: 전체 사각형 90% 축소 (가운데 정렬)
+                  🆕 (2026-04-28) EditableImage 로 교체 — 사용자가 일반 제품 사진을
+                       자유롭게 업로드/교체/리사이즈/이동할 수 있게 됨.
+                       사용자 지정 시 → 무필터(원본 그대로)
+                       미지정 자동 fallback (ourImage 사용) → 강한 grayscale+blur 로 실루엣 처리 */}
               <div
                 style={{
                   padding: 10,
@@ -338,21 +341,31 @@ export default function P5Compare({
                     aspectRatio: '1 / 1',
                     borderRadius: 12,
                     overflow: editMode ? 'visible' : 'hidden',
-                    backgroundColor: '#e0e0e0',
-                    opacity: 0.8,
+                    backgroundColor: '#fff',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    position: 'relative',
+                    pointerEvents: 'auto',
+                    zIndex: imageOverrides[generalImgId]?.zIndex ?? 1,
+                    // 사용자가 일반 제품 사진을 직접 지정하지 않은 경우에만
+                    // 부모 div 에 무채색 필터를 걸어 "흐릿한 일반 제품 실루엣" 효과
+                    filter: useOurAsGeneralBase
+                      ? 'grayscale(100%) brightness(0.9) contrast(0.9) blur(3px)'
+                      : 'none',
                   }}
                 >
-                  <img
+                  <EditableImage
+                    id={generalImgId}
                     src={resolvedGeneralImage}
-                    alt=""
-                    crossOrigin="anonymous"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      display: 'block',
-                      filter: generalImageFilter,
-                    }}
+                    aspect="1 / 1"
+                    radius={0}
+                    editMode={editMode}
+                    override={imageOverrides[generalImgId] || {}}
+                    onChange={(partial) => onImageOverrideChange(generalImgId, partial)}
+                    availableImages={(allImages || []).filter(Boolean)}
+                    isActive={editMode ? generalActive : null}
+                    onActivate={() => layer.activateLayer('main', generalImgId)}
+                    hasActiveOther={editMode && layer.hasActiveLayer && !generalActive}
+                    onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: generalImgId }, action)}
                   />
                 </div>
               </div>
