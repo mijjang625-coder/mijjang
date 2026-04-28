@@ -35,6 +35,8 @@ export default function ReviewAnalyzer({
   onAddKeywordsToSearch = () => {},
   // 🆕 분석 결과 전체를 부모에 전달 (CompetitorAnalyzer 갭 매칭 등에 활용)
   onAnalyzed = () => {},
+  // 🆕 (2026-04-28) 채택된 문구를 "내 메모"에 자동 적용 (선택)
+  onApplyAdoptedToNotes = null,
 }) {
   // 입력 모드: 'excel' | 'txt' | 'paste'
   const [inputMode, setInputMode] = useState('excel');
@@ -221,8 +223,10 @@ export default function ReviewAnalyzer({
     setAdopted((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // 채택된 문구 클립보드 복사
-  const copyAdopted = () => {
+  // 🆕 (2026-04-28) 채택된 문구를 "내 메모"에 자동 적용
+  // - 부모(Sidebar→App)가 onApplyAdoptedToNotes를 제공하면 그걸로 적용
+  // - 없으면 fallback으로 클립보드 복사 (구버전 호환)
+  const applyAdopted = () => {
     if (!result?.headlines) return;
     const list = result.headlines.filter((h) => adopted[h.id]);
     if (!list.length) {
@@ -230,8 +234,13 @@ export default function ReviewAnalyzer({
       return;
     }
     const text = list.map((h, i) => `${i + 1}. ${h.headline}\n   → ${h.body}`).join('\n\n');
-    navigator.clipboard.writeText(text);
-    alert(`✅ 채택된 문구 ${list.length}개를 클립보드에 복사했습니다.`);
+    if (typeof onApplyAdoptedToNotes === 'function') {
+      onApplyAdoptedToNotes(text, list);
+      alert(`✅ 채택된 문구 ${list.length}개를 "내 메모"에 추가했습니다.\n\n다음 페이지 생성 시 AI가 이 문구를 참고합니다.`);
+    } else {
+      navigator.clipboard.writeText(text);
+      alert(`✅ 채택된 문구 ${list.length}개를 클립보드에 복사했습니다.`);
+    }
   };
 
   return (
@@ -475,12 +484,13 @@ export default function ReviewAnalyzer({
               title={`✨ 마케팅 강조 문구 ${result.headlines.length}개 (채택 / 거절)`}
               color="#7c3aed" bg="#faf5ff" border="#e9d5ff"
               right={
-                <button onClick={copyAdopted}
+                <button onClick={applyAdopted}
+                  title="채택된 문구를 좌측 '내 메모'에 자동 추가합니다. 다음 페이지 생성 시 AI가 이 문구를 참고합니다."
                   style={{
                     padding: '4px 8px', backgroundColor: '#7c3aed', color: '#fff',
                     border: 'none', borderRadius: 4, fontSize: 10, fontWeight: 800, cursor: 'pointer',
                   }}
-                >📋 채택된 문구 복사</button>
+                >✅ 채택된 문구 적용</button>
               }
             >
               <div style={{ fontSize: 10, color: '#64748b', marginBottom: 6 }}>

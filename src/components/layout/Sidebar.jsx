@@ -147,6 +147,20 @@ export default function Sidebar({
               productName={brief.productName}
               productType={brief.productType}
               onAnalyzed={setReviewInsights}
+              onApplyAdoptedToNotes={(text) => {
+                // 🆕 (2026-04-28) 채택 문구를 "내 메모"에 자동 추가
+                // 기존 메모가 있으면 보존하고 아래에 섹션 구분선과 함께 추가
+                const header = '\n\n--- 📌 리뷰 분석 채택 문구 ---\n';
+                setUserNotes((prev) => {
+                  const cur = prev || '';
+                  // 이미 같은 섹션이 있으면 그 부분만 갱신
+                  const idx = cur.indexOf('--- 📌 리뷰 분석 채택 문구 ---');
+                  if (idx >= 0) {
+                    return cur.slice(0, idx).replace(/\n+$/, '') + header + text;
+                  }
+                  return (cur ? cur.trimEnd() : '') + header + text;
+                });
+              }}
               onAddKeywordsToSearch={(reviewKeywords) => {
                 if (!Array.isArray(reviewKeywords) || !reviewKeywords.length) return;
                 const exists = new Set((keywords || []).map((k) => String(k.keyword).trim().toLowerCase()));
