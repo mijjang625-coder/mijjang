@@ -57,73 +57,20 @@ const CAPTURE_OPTIONS = {
         p.style.paddingBottom = '8px';
         p.dataset._capturePad = '1';
       }
-      // 🆕 (P1/P2 글씨 밀림 핵심 수정)
-      // inline style에 fontFamily가 박혀 있는 요소들도 NanumSquare로 강제 변경.
-      // !important CSS만으로는 안 잡히는 경우(인라인 style 우선순위)를 위해
-      // JS에서 직접 inline style을 덮어씀.
+      // ⛔ 폰트/lineHeight/letterSpacing/padding 강제 변환 코드 모두 제거 (2026-04-28)
+      //    이유: 화면 폰트(Pretendard)와 PNG 폰트(NanumSquare 강제)가 달라져
+      //    글씨가 두꺼워 보이는 문제 발생. 화면 = PNG 동일 폰트 유지가 최우선.
+      //
+      // ✅ 유일하게 유지: overflow:hidden + line-clamp 해제
+      //    이유: P1 강점카드 등에서 흰색 박스가 글씨를 덮어 잘려 보이는 문제 방지.
+      //    단, 사진 박스(<img> 포함, background-image 포함)의 overflow:hidden은 유지.
       const all = p.querySelectorAll('*');
-      const SAFE_FONT = "'NanumSquare', 'Nanum Square', 'Apple SD Gothic Neo', sans-serif";
       all.forEach((el) => {
         if (!el.style) return;
-        // 1) 폰트 통일
-        if (el.style.fontFamily) {
-          el.style.fontFamily = SAFE_FONT;
-        }
-        // 2) letterSpacing 큰 음수 보정
-        if (el.style.letterSpacing && el.style.letterSpacing.includes('em')) {
-          const v = parseFloat(el.style.letterSpacing);
-          if (v < -0.04) {
-            el.style.letterSpacing = '-0.02em';
-          }
-        }
-        // 3) 🆕 lineHeight 보정 — html2canvas는 작은 line-height에서 한글이 잘림.
-        //    inline style.lineHeight가 1.4 미만이면 1.5로 끌어올림 (큰 제목/라벨 제외)
-        const tag = el.tagName;
-        const lh = el.style.lineHeight;
-        if (lh) {
-          const lhNum = parseFloat(lh);
-          // 단위 없는 숫자 (1.2, 1.4 등) — 작은 값이면 1.5로
-          if (!isNaN(lhNum) && !lh.includes('px') && !lh.includes('em') && lhNum < 1.5) {
-            // h1~h4 같은 큰 제목은 1.3 유지 (1.5면 너무 벌어짐)
-            if (['H1', 'H2', 'H3', 'H4'].includes(tag)) {
-              el.style.lineHeight = Math.max(lhNum, 1.3) + '';
-            } else {
-              el.style.lineHeight = '1.5';
-            }
-          }
-        } else if (el.textContent && el.textContent.trim() && !['BR', 'IMG', 'SVG', 'PATH', 'CIRCLE', 'RECT'].includes(tag)) {
-          // lineHeight 명시 안 된 텍스트 요소엔 1.5 부여
-          if (['SPAN', 'P', 'DIV'].includes(tag) && el.children.length === 0) {
-            el.style.lineHeight = '1.5';
-          }
-        }
-        // 4) 🆕 강조 카드(border-radius + backgroundColor) — padding-top 4px 추가
-        //    P1 강점 카드처럼 글자가 박스 위쪽으로 잘리는 현상 방지
-        const br = el.style.borderRadius;
-        const bg = el.style.backgroundColor;
-        if (br && bg && bg !== 'transparent' && bg !== 'none') {
-          const brNum = parseFloat(br);
-          // 12px 이상 둥근 박스 = 카드/강조 박스
-          if (!isNaN(brNum) && brNum >= 12 && brNum < 100) {
-            const curPt = parseFloat(el.style.paddingTop) || 0;
-            // 이미 큰 padding이면 손대지 않음 (24px 이상은 충분)
-            if (curPt < 20) {
-              el.style.paddingTop = (curPt + 4) + 'px';
-            }
-          }
-        }
-        // 4-c) 알약/뱃지 라벨 line-height 처리는 컴포넌트 자체(Shared.jsx PillBadge)에
-        //      lineHeight: 1.4 박는 것으로 일원화 → onclone 동적 감지 코드 제거 (2026-04-28)
-        // 5) 🆕🆕 (2026-04-28 사용자 가설 검증 — v2)
-        //    "흰색이 글씨를 덮어서 잘려 보이는 것" → overflow:hidden + line-clamp 해제
-        //    ⚠️ 단, 사진 박스의 overflow:hidden은 그대로 유지해야 함 (사진이 튀어나옴)
-        //    조건: 자손에 <img> 없는 "텍스트 전용 박스"만 해제
         const ovf = el.style.overflow;
         const wlc = el.style.webkitLineClamp || el.style.WebkitLineClamp;
         const txOv = el.style.textOverflow;
         if (ovf === 'hidden') {
-          // 자손 중 <img>가 있으면 사진 마스킹용 → 건드리지 않음
-          // background-image가 있으면 배경 사진용 → 건드리지 않음
           const hasImg = el.querySelector && el.querySelector('img');
           const bgImg = el.style.backgroundImage;
           const hasBgImg = bgImg && bgImg !== 'none' && bgImg !== '';
@@ -134,7 +81,6 @@ const CAPTURE_OPTIONS = {
         if (wlc) {
           el.style.webkitLineClamp = 'unset';
           el.style.WebkitLineClamp = 'unset';
-          // -webkit-box → block로 풀어주기
           if (el.style.display === '-webkit-box' || el.style.display === '-webkit-inline-box') {
             el.style.display = 'block';
           }
@@ -143,8 +89,6 @@ const CAPTURE_OPTIONS = {
           el.style.textOverflow = 'clip';
         }
       });
-      // 페이지 자체에도 명시적 폰트 지정
-      p.style.fontFamily = SAFE_FONT;
     });
   },
 };
