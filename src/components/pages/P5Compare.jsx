@@ -111,7 +111,8 @@ export default function P5Compare({
   const UNIFORM_FONT_SIZE = 20;
   const UNIFORM_PADDING = '18px 10px';
 
-  const colHeader = (label, subLabel, isOurs) => (
+  // 🆕 (2026-04-28) 헤더 셀 — subLabel/label 모두 EditableText 로 변경하여 사용자 수정 가능
+  const colHeader = (labelId, subLabelId, label, subLabel, isOurs) => (
     <div
       style={{
         padding: '14px 10px',
@@ -125,79 +126,119 @@ export default function P5Compare({
         opacity: isOurs ? 1 : 0.85,
         // 🆕 (2026-04-28) 컬럼 사이 세로 구분선 — 우리/일반 헤더 모두 좌측에 선
         borderLeft: `1px solid ${BRAND.colors.neutral}`,
+        pointerEvents: editMode ? 'auto' : 'inherit',
       }}
     >
-      {subLabel && (
-        <div
-          style={{
+      {(subLabel || editMode) && (
+        <EditableText
+          {...editPropsFor(subLabelId)}
+          as="div"
+          defaultStyle={{
             fontSize: 13,
             fontWeight: 700,
             letterSpacing: '0.15em',
             opacity: isOurs ? 0.9 : 0.7,
             marginBottom: 3,
+            color: 'inherit',
+            textAlign: 'center',
           }}
+          placeholder={editMode ? '(서브 라벨)' : ''}
         >
           {subLabel}
-        </div>
+        </EditableText>
       )}
-      <div
-        style={{
+      <EditableText
+        {...editPropsFor(labelId)}
+        as="div"
+        defaultStyle={{
           fontWeight: isOurs ? 900 : 700,
           fontSize: isOurs ? 22 : 19,
           letterSpacing: '-0.02em',
           lineHeight: 1.2,
           wordBreak: 'keep-all',
+          color: 'inherit',
+          textAlign: 'center',
         }}
       >
         {label}
-      </div>
+      </EditableText>
     </div>
   );
 
   // 좌측 '비교 항목' 라벨 셀 (통일된 스타일)
-  const renderLabelCell = (text, isFirstRow = false) => (
+  // 🆕 (2026-04-28) EditableText 로 변경 — 사용자가 비교 항목 이름 수정 가능
+  //   id 가 null 이면 (예: '제품' 사진 행 라벨) 일반 텍스트로 표시
+  const renderLabelCell = (text, id = null, isFirstRow = false) => (
     <div
       style={{
         padding: UNIFORM_PADDING,
         backgroundColor: BRAND.colors.sub,
         color: BRAND.colors.text,
-        fontWeight: 700,
-        fontSize: UNIFORM_FONT_SIZE,
         borderTop: isFirstRow ? 'none' : `1px solid ${BRAND.colors.neutral}`,
-        wordBreak: 'keep-all',
         textAlign: 'center',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        pointerEvents: editMode ? 'auto' : 'inherit',
       }}
     >
-      {text}
+      {id ? (
+        <EditableText
+          {...editPropsFor(id)}
+          as="div"
+          defaultStyle={{
+            fontWeight: 700,
+            fontSize: UNIFORM_FONT_SIZE,
+            color: BRAND.colors.text,
+            wordBreak: 'keep-all',
+            textAlign: 'center',
+            width: '100%',
+          }}
+        >
+          {text}
+        </EditableText>
+      ) : (
+        <div style={{ fontWeight: 700, fontSize: UNIFORM_FONT_SIZE, wordBreak: 'keep-all' }}>
+          {text}
+        </div>
+      )}
     </div>
   );
 
   // 우리 제품 / 일반 제품 콘텐츠 셀 — 둘 다 같은 폰트 크기, 가운데 정렬
   // 일반 제품은 무채색 + opacity로만 약화 (크기는 통일)
-  const renderCell = (text, isOurs) => (
+  // 🆕 (2026-04-28) EditableText 로 변경 — 사용자가 셀 내용 수정 가능
+  const renderCell = (id, text, isOurs) => (
     <div
       style={{
         padding: UNIFORM_PADDING,
         backgroundColor: isOurs ? 'rgba(200,182,166,0.12)' : '#f5f5f5',
-        color: isOurs ? BRAND.colors.text : '#9a9a9a',
-        fontSize: UNIFORM_FONT_SIZE,          // 동일 크기
-        fontWeight: isOurs ? 700 : 400,       // 굵기로만 차등
         borderBottom: `1px solid ${BRAND.colors.neutral}`,
         // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
         borderLeft: `1px solid ${BRAND.colors.neutral}`,
-        textAlign: 'center',                  // 가운데 정렬
-        lineHeight: 1.4,
-        wordBreak: 'keep-all',
+        textAlign: 'center',
         opacity: isOurs ? 1 : 0.8,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        pointerEvents: editMode ? 'auto' : 'inherit',
       }}
     >
-      {text}
+      <EditableText
+        {...editPropsFor(id)}
+        as="div"
+        defaultStyle={{
+          color: isOurs ? BRAND.colors.text : '#9a9a9a',
+          fontSize: UNIFORM_FONT_SIZE,
+          fontWeight: isOurs ? 700 : 400,
+          textAlign: 'center',
+          lineHeight: 1.4,
+          wordBreak: 'keep-all',
+          width: '100%',
+        }}
+      >
+        {text}
+      </EditableText>
     </div>
   );
 
@@ -251,29 +292,39 @@ export default function P5Compare({
             gridTemplateColumns: '0.7fr 1fr 1fr',
           }}
         >
-          {/* 헤더 행 */}
+          {/* 헤더 행 — 동일한 EditableText 시스템으로 좌측 '비교 항목' 텍스트도 수정 가능 (2026-04-28) */}
           <div
             style={{
               backgroundColor: '#fff',
               padding: UNIFORM_PADDING,
-              fontWeight: 800,
-              fontSize: UNIFORM_FONT_SIZE,     // 좌측 '비교 항목'도 동일 크기
-              color: BRAND.colors.text,
-              textAlign: 'center',             // 가운데 정렬
+              textAlign: 'center',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              pointerEvents: editMode ? 'auto' : 'inherit',
             }}
           >
-            비교 항목
+            <EditableText
+              {...editPropsFor('P5.compareLabel')}
+              as="div"
+              defaultStyle={{
+                fontWeight: 800,
+                fontSize: UNIFORM_FONT_SIZE,
+                color: BRAND.colors.text,
+                textAlign: 'center',
+                width: '100%',
+              }}
+            >
+              비교 항목
+            </EditableText>
           </div>
-          {colHeader(ourProductName, ourSubLabel, true)}
-          {colHeader(generalProductName, generalSubLabel, false)}
+          {colHeader('P5.ourProductName', 'P5.ourSubLabel', ourProductName, ourSubLabel, true)}
+          {colHeader('P5.generalProductName', 'P5.generalSubLabel', generalProductName, generalSubLabel, false)}
 
           {/* 사진 행 (사진 버전에서만) — 일반 제품은 전체적으로 90% 축소 */}
           {version === 'photo' && (
             <>
-              {renderLabelCell('제품')}
+              {renderLabelCell('제품', 'P5.photoRowLabel')}
 
               {/* 우리 제품: 정상 크기 (100%) */}
               <div
@@ -366,50 +417,62 @@ export default function P5Compare({
                     onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: generalImgId }, action)}
                     // 🆕 (2026-04-28) 사용자가 일반 제품 사진을 따로 지정하지 않은 경우에만
                     //   이미지에만 grayscale+blur 적용 → 툴바/핸들은 선명하게 유지
-                    extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.9) contrast(0.9) blur(3px)' : ''}
+                    // 🆕 (2026-04-28 v3) blur 3px → 1px 로 약화 (사용자 요청 — 너무 흐릿했음)
+                    extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.9) contrast(0.9) blur(1px)' : ''}
                   />
                 </div>
               </div>
             </>
           )}
 
-          {/* 비교 데이터 행들 */}
+          {/* 비교 데이터 행들 — 레이블/우리/일반 모두 EditableText 로 수정 가능 (2026-04-28) */}
           {rows.map((row, i) => (
             <div key={i} style={{ display: 'contents' }}>
-              {renderLabelCell(row.label)}
+              {renderLabelCell(row.label, `P5.rows.${i}.label`)}
 
               {/* 우리 제품 셀 — 정상 크기 */}
-              {renderCell(row.ours, true)}
+              {renderCell(`P5.rows.${i}.ours`, row.ours, true)}
 
               {/* 일반 제품 셀 — 90% 크기로 축소 (내용이 돋보이지 않게) */}
               <div
                 style={{
-                  padding: '10px 8px',        // 컨테이너 padding 축소
+                  padding: '10px 8px',
                   backgroundColor: '#f5f5f5',
                   borderBottom: `1px solid ${BRAND.colors.neutral}`,
-                  // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
                   borderLeft: `1px solid ${BRAND.colors.neutral}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  pointerEvents: editMode ? 'auto' : 'inherit',
                 }}
               >
                 <div
                   style={{
-                    width: '90%',             // 내부 박스 90% 축소
+                    width: '90%',
                     padding: '10px 6px',
                     backgroundColor: '#ededed',
                     borderRadius: 8,
-                    color: '#9a9a9a',
-                    fontSize: UNIFORM_FONT_SIZE,
-                    fontWeight: 400,
-                    textAlign: 'center',
-                    lineHeight: 1.4,
-                    wordBreak: 'keep-all',
                     opacity: 0.8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {row.general}
+                  <EditableText
+                    {...editPropsFor(`P5.rows.${i}.general`)}
+                    as="div"
+                    defaultStyle={{
+                      color: '#9a9a9a',
+                      fontSize: UNIFORM_FONT_SIZE,
+                      fontWeight: 400,
+                      textAlign: 'center',
+                      lineHeight: 1.4,
+                      wordBreak: 'keep-all',
+                      width: '100%',
+                    }}
+                  >
+                    {row.general}
+                  </EditableText>
                 </div>
               </div>
             </div>
