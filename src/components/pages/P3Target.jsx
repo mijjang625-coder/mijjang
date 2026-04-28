@@ -76,7 +76,7 @@ export default function P3Target({
             style={{
               border: `2px dashed ${BRAND.colors.main}`,
               borderRadius: 16,
-              padding: '20px 20px',
+              padding: '14px 20px 26px',
               backgroundColor: 'rgba(255,255,255,0.7)',
             }}
           >
