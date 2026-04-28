@@ -166,6 +166,7 @@ export default function P3Target({
                     lineHeight: 1, letterSpacing: '-0.02em',
                     wordBreak: 'keep-all', flex: 1,
                     display: 'flex', alignItems: 'center',
+                    paddingTop: 6,
                   }}
                 >
                   {item}
