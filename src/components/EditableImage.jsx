@@ -138,16 +138,21 @@ export default function EditableImage({
   };
 
   // wrapper 초기 크기 측정
+  // 🐛 (2026-04-28) FIX: getBoundingClientRect() 는 transform 적용 후의 크기를 반환하므로,
+  //   부모가 `transform: scale(0.46)` 인 모바일 미리보기에서 박스가 절반으로 측정되어
+  //   <img> width/height 가 작게 박혀서 컨테이너 안에서 작아 보이는 문제가 있었음.
+  //   → offsetWidth/offsetHeight (transform 무시, 레이아웃 크기) 로 변경.
   useEffect(() => {
     if (!wrapperRef.current) return;
-    const rect = wrapperRef.current.getBoundingClientRect();
-    if (rect.width > 0 && naturalSize.w === 0) {
-      let h = rect.width;
+    const el = wrapperRef.current;
+    const layoutW = el.offsetWidth || el.getBoundingClientRect().width;
+    if (layoutW > 0 && naturalSize.w === 0) {
+      let h = layoutW;
       try {
         const [aw, ah] = aspect.split('/').map((s) => parseFloat(s.trim()));
-        if (aw && ah) h = (rect.width * ah) / aw;
+        if (aw && ah) h = (layoutW * ah) / aw;
       } catch {}
-      setNaturalSize({ w: rect.width, h });
+      setNaturalSize({ w: layoutW, h });
     }
   }, [aspect, naturalSize.w]);
 
