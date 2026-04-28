@@ -150,11 +150,13 @@ export default function P3Target({
               <div
                 key={i}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 14, padding: '6px 6px 16px',
+                  display: 'flex', alignItems: 'center', gap: 14, padding: '11px 6px',
                   borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
                 }}
               >
-                <CheckIcon size={24} variant={1} color="#E8590C" />
+                <span style={{ display: 'inline-flex', marginTop: 6 }}>
+                  <CheckIcon size={24} variant={1} color="#E8590C" />
+                </span>
                 <EditableText
                   {...editPropsFor(`P3.checklist.${i}`)}
                   as="div"
