@@ -110,19 +110,9 @@ export default function P8Usages({
                     hasActiveOther={editMode && layer.hasActiveLayer && !isImgActive}
                     onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: imgId }, action)}
                   />
-                  <div
-                    style={{
-                      position: 'absolute', top: 12, left: 12,
-                      width: 36, height: 36, borderRadius: '50%',
-                      backgroundColor: BRAND.colors.main, color: '#fff',
-                      fontWeight: 900, fontSize: 20, display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      pointerEvents: 'none', zIndex: 5,
-                      lineHeight: 1, // 🎯 캡처 시 어긋남 방지
-                    }}
-                  >
-                    {String(i + 1).padStart(2, '0')}
-                  </div>
+                  {/* 🆕 01/02 번호 라벨 제거 (사용자 요청 2026-04-28)
+                        — P9 STEP 동그라미와 동일한 정책: UI에서만 숨김,
+                          데이터/로직은 그대로 유지. */}
                 </div>
                 <div style={{ padding: '18px 18px 22px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
                   <EditableText
