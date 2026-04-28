@@ -295,21 +295,20 @@ export default function P1Hero({
                 {...(cardCfg.iconColor ? { color: cardCfg.iconColor } : {})}
               />
 
-              {/* 🆕 타이틀 + 설명을 하나의 박스로 합침 (사용자 요청 2026-04-28)
-                    — PNG 캡처 시 두 박스 padding/lineHeight 누적 측정 오류로
-                      글씨가 잘리는 현상 해결.
-                    — 한 컨테이너 안에 두 EditableText를 넣어 PNG 측정이 한 번만 일어나게 함. */}
+              {/* 🆕🆕 타이틀+설명을 시각적으로 한 박스 (2026-04-28)
+                    — 두 EditableText는 유지(데이터/AI 호환), 다만 사이 gap을 0으로 +
+                      한 컨테이너로 감싸 점선 outline이 두 개로 보여도 한 덩어리처럼 묶음. */}
               <div
+                className="p1-strength-text-group"
                 style={{
                   width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 6,
-                  padding: '0 2px',
+                  gap: 0,
                 }}
               >
-                {/* 타이틀 — 1줄 고정 */}
+                {/* 타이틀 */}
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.title`)}
                   as="div"
@@ -326,12 +325,13 @@ export default function P1Hero({
                     textOverflow: 'ellipsis',
                     minHeight: 30,
                     textAlign: 'center',
+                    marginBottom: 6,
                   }}
                 >
                   {c.title}
                 </EditableText>
 
-                {/* 설명 — 서브글씨 */}
+                {/* 설명 */}
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.desc`)}
                   as="div"

@@ -54,6 +54,19 @@ body {
   pointer-events: auto;
 }
 
+/* 🆕 P1 강점카드: 타이틀+설명 두 EditableText의 기본 점선 outline 제거
+   (분리되어 두 박스로 보이는 현상 해결). hover/focus/edit 상태일 때만
+   해당 텍스트만 점선이 살아남 → 평소엔 한 덩어리로 보임. */
+.p1-strength-text-group > [data-edit-text] {
+  outline: none !important;
+}
+.p1-strength-text-group > [data-edit-text]:hover,
+.p1-strength-text-group > [data-edit-text]:focus,
+.p1-strength-text-group > [data-edit-text]:focus-within {
+  outline: 2px dashed #3b82f6 !important;
+  outline-offset: 2px;
+}
+
 /* ─────────────────────────────────────────────────────────
    🎯 캡처 모드 — html2canvas 직전 적용되어 라벨/배지 텍스트 정렬을 강제 통일
    ─────────────────────────────────────────────────────────
