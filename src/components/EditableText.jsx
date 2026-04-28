@@ -251,12 +251,10 @@ export default function EditableText({
         title={isEditing ? '편집 중 (ESC로 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
         style={{
           ...mergedStyle,
-          // 🆕 outline 기본값을 먼저 두고 ...style로 덮어쓸 수 있게 순서 변경
-          //   (P1 강점카드처럼 부모에서 outline:'none'으로 끄고 싶을 때 가능)
-          outline: outlineStyle,
-          outlineOffset: 2,
           ...style,
           transform: `translate(${offset.x}px, ${offset.y}px)`,
+          outline: outlineStyle,
+          outlineOffset: 2,
           cursor: isEditing ? 'text' : 'pointer',
           position: 'relative',
           userSelect: isEditing ? 'text' : 'none',
