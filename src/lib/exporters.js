@@ -91,10 +91,12 @@ const CAPTURE_OPTIONS = {
       });
 
       // 🆕 (2026-04-28) P1 강점 카드 텍스트 — inline lineHeight 를 PNG에서도 동일하게 유지
-      //   index.css의 `.coupang-page.pre-capture div[data-edit-text] { line-height: 1.5 !important }`
+      //   index.css의 `.coupang-page.pre-capture div[data-editable] { line-height: 1.5 !important }`
       //   가 P1 강점 타이틀(1.4)/설명(1.5)을 모두 1.5로 강제 변경시켜 화면과 다르게 보였음.
       //   → 캡처 직전에 inline style.lineHeight 를 setProperty('important')로 명시 적용해 덮어쓴다.
-      const p1StrengthTexts = p.querySelectorAll('.p1-strength-text-group [data-edit-text], .p1-strength-text-group div, .p1-strength-text-group span, .p1-strength-text-group p');
+      // 🐛 (2026-04-28 v2) 셀렉터 [data-edit-text] → [data-editable] 정정.
+      //   EditableText 는 실제로 data-editable="true" 만 다는데 이전엔 data-edit-text 를 찾아 매칭 0개였음.
+      const p1StrengthTexts = p.querySelectorAll('.p1-strength-text-group [data-editable], .p1-strength-text-group div, .p1-strength-text-group span, .p1-strength-text-group p');
       p1StrengthTexts.forEach((el) => {
         if (!el.style) return;
         const lh = el.style.lineHeight;

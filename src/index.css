@@ -45,7 +45,7 @@ body {
 .p1-content-layer button,
 .p1-content-layer input,
 .p1-content-layer [contenteditable],
-.p1-content-layer [data-edit-text],
+.p1-content-layer [data-editable],
 .p1-content-layer [data-edit-image],
 .p1-content-layer [data-edit-image] *,
 .p1-content-layer [data-toolbar],
@@ -56,13 +56,15 @@ body {
 
 /* 🆕 P1 강점카드: 타이틀+설명 두 EditableText의 기본 점선 outline 제거
    (분리되어 두 박스로 보이는 현상 해결). hover/focus/edit 상태일 때만
-   해당 텍스트만 점선이 살아남 → 평소엔 한 덩어리로 보임. */
-.p1-strength-text-group > [data-edit-text] {
+   해당 텍스트만 점선이 살아남 → 평소엔 한 덩어리로 보임.
+   🐛 (2026-04-28) 셀렉터 [data-edit-text] → [data-editable] 정정.
+        EditableText 컴포넌트는 실제로 data-editable="true" 만 출력함. */
+.p1-strength-text-group > [data-editable] {
   outline: none !important;
 }
-.p1-strength-text-group > [data-edit-text]:hover,
-.p1-strength-text-group > [data-edit-text]:focus,
-.p1-strength-text-group > [data-edit-text]:focus-within {
+.p1-strength-text-group > [data-editable]:hover,
+.p1-strength-text-group > [data-editable]:focus,
+.p1-strength-text-group > [data-editable]:focus-within {
   outline: 2px dashed #3b82f6 !important;
   outline-offset: 2px;
 }
@@ -164,9 +166,15 @@ body {
   padding-bottom: 0.05em;
 }
 
+/* 🐛 (2026-04-28) 셀렉터 [data-edit-text] → [data-editable] 정정.
+   원인: EditableText 컴포넌트는 data-editable="true" 만 출력하므로
+        [data-edit-text] 셀렉터는 그 어떤 요소에도 매칭되지 않아 
+        line-height 1.5 강제 보정이 전혀 작동하지 않았음.
+   ⚠️ 결과적으로 P1 강점 카드 보호 규칙도 동작 못 했고,
+      P4 "고객님들의 생생한 후기" 같은 일반 텍스트의 라인높이도 잘못 적용됨. */
 .coupang-page.pre-capture p,
 .coupang-page.pre-capture span,
-.coupang-page.pre-capture div[data-edit-text],
+.coupang-page.pre-capture div[data-editable],
 .coupang-page.pre-capture [contenteditable] {
   /* 본문/라벨 — 1.5로 통일하면 PNG에서 위/아래 잘림 사라짐.
      주의: !important 없이 inline style에 lineHeight가 있으면 덮어쓸 수 없음.
@@ -177,8 +185,9 @@ body {
 /* 🆕 (2026-04-28) P1 강점 카드 텍스트 — 화면 = PNG 동일하게 보이도록 보호
    → 타이틀(line-height 1.4) / 설명(1.5)이 PNG에서 강제 1.5/패딩으로 변경되던 문제 해결.
    주의: 타이틀 1.4를 그대로 쓰면 한글 ascent 문제로 PNG에서 글자가 잘릴 수 있어,
-        타이틀에는 미세 padding-top/bottom 만 살짝 부여 (line-height는 inline 그대로). */
-.coupang-page.pre-capture .p1-strength-text-group [data-edit-text],
+        타이틀에는 미세 padding-top/bottom 만 살짝 부여 (line-height는 inline 그대로).
+   🐛 (2026-04-28 v2) 셀렉터 [data-edit-text] → [data-editable] 정정. */
+.coupang-page.pre-capture .p1-strength-text-group [data-editable],
 .coupang-page.pre-capture .p1-strength-text-group div,
 .coupang-page.pre-capture .p1-strength-text-group span,
 .coupang-page.pre-capture .p1-strength-text-group p {

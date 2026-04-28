@@ -64,12 +64,15 @@ export default function P4Reviews({
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
       <div style={{ position: 'relative', pointerEvents: 'auto' }}>
-        {/* 🐛 (2026-04-28) padding-top 50→28px 로 축소 — 제목이 너무 아래로 내려와 보이는 문제 해결.
-            전체 모드(P1~P10 이어붙임)에서 P3 끝 → P4 시작 사이에 빈 공간이 너무 커 보임. */}
-        <div style={{ padding: '28px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        {/* 🐛 (2026-04-28 v2) "고객님들의 생생한 후기" 제목이 화면/PNG 에서 너무 아래로 내려보이던 문제 해결:
+            1) 외부 div padding-top 50 → 24px 로 축소 (전체 모드에서 P3 끝과 너무 떨어져 보임)
+            2) <h2> → <div> 변경: pre-capture CSS의 `h2 { padding-top:0.05em; line-height:1.4 !important }`
+               규칙이 PNG에서 추가 여백을 만들어 "PNG에서 더 내려옴" 현상을 일으켰음.
+               h 태그가 아니면 해당 규칙을 받지 않아 화면=PNG 동일하게 정렬됨. */}
+        <div style={{ padding: '24px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P4.sectionTitle')}
-            as="h2"
+            as="div"
             defaultStyle={{
               fontSize: 38, fontWeight: 800, color: BRAND.colors.text, margin: 0,
               textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.3,
