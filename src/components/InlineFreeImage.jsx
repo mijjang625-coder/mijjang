@@ -235,21 +235,51 @@ export default function InlineFreeImage({
       const update = { w: Math.round(nw), h: Math.round(nh) };
 
       if (isFreeResize && resizing.sNatW > 0 && resizing.sNatH > 0) {
-        // 1) 새 박스(nw, nh) 기준 cover 픽셀 크기 계산
-        const newCover = coverSize(nw, nh, resizing.sNatW, resizing.sNatH);
-        // 2) 시작 시점의 이미지 픽셀 크기를 유지하도록 새 scale 역산
-        //    (cover.w 가 0인 극단 케이스 방지)
-        let newScale = resizing.sScale;
-        if (newCover.w > 0) {
-          newScale = resizing.sImgInnerW / newCover.w;
+        // 🆕 v2 (2026-04-29): 이미지 픽셀 크기를 박스 변경에 무관하게 보존하는
+        //   정확한 로직.
+        //
+        // 원리:
+        //   imgInnerW = cover.w * scale
+        //   imgInnerH = cover.h * scale
+        //   여기서 cover 는 박스 비율에 따라 가로/세로 중 한 축만 박스에 맞고
+        //   다른 축은 자연 비율을 따라가도록 계산됨.
+        //   → 이미지 자연 비율 imgRatio 는 변하지 않으므로
+        //     이미지 픽셀 크기 자체를 보존하는 것이 가장 안전함.
+        //
+        // 방법:
+        //   ① 시작 시점의 이미지 픽셀 크기(sImgInnerW, sImgInnerH) 그대로 유지.
+        //   ② imgRatio = sNatW / sNatH 는 고정.
+        //   ③ 새 박스(nw, nh)에서 cover 함수가 어느 축을 박스에 맞추는지 판별.
+        //   ④ 그 축 기준으로 scale 을 역산:
+        //      - 만약 cover 가 박스의 H 에 맞춘다면 → cover.h = nh
+        //        → scale = sImgInnerH / nh
+        //      - 만약 cover 가 박스의 W 에 맞춘다면 → cover.w = nw
+        //        → scale = sImgInnerW / nw
+        //   결과적으로 박스가 어떻게 변해도 imgInnerW/H 는 시작 시점과 동일.
+        const imgRatio = resizing.sNatW / resizing.sNatH;
+        const boxRatio = nw / Math.max(1, nh);
+        // coverSize 의 분기와 동일한 조건
+        const coverFitsHeight = imgRatio > boxRatio;
+
+        let newScale;
+        if (coverFitsHeight) {
+          // cover.h = nh, cover.w = nh * imgRatio
+          // → newImgInnerH = nh * scale = sImgInnerH 가 되도록
+          newScale = resizing.sImgInnerH / Math.max(1, nh);
+        } else {
+          // cover.w = nw, cover.h = nw / imgRatio
+          // → newImgInnerW = nw * scale = sImgInnerW 가 되도록
+          newScale = resizing.sImgInnerW / Math.max(1, nw);
         }
         // scale 한도 안으로 클램프
         newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
 
-        // 3) 같은 절대 offset 픽셀값을 유지하면서 새 박스 기준 비율로 변환
-        //    (단, 새 박스 안에서 클램프하여 사진이 가장자리 빈 공간을 만들지 않게)
-        const newImgInnerW = newCover.w * newScale;
-        const newImgInnerH = newCover.h * newScale;
+        // 절대 offset 픽셀값을 유지하면서 새 박스 기준 비율로 변환
+        // (새 박스 안에서 클램프하여 사진이 가장자리 빈 공간을 만들지 않게)
+        const newCoverW = coverFitsHeight ? nh * imgRatio : nw;
+        const newCoverH = coverFitsHeight ? nh : nw / imgRatio;
+        const newImgInnerW = newCoverW * newScale;
+        const newImgInnerH = newCoverH * newScale;
         const maxOx = Math.max(0, (newImgInnerW - nw) / 2);
         const maxOy = Math.max(0, (newImgInnerH - nh) / 2);
         const clampedOx = Math.max(-maxOx, Math.min(maxOx, resizing.sOffsetX));
