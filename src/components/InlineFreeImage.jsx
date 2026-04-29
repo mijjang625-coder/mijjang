@@ -165,6 +165,10 @@ export default function InlineFreeImage({
 
   // 8개 핸들 리사이즈 (FreeImage 와 동일)
   // n / s: 높이만 / e / w: 너비만 / nw, ne, sw, se: 비율 유지(Shift=자유)
+  // 🆕 2026-04-29: Shift+드래그로 가로/세로만 줄일 때 안의 사진이 움직이는 문제 수정.
+  //    원리 — 시작 시점의 이미지 픽셀 크기·offset 픽셀값을 캡처해두고,
+  //          리사이즈 중에는 새 컨테이너 w/h 기준으로 scale·offsetXR/YR 을 역산
+  //          → 컨테이너 크기가 바뀌어도 사진은 같은 픽셀 위치·픽셀 크기로 유지됨.
   const handleResizeStart = (e, edge) => {
     e.preventDefault();
     e.stopPropagation();
@@ -174,6 +178,14 @@ export default function InlineFreeImage({
       sw: w, sh: h,
       ratio: w / Math.max(1, h),
       shiftKey: e.shiftKey,
+      // 시작 시점 이미지 메트릭 스냅샷 (사진 위치 유지를 위해)
+      sImgInnerW: imgInnerW,
+      sImgInnerH: imgInnerH,
+      sOffsetX:   offsetX,
+      sOffsetY:   offsetY,
+      sNatW:      imgNatural.w,
+      sNatH:      imgNatural.h,
+      sScale:     currentScale,
     });
   };
 
@@ -210,7 +222,49 @@ export default function InlineFreeImage({
 
       nw = Math.max(MIN_W, Math.min(MAX_W, nw));
       nh = Math.max(MIN_H, Math.min(MAX_H, nh));
-      onUpdate({ w: Math.round(nw), h: Math.round(nh) });
+
+      // 🆕 자유 리사이즈(코너+Shift, 또는 단변 핸들 n/s/e/w) 시
+      //    이미지 내부 픽셀 크기/위치를 보존하기 위해 scale·offsetXR/YR 을 역산.
+      //    비율 유지 코너 드래그(lockRatio=true) 시에는 cover 가 동일 비율로 변하므로
+      //    기존 동작 그대로 두어도 사진이 안 움직임 → crop 객체 갱신 불필요.
+      const isFreeResize = !lockRatio && (
+        edge === 'n' || edge === 's' || edge === 'e' || edge === 'w' ||
+        edge === 'nw' || edge === 'ne' || edge === 'sw' || edge === 'se'
+      );
+
+      const update = { w: Math.round(nw), h: Math.round(nh) };
+
+      if (isFreeResize && resizing.sNatW > 0 && resizing.sNatH > 0) {
+        // 1) 새 박스(nw, nh) 기준 cover 픽셀 크기 계산
+        const newCover = coverSize(nw, nh, resizing.sNatW, resizing.sNatH);
+        // 2) 시작 시점의 이미지 픽셀 크기를 유지하도록 새 scale 역산
+        //    (cover.w 가 0인 극단 케이스 방지)
+        let newScale = resizing.sScale;
+        if (newCover.w > 0) {
+          newScale = resizing.sImgInnerW / newCover.w;
+        }
+        // scale 한도 안으로 클램프
+        newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+        // 3) 같은 절대 offset 픽셀값을 유지하면서 새 박스 기준 비율로 변환
+        //    (단, 새 박스 안에서 클램프하여 사진이 가장자리 빈 공간을 만들지 않게)
+        const newImgInnerW = newCover.w * newScale;
+        const newImgInnerH = newCover.h * newScale;
+        const maxOx = Math.max(0, (newImgInnerW - nw) / 2);
+        const maxOy = Math.max(0, (newImgInnerH - nh) / 2);
+        const clampedOx = Math.max(-maxOx, Math.min(maxOx, resizing.sOffsetX));
+        const clampedOy = Math.max(-maxOy, Math.min(maxOy, resizing.sOffsetY));
+        const newOffsetXR = nw > 0 ? clampedOx / nw : 0;
+        const newOffsetYR = nh > 0 ? clampedOy / nh : 0;
+
+        update.crop = {
+          scale: newScale,
+          offsetXR: newOffsetXR,
+          offsetYR: newOffsetYR,
+        };
+      }
+
+      onUpdate(update);
     };
     const onUp = () => setResizing(null);
     window.addEventListener('mousemove', onMove);
