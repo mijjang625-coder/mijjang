@@ -344,9 +344,10 @@ export default function P10Faq({
       </div>
 
       {/* ─────────── 5. 마감 CTA 영역 ─────────── */}
-      {/* 🆕 하단 50px 여백을 margin이 아닌 padding으로 적용 — html2canvas가
-            margin을 캡처에서 누락시키는 문제 방지 (마지막 글자 잘림 현상 수정) */}
-      <div style={{ padding: '0 0 50px' }}>
+      {/* 🆕 하단 여백을 margin이 아닌 padding으로 적용 — html2canvas가
+            margin을 캡처에서 누락시키는 문제 방지 (마지막 글자 잘림 현상 수정)
+            2026-04-29: 사용자 요청 - 50px → 100px 로 늘려 끝 부분이 갑자기 끊기는 느낌 제거 */}
+      <div style={{ padding: '0 0 100px' }}>
       <div
         style={{
           margin: '20px 40px 0',
