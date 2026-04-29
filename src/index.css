@@ -226,3 +226,18 @@ body {
   /* 박스 위쪽에 5px 추가 패딩 — 폰트 ascent 잘림 방지 */
   padding-top: calc(var(--orig-pt, 0px) + 4px);
 }
+
+/* 🆕 (2026-04-29) P10 필수표기사항 표 셀 — PNG에서 글씨 내려가 보이는 문제 수정
+   원인: 위쪽 일반 텍스트 규칙(line-height: 1.5 !important)이 표 셀에도 적용되어
+        화면(line-height: 1.2)과 PNG가 어긋남.
+   해결: 표 셀 전용 클래스 .p10-compliance-cell 에 line-height 1.2를 강제 보호하고,
+        한글 baseline 보정용 비대칭 padding(위 작게 / 아래 크게) 도 유지. */
+.coupang-page.pre-capture .p10-compliance-cell,
+.coupang-page.pre-capture .p10-compliance-cell * {
+  line-height: 1.2 !important;
+}
+.coupang-page.pre-capture .p10-compliance-cell {
+  /* 화면과 동일한 비대칭 padding 강제 (위 12px / 아래 16px) */
+  padding-top: 12px !important;
+  padding-bottom: 16px !important;
+}

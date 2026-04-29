@@ -306,6 +306,7 @@ export default function P10Faq({
               }}
             >
               <div
+                className="p10-compliance-cell"
                 style={{
                   // 2026-04-29: 한글 baseline이 셀 박스 중앙보다 아래로 보이는 문제 수정
                   // padding-top을 살짝 줄이고 padding-bottom을 늘려 시각적 중앙 정렬
@@ -325,6 +326,7 @@ export default function P10Faq({
                 {row.label}
               </div>
               <div
+                className="p10-compliance-cell"
                 style={{
                   // 2026-04-29: 한글 baseline 시각 중앙 정렬 보정
                   padding: '12px 18px 16px',
