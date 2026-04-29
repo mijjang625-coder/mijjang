@@ -1890,7 +1890,8 @@ export default function App() {
                 >
                   {[
                     { key: 'pc',         label: '🖥 PC',        sub: '780px' },
-                    { key: 'tablet',     label: '📲 태블릿',    sub: '560px' },
+                    // 2026-04-29: 태블릿 모드 사용자 요청으로 미리보기 옵션에서 제거
+                    // (구현 코드는 하단에 유지 — 향후 복구 시 이 배열에 다시 추가하면 됨)
                     { key: 'mobile',     label: '📱 모바일',    sub: '360px' },
                     { key: 'mobileFull', label: '📜 전체',      sub: 'P1~P10 모바일' },
                     { key: 'split',      label: '🔀 동시',      sub: 'PC+모바일' },

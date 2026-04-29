@@ -293,24 +293,25 @@ export default function P10Faq({
             backgroundColor: '#fff',
           }}
         >
-          {complianceRows.map((row, i) => (
+          {complianceRows.map((row, i) => {
+            const isFirst = i === 0;
+            const isLast = i === complianceRows.length - 1;
+            return (
             <div
               key={i}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '200px 1fr',
-                borderBottom:
-                  i === complianceRows.length - 1
-                    ? 'none'
-                    : `1px solid ${BRAND.colors.neutral}`,
+                borderBottom: isLast
+                  ? 'none'
+                  : `1px solid ${BRAND.colors.neutral}`,
               }}
             >
               <div
                 className="p10-compliance-cell"
                 style={{
-                  // 2026-04-29: 한글 baseline이 셀 박스 중앙보다 아래로 보이는 문제 수정
-                  // padding-top을 살짝 줄이고 padding-bottom을 늘려 시각적 중앙 정렬
-                  padding: '12px 16px 16px',
+                  // 2026-04-29 v2: 글씨를 더 위로 올림 — 위 8px / 아래 20px (차이 12px)
+                  padding: '8px 16px 20px',
                   backgroundColor: BRAND.colors.sub,
                   fontSize: 16,
                   fontWeight: 800,
@@ -321,6 +322,10 @@ export default function P10Faq({
                   alignItems: 'center',
                   justifyContent: 'center',
                   textAlign: 'center',
+                  // 좌상/좌하 모서리 둥글게 — 외곽 컨테이너의 borderRadius:12 와 동일
+                  // (편집모드에서 overflow:visible 일 때도 회색이 직각으로 튀어나오지 않게)
+                  borderTopLeftRadius: isFirst ? 12 : 0,
+                  borderBottomLeftRadius: isLast ? 12 : 0,
                 }}
               >
                 {row.label}
@@ -328,8 +333,8 @@ export default function P10Faq({
               <div
                 className="p10-compliance-cell"
                 style={{
-                  // 2026-04-29: 한글 baseline 시각 중앙 정렬 보정
-                  padding: '12px 18px 16px',
+                  // 2026-04-29 v2: 글씨를 더 위로 올림 — 위 8px / 아래 20px (차이 12px)
+                  padding: '8px 18px 20px',
                   fontSize: 16,
                   fontWeight: 500,
                   color: BRAND.colors.text,
@@ -345,7 +350,8 @@ export default function P10Faq({
                 {row.value}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -237,7 +237,8 @@ body {
   line-height: 1.2 !important;
 }
 .coupang-page.pre-capture .p10-compliance-cell {
-  /* 화면과 동일한 비대칭 padding 강제 (위 12px / 아래 16px) */
-  padding-top: 12px !important;
-  padding-bottom: 16px !important;
+  /* 2026-04-29 v2: 글씨를 더 위로 올림 — 위 8px / 아래 20px (차이 12px)
+     화면과 PNG 동일하게 시각적 중앙 정렬 보장 */
+  padding-top: 8px !important;
+  padding-bottom: 20px !important;
 }
