@@ -384,6 +384,15 @@ export default function InlineFreeImage({
             style={btnIcon(canMoveDown ? '#0ea5e9' : '#334155')} title="본문 아래로 이동">⇩</button>
           <span style={sep} />
 
+          {/* 좌우 정렬 (빠른 접근) — 2026-04-28 추가 */}
+          <button onClick={() => onUpdate({ align: 'left' })}
+            style={btnIcon(align === 'left' ? '#10b981' : '#475569')} title="왼쪽 정렬">⬅</button>
+          <button onClick={() => onUpdate({ align: 'center' })}
+            style={btnIcon(align === 'center' ? '#10b981' : '#475569')} title="가운데 정렬">⬌</button>
+          <button onClick={() => onUpdate({ align: 'right' })}
+            style={btnIcon(align === 'right' ? '#10b981' : '#475569')} title="오른쪽 정렬">➡</button>
+          <span style={sep} />
+
           {/* 🎨 색상 */}
           <button
             onClick={() => { setShowAdjust((s) => !s); setShowReplace(false); }}
