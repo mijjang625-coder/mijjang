@@ -307,12 +307,15 @@ export default function P10Faq({
             >
               <div
                 style={{
-                  padding: '14px 16px',
+                  // 2026-04-29: 한글 baseline이 셀 박스 중앙보다 아래로 보이는 문제 수정
+                  // padding-top을 살짝 줄이고 padding-bottom을 늘려 시각적 중앙 정렬
+                  padding: '12px 16px 16px',
                   backgroundColor: BRAND.colors.sub,
                   fontSize: 16,
                   fontWeight: 800,
                   color: BRAND.colors.text,
                   letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -323,11 +326,12 @@ export default function P10Faq({
               </div>
               <div
                 style={{
-                  padding: '14px 18px',
+                  // 2026-04-29: 한글 baseline 시각 중앙 정렬 보정
+                  padding: '12px 18px 16px',
                   fontSize: 16,
                   fontWeight: 500,
                   color: BRAND.colors.text,
-                  lineHeight: 1.45,
+                  lineHeight: 1.2,
                   letterSpacing: '-0.02em',
                   wordBreak: 'keep-all',
                   display: 'flex',
