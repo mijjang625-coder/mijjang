@@ -10,13 +10,32 @@ import { FONT_PRESETS } from '../lib/theme.js';
  *     (각 페이지 컴포넌트가 "원래 스타일"로 넘겨준다)
  *   - children: 표시할 텍스트 (문자열)
  *   - editMode: 편집 모드 on/off
- *   - override: 이 요소에 대한 사용자 편집값 { text?, style?, offset? }
+ *   - override: 이 요소에 대한 사용자 편집값 { text?, html?, style?, offset? }
  *   - onChange: (partial) => void  — override 병합 콜백
  *   - as: 'div' | 'span' | 'h1' | 'h2' ...
  *   - className, style: 추가 CSS
  *   - draggable: 드래그 허용 여부 (기본 true)
+ *
+ * 🆕 (2026-05-02) 부분 서식 지원:
+ *   - 편집 중 텍스트를 드래그로 선택 → 인라인 툴바 표시 (선택 부분만 굵게/색상/크기 변경)
+ *   - 저장 형식: override.html (HTML 문자열) — 서식 보존
+ *   - 하위 호환: override.text (plain text) 도 계속 지원
  */
 const DRAG_THRESHOLD = 5; // px — 이 이상 움직여야 실제 드래그로 인식
+
+// 🆕 텍스트를 안전한 HTML로 변환 (plain text → HTML)
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// 🆕 children(문자열) 또는 override.html → 초기 HTML 결정
+function resolveInitialHtml(override, children) {
+  if (override?.html !== undefined) return override.html;
+  if (override?.text !== undefined) return escapeHtml(override.text);
+  return escapeHtml(children || '');
+}
 
 export default function EditableText({
   id,
@@ -37,12 +56,16 @@ export default function EditableText({
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
   const [hovering, setHovering] = useState(false);
 
+  // 🆕 인라인 툴바 (선택 부분 서식용) 상태
+  const [inlineToolbar, setInlineToolbar] = useState({ show: false, top: 0, left: 0 });
+
   // 드래그 상태
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0, active: false, started: false });
 
   // 현재 적용할 값 (override가 있으면 우선)
-  const mergedText = override?.text !== undefined ? override.text : children;
+  const mergedHtml = resolveInitialHtml(override, children);
+  const mergedText = override?.text !== undefined ? override.text : (typeof children === 'string' ? children : '');
   const mergedStyle = { ...defaultStyle, ...(override?.style || {}) };
   const offset = override?.offset || { x: 0, y: 0 };
 
@@ -90,10 +113,13 @@ export default function EditableText({
   // 편집 종료 (blur or ESC)
   const finishEditing = () => {
     setIsEditing(false);
+    setInlineToolbar({ show: false, top: 0, left: 0 });
     if (ref.current) {
+      const newHtml = ref.current.innerHTML;
       const newText = ref.current.innerText;
-      if (newText !== mergedText) {
-        onChange({ text: newText });
+      // 🆕 HTML과 plain text 둘 다 저장 (HTML이 마스터, text는 검색/AI 호환용)
+      if (newHtml !== mergedHtml) {
+        onChange({ html: newHtml, text: newText });
       }
     }
   };
@@ -124,6 +150,43 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showToolbar]);
 
+  // 🆕 텍스트 선택 감지 — 편집 중 드래그로 일부 선택하면 인라인 툴바 표시
+  useEffect(() => {
+    if (!isEditing) {
+      setInlineToolbar({ show: false, top: 0, left: 0 });
+      return;
+    }
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        setInlineToolbar((s) => (s.show ? { show: false, top: 0, left: 0 } : s));
+        return;
+      }
+      // 선택 영역이 현재 편집 중인 요소 안인지 확인
+      const range = sel.getRangeAt(0);
+      if (!ref.current || !ref.current.contains(range.commonAncestorContainer)) {
+        setInlineToolbar((s) => (s.show ? { show: false, top: 0, left: 0 } : s));
+        return;
+      }
+      // 선택 영역 위에 툴바 표시
+      const rect = range.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return;
+      const INLINE_TOOLBAR_HEIGHT = 40;
+      const INLINE_TOOLBAR_WIDTH = 320;
+      const margin = 6;
+      let top = rect.top - INLINE_TOOLBAR_HEIGHT - margin;
+      // 화면 위로 넘치면 아래로 표시
+      if (top < margin) top = rect.bottom + margin;
+      let left = rect.left + rect.width / 2 - INLINE_TOOLBAR_WIDTH / 2;
+      const maxLeft = window.innerWidth - INLINE_TOOLBAR_WIDTH - margin;
+      if (left > maxLeft) left = maxLeft;
+      if (left < margin) left = margin;
+      setInlineToolbar({ show: true, top, left });
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [isEditing]);
+
   // 🔑 외부(다른 EditableText 또는 빈 영역) 클릭 시 — 편집 종료 + 툴바 닫기
   //    이렇게 해야 "위 글씨 수정 → 아래 글씨 클릭" 시 위 글씨의 편집창이 닫힘
   useEffect(() => {
@@ -133,25 +196,29 @@ export default function EditableText({
       if (ref.current && ref.current.contains(e.target)) return;
       // 자기 툴바 안쪽이면 무시 (툴바는 portal이 아니라 형제로 렌더되므로 data-toolbar 로 구분)
       if (e.target.closest && e.target.closest('[data-toolbar]')) return;
+      // 🆕 인라인 툴바 안쪽이면 무시
+      if (e.target.closest && e.target.closest('[data-inline-toolbar]')) return;
 
       // 편집 중이었다면 → 변경사항 저장 후 종료
       if (isEditing) {
         if (ref.current) {
+          const newHtml = ref.current.innerHTML;
           const newText = ref.current.innerText;
-          if (newText !== mergedText) {
-            onChange({ text: newText });
+          if (newHtml !== mergedHtml) {
+            onChange({ html: newHtml, text: newText });
           }
         }
         setIsEditing(false);
       }
       // 툴바 닫기
       setShowToolbar(false);
+      setInlineToolbar({ show: false, top: 0, left: 0 });
     };
     // mousedown 단계에서 처리 (click 보다 먼저 실행되어 다른 요소 클릭 충돌 방지)
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, showToolbar, mergedText]);
+  }, [isEditing, showToolbar, mergedHtml]);
 
   // ─────────── 드래그 이동 (임계값 기반) ───────────
   const handleMouseDown = (e) => {
@@ -205,8 +272,20 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 🆕 편집 중 contentEditable 영역에 초기 HTML 주입
+  //    React는 contentEditable 요소의 자식을 직접 제어하면 안 되므로
+  //    isEditing 시작 시점에 한 번만 innerHTML을 설정하고, 이후엔 사용자 입력에 맡김
+  useEffect(() => {
+    if (isEditing && ref.current) {
+      ref.current.innerHTML = mergedHtml || '';
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing]);
+
   // ✅ 모든 Hook 호출 뒤에서 early return — Hook 규칙 준수
   if (!editMode) {
+    // 🆕 일반 표시 모드 — 부분 서식 보존 위해 dangerouslySetInnerHTML 사용
+    const displayHtml = mergedHtml && mergedHtml.trim() ? mergedHtml : escapeHtml(placeholder || '');
     return (
       <Tag
         className={className}
@@ -216,13 +295,12 @@ export default function EditableText({
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
           whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
         }}
-      >
-        {mergedText || placeholder}
-      </Tag>
+        dangerouslySetInnerHTML={{ __html: displayHtml }}
+      />
     );
   }
 
-  // 툴바에서 스타일 변경
+  // 툴바에서 스타일 변경 (셀 전체 적용)
   const applyStyle = (partial) => {
     const newStyle = { ...(override?.style || {}), ...partial };
     onChange({ style: newStyle });
@@ -230,11 +308,55 @@ export default function EditableText({
 
   const resetStyle = () => onChange({ style: {}, offset: { x: 0, y: 0 } });
 
+  // 🆕 인라인 툴바 — 선택 부분에만 서식 적용 후 즉시 저장
+  const applyInline = (action) => {
+    if (!ref.current) return;
+    // 포커스 유지 + 선택 영역 보존
+    ref.current.focus();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+
+    // execCommand는 deprecated이지만 contentEditable 환경에서는 여전히 가장 호환성 좋은 방법
+    try {
+      if (action.type === 'bold') {
+        document.execCommand('bold', false, null);
+      } else if (action.type === 'color') {
+        document.execCommand('foreColor', false, action.value);
+      } else if (action.type === 'fontSize') {
+        // execCommand('fontSize')는 1~7 사이즈만 받음 → 직접 span으로 감싸기
+        applySpanStyle(sel, { fontSize: action.value + 'px' });
+      } else if (action.type === 'fontSizeDelta') {
+        // 선택 부분의 현재 fontSize를 읽어 +/- 적용
+        const currentSize = readSelectionFontSize(sel) || (parseInt(mergedStyle.fontSize, 10) || 16);
+        const next = Math.max(8, currentSize + action.delta);
+        applySpanStyle(sel, { fontSize: next + 'px' });
+      } else if (action.type === 'reset') {
+        // 선택 부분의 인라인 서식 제거
+        document.execCommand('removeFormat', false, null);
+      }
+    } catch (err) {
+      // execCommand 실패 시 무시
+    }
+
+    // 변경 즉시 저장
+    if (ref.current) {
+      const newHtml = ref.current.innerHTML;
+      const newText = ref.current.innerText;
+      onChange({ html: newHtml, text: newText });
+    }
+  };
+
   // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
   let outlineStyle = '1px dashed rgba(96,165,250,0.45)'; // 기본 (어디가 편집 가능한지 표시)
   if (hovering) outlineStyle = '2px dashed #60a5fa';
   if (showToolbar) outlineStyle = '2px dashed #3b82f6';
   if (isEditing) outlineStyle = '2px solid #2563eb';
+
+  // 편집 모드일 때 — contentEditable 영역에는 초기 HTML을 useEffect로 주입하므로
+  //                   여기서는 비어있게 두거나, 비편집 상태면 dangerouslySetInnerHTML로 표시
+  const editableProps = isEditing
+    ? {} // 편집 중엔 React가 자식 제어 안 함 (contentEditable이 사용자 입력 직접 처리)
+    : { dangerouslySetInnerHTML: { __html: mergedHtml || escapeHtml(placeholder || '') } };
 
   return (
     <>
@@ -276,7 +398,7 @@ export default function EditableText({
             sel.addRange(range);
           }
         }}
-        title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
+        title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료, 드래그 선택: 부분 서식)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
         style={{
           ...mergedStyle,
           ...style,
@@ -291,9 +413,8 @@ export default function EditableText({
           backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
           transition: 'background-color 0.15s, outline-color 0.15s',
         }}
-      >
-        {mergedText || placeholder}
-      </Tag>
+        {...editableProps}
+      />
 
       {showToolbar && (
         <MiniToolbar
@@ -304,11 +425,53 @@ export default function EditableText({
           onClose={() => setShowToolbar(false)}
         />
       )}
+
+      {/* 🆕 인라인 툴바 — 선택 부분만 서식 변경 */}
+      {isEditing && inlineToolbar.show && (
+        <InlineToolbar
+          pos={inlineToolbar}
+          onApply={applyInline}
+        />
+      )}
     </>
   );
 }
 
-// ─────────── 간이 툴바 ───────────
+// 🆕 선택 영역을 <span style="..."> 으로 감싸기
+function applySpanStyle(sel, styleObj) {
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return;
+  const span = document.createElement('span');
+  Object.entries(styleObj).forEach(([k, v]) => { span.style[k] = v; });
+  try {
+    // 선택 영역 추출 → span에 넣기
+    const contents = range.extractContents();
+    span.appendChild(contents);
+    range.insertNode(span);
+    // 새 span 안의 영역을 다시 선택 (연속 작업 가능)
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  } catch (err) {
+    // 복잡한 DOM 구조에서 실패 가능 — 무시
+  }
+}
+
+// 🆕 선택 영역의 첫 번째 요소의 fontSize를 읽기
+function readSelectionFontSize(sel) {
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  let node = range.startContainer;
+  if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+  if (!node) return null;
+  const cs = window.getComputedStyle(node);
+  const px = parseInt(cs.fontSize, 10);
+  return Number.isFinite(px) ? px : null;
+}
+
+// ─────────── 셀 전체 툴바 (기존) ───────────
 function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
 
@@ -431,6 +594,107 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
   );
 }
 
+// 🆕 인라인 툴바 — 선택한 부분만 서식 적용
+function InlineToolbar({ pos, onApply }) {
+  return (
+    <div
+      data-inline-toolbar
+      // mousedown 시 selection 유지를 위해 preventDefault
+      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        top: pos.top,
+        left: pos.left,
+        zIndex: 10000,
+        display: 'flex',
+        gap: 4,
+        padding: '5px 7px',
+        backgroundColor: '#0f172a',
+        border: '1px solid #f59e0b',
+        borderRadius: 6,
+        boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+        fontSize: 11,
+        color: '#fff',
+        whiteSpace: 'nowrap',
+        alignItems: 'center',
+      }}
+    >
+      {/* 라벨 */}
+      <span style={{ fontSize: 9, color: '#fbbf24', fontWeight: 800, padding: '0 3px' }}>
+        선택 부분
+      </span>
+
+      {/* 굵게 토글 */}
+      <button
+        style={inlineBtnStyle}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'bold' }); }}
+        title="선택 부분 굵게 토글"
+      >
+        <b>B</b>
+      </button>
+
+      {/* 크기 작게 */}
+      <button
+        style={inlineBtnStyle}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'fontSizeDelta', delta: -2 }); }}
+        title="선택 부분 글씨 크기 작게"
+      >
+        A−
+      </button>
+
+      {/* 크기 크게 */}
+      <button
+        style={inlineBtnStyle}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'fontSizeDelta', delta: 2 }); }}
+        title="선택 부분 글씨 크기 크게"
+      >
+        A+
+      </button>
+
+      {/* 색상 */}
+      <label
+        style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '0 2px' }}
+        title="선택 부분 글자 색"
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <span style={{ fontSize: 11, marginRight: 2 }}>🎨</span>
+        <input
+          type="color"
+          onChange={(e) => onApply({ type: 'color', value: e.target.value })}
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            width: 22,
+            height: 22,
+            border: 'none',
+            padding: 0,
+            background: 'transparent',
+            cursor: 'pointer',
+          }}
+        />
+      </label>
+
+      {/* 빠른 색상 — 빨강 */}
+      <button
+        style={{ ...inlineBtnStyle, backgroundColor: '#dc2626' }}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#dc2626' }); }}
+        title="빨간색"
+      >
+        ●
+      </button>
+
+      {/* 서식 제거 */}
+      <button
+        style={{ ...inlineBtnStyle, backgroundColor: '#475569' }}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'reset' }); }}
+        title="선택 부분 서식 제거"
+      >
+        ↺
+      </button>
+    </div>
+  );
+}
+
 const toolbarBtnStyle = {
   background: '#334155',
   color: '#fff',
@@ -452,4 +716,17 @@ const toolbarSelectStyle = {
   cursor: 'pointer',
   fontSize: 11,
   maxWidth: 110,
+};
+
+const inlineBtnStyle = {
+  background: '#1e293b',
+  color: '#fff',
+  border: '1px solid #334155',
+  padding: '3px 7px',
+  borderRadius: 3,
+  cursor: 'pointer',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1,
+  minWidth: 22,
 };
