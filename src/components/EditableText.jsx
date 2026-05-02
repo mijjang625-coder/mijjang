@@ -208,7 +208,15 @@ export default function EditableText({
   // ✅ 모든 Hook 호출 뒤에서 early return — Hook 규칙 준수
   if (!editMode) {
     return (
-      <Tag className={className} style={{ ...mergedStyle, ...style }}>
+      <Tag
+        className={className}
+        style={{
+          ...mergedStyle,
+          ...style,
+          // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
+          whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
+        }}
+      >
         {mergedText || placeholder}
       </Tag>
     );
@@ -246,12 +254,34 @@ export default function EditableText({
           if (e.key === 'Escape') {
             e.preventDefault();
             ref.current?.blur();
+            return;
+          }
+          // 🆕 Enter 키 → 줄바꿈 허용 (Shift+Enter는 단락, Enter도 단순 줄바꿈)
+          //   기본 contentEditable의 Enter 동작이 브라우저마다 다름(<div>/<br>/<p>)
+          //   → 일관성을 위해 \n 문자를 직접 삽입해 innerText에 \n 으로 저장되게 함
+          //   (PNG 캡처/화면 표시 시 whiteSpace: pre-wrap 으로 줄바꿈됨)
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            // 현재 선택 영역에 \n 삽입
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            const textNode = document.createTextNode('\n');
+            range.insertNode(textNode);
+            // 커서를 \n 뒤로 이동
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            sel.removeAllRanges();
+            sel.addRange(range);
           }
         }}
-        title={isEditing ? '편집 중 (ESC로 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
+        title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
         style={{
           ...mergedStyle,
           ...style,
+          // 🆕 편집 모드에서도 줄바꿈(\n) 표시 유지
+          whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
           transform: `translate(${offset.x}px, ${offset.y}px)`,
           outline: outlineStyle,
           outlineOffset: 2,
