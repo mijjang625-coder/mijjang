@@ -159,7 +159,7 @@ export default function ShapeLayer({
         <div ref={pickerRef} style={{
           position: 'fixed',
           right: 24, top: 272,
-          zIndex: 9999,
+          zIndex: 100000,
         }}>
           <button
             onClick={() => setShowPicker((s) => !s)}
@@ -618,7 +618,7 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
             display: 'flex', gap: 4, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '6px 10px',
             borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 40, whiteSpace: 'nowrap',
+            zIndex: 100001, whiteSpace: 'nowrap',
           }}
         >
           {/* 레이어 순서 (FreeImage / InlineFreeImage 와 동일) */}
@@ -691,7 +691,7 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
             width: 240,
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
-            padding: 10, zIndex: 50,
+            padding: 10, zIndex: 100002,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

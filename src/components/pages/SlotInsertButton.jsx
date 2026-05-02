@@ -61,7 +61,7 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
             width: 340, maxHeight: 380, overflow: 'auto',
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
-            padding: 12, zIndex: 100,
+            padding: 12, zIndex: 100000,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

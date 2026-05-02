@@ -421,7 +421,7 @@ export default function FreeImage({
             padding: '6px 10px',
             borderRadius: 8,
             boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 30,
+            zIndex: 100001,
             whiteSpace: 'nowrap',
           }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -489,7 +489,7 @@ export default function FreeImage({
             borderRadius: 10,
             boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
             padding: 12,
-            zIndex: 50,
+            zIndex: 100002,
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -581,7 +581,7 @@ export default function FreeImage({
             display: 'flex', gap: 8, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '8px 12px',
             borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 40,
+            zIndex: 100001,
             whiteSpace: 'nowrap',
           }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -634,7 +634,7 @@ export default function FreeImage({
             borderRadius: 10,
             boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
             padding: 12,
-            zIndex: 50,
+            zIndex: 100002,
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >

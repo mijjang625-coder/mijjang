@@ -435,7 +435,7 @@ export default function InlineFreeImage({
             display: 'flex', gap: 6, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '6px 10px',
             borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 30, whiteSpace: 'nowrap',
+            zIndex: 100001, whiteSpace: 'nowrap',
           }}
         >
           {/* 🔍 크롭 모드 진입 */}
@@ -508,7 +508,7 @@ export default function InlineFreeImage({
             display: 'flex', gap: 8, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '8px 12px',
             borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 40, whiteSpace: 'nowrap',
+            zIndex: 100001, whiteSpace: 'nowrap',
           }}
         >
           <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>확대:</span>
@@ -549,7 +549,7 @@ export default function InlineFreeImage({
             border: '1px solid #e2ddd4',
             borderRadius: 10,
             boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
-            padding: 12, zIndex: 40,
+            padding: 12, zIndex: 100002,
           }}
         >
           <div style={{
@@ -611,7 +611,7 @@ export default function InlineFreeImage({
             width: 320, maxHeight: 380, overflow: 'auto',
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
-            padding: 12, zIndex: 50,
+            padding: 12, zIndex: 100002,
           }}
         >
           <div style={{
