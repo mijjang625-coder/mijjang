@@ -76,7 +76,7 @@ export default function P3Target({
             style={{
               border: `2px dashed ${BRAND.colors.main}`,
               borderRadius: 16,
-              padding: '8px 20px 40px',
+              padding: '24px 20px 24px',
               backgroundColor: 'rgba(255,255,255,0.7)',
             }}
           >
@@ -158,13 +158,13 @@ export default function P3Target({
                 <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
                   <CheckIcon size={24} variant={1} color="#E8590C" />
                 </span>
-                <div style={{ flex: 1, transform: 'translateY(-5px)' }}>
+                <div style={{ flex: 1 }}>
                   <EditableText
                     {...editPropsFor(`P3.checklist.${i}`)}
                     as="div"
                     defaultStyle={{
                       fontSize: 22, fontWeight: 600, color: BRAND.colors.text,
-                      lineHeight: 1, letterSpacing: '-0.02em',
+                      lineHeight: 1.4, letterSpacing: '-0.02em',
                       wordBreak: 'keep-all',
                     }}
                   >
