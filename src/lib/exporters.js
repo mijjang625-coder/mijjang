@@ -1,11 +1,19 @@
-// 🚀 html2canvas는 lazy load — 사용자가 "내보내기" 클릭할 때만 로드 (~200KB 절약)
+// 🚀 html-to-image lazy load — 사용자가 "내보내기" 클릭할 때만 로드
 // 캐싱: 한 번 로드되면 재사용
-let _html2canvas = null;
-async function getHtml2Canvas() {
-  if (_html2canvas) return _html2canvas;
-  const mod = await import('html2canvas');
-  _html2canvas = mod.default || mod;
-  return _html2canvas;
+//
+// 🆕 (2026-05-02) html2canvas → html-to-image 라이브러리 교체.
+//   이유: html2canvas는 한글 폰트의 baseline/ascent/descent 계산이 부정확해서
+//        화면과 PNG의 텍스트 위치가 어긋남. 디버깅 결과 cloned DOM 좌표는
+//        화면과 동일했음에도 (차이=0.0px) PNG 출력은 다르게 그려졌음.
+//        → html2canvas 자체의 캔버스 렌더링 단계의 한계 확정.
+//   해결: html-to-image는 SVG foreignObject 기반으로 렌더링 → 한글 처리 정확도가
+//        훨씬 높음. 화면 = PNG가 거의 일치할 것으로 기대.
+let _htmlToImage = null;
+async function getHtmlToImage() {
+  if (_htmlToImage) return _htmlToImage;
+  const mod = await import('html-to-image');
+  _htmlToImage = mod;
+  return _htmlToImage;
 }
 
 const NANUMSQUARE_CSS_URL =
@@ -26,147 +34,30 @@ async function prepareForCapture() {
 }
 
 // 🆕 캡처 시 텍스트 위치 보정용 클래스 일시 적용
-// .coupang-page에 .pre-capture 추가 → CSS가 라벨/배지 line-height/align을 강제 통일
+// .coupang-page에 .pre-capture 추가
 function applyCaptureClass(node) {
   node.classList.add('pre-capture');
   return () => node.classList.remove('pre-capture');
 }
 
-// 🆕 공통 html2canvas 옵션 — 텍스트 어긋남을 최소화하는 설정
-// - foreignObjectRendering: false (true면 SVG로 렌더해서 폰트 metric이 또 달라짐)
-// - letterRendering: true → 글자 단위로 위치 측정 (한글 정렬 정확도 향상)
-// - imageTimeout: 0 → 이미지 로딩 무한 대기 (이미 waitForImages로 보장됨)
-// 🆕 2026-04-29: scale=1 시도 후 원복 — 글씨 어긋남이 scale 차이가 주원인이 아님이 확인됨.
-//    scale=1 에서도 글씨 밀림 그대로 + 박스 모서리 픽셀화 + 화질 손실 발생.
-//    → 진짜 원인은 html2canvas 의 한글 baseline 계산 / flex alignItems 재계산 / line-height 처리.
-//    scale=2 로 화질 유지하고, 다음 단계에서 폰트 계산 자체를 재설계 예정.
+// 🆕 공통 html-to-image 옵션
+// - pixelRatio: 2 (기존 html2canvas의 scale: 2와 동일한 효과 — 고해상도 PNG)
+// - cacheBust: true (이미지 CORS/캐시 문제 회피)
+// - skipFonts: false (웹폰트 임베드 시도)
+// - filter: 캡처에서 제외할 노드 (없음)
 const CAPTURE_OPTIONS = {
-  scale: 2,
-  useCORS: true,
-  allowTaint: true,
+  pixelRatio: 2,
+  cacheBust: true,
   backgroundColor: '#ffffff',
-  logging: false,
-  letterRendering: true,
-  foreignObjectRendering: false,
-  imageTimeout: 0,
-  // onclone: 캡처 직전 cloned DOM을 추가 보정
-  onclone: (clonedDoc) => {
-    // 🔍 [DEBUG 2026-05-02] 캡처 직전 좌표 진단
-    //   화면(원본 DOM)의 좌표와 cloned DOM의 좌표를 비교해
-    //   html2canvas가 어디서 위치를 다르게 그리는지 추적.
-    try {
-      const origPages = document.querySelectorAll('.coupang-page');
-      const clonePages = clonedDoc.querySelectorAll('.coupang-page');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🔍 [캡처 디버그] 원본 vs cloned DOM 좌표 비교');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      origPages.forEach((origP, idx) => {
-        const cloneP = clonePages[idx];
-        if (!cloneP) return;
-        // 페이지 자체 위치
-        const origRect = origP.getBoundingClientRect();
-        const cloneRect = cloneP.getBoundingClientRect();
-        console.log(`📄 페이지[${idx}] 자체:`,
-          `원본=(top:${origRect.top.toFixed(1)}, h:${origRect.height.toFixed(1)})`,
-          `clone=(top:${cloneRect.top.toFixed(1)}, h:${cloneRect.height.toFixed(1)})`);
-        // 페이지 내부의 점선 박스(border-radius 16) 좌표
-        const origBoxes = origP.querySelectorAll('div[style*="border-radius: 16"], div[style*="borderRadius: 16"]');
-        const cloneBoxes = cloneP.querySelectorAll('div[style*="border-radius: 16"], div[style*="borderRadius: 16"]');
-        origBoxes.forEach((origBox, bi) => {
-          const cloneBox = cloneBoxes[bi];
-          if (!cloneBox) return;
-          const oR = origBox.getBoundingClientRect();
-          const cR = cloneBox.getBoundingClientRect();
-          // 페이지 내부 상대 좌표
-          const oRel = oR.top - origRect.top;
-          const cRel = cR.top - cloneRect.top;
-          console.log(`  📦 박스[${bi}] (radius 16):`,
-            `원본 상대top=${oRel.toFixed(1)}px, h=${oR.height.toFixed(1)}`,
-            `clone 상대top=${cRel.toFixed(1)}px, h=${cR.height.toFixed(1)}`,
-            `차이=${(cRel - oRel).toFixed(1)}px`);
-          // 박스 내부의 텍스트 요소들
-          const origTexts = origBox.querySelectorAll('h1, h2, h3, h4, p, span[data-editable], div[data-editable]');
-          const cloneTexts = cloneBox.querySelectorAll('h1, h2, h3, h4, p, span[data-editable], div[data-editable]');
-          origTexts.forEach((oT, ti) => {
-            const cT = cloneTexts[ti];
-            if (!cT) return;
-            const oTR = oT.getBoundingClientRect();
-            const cTR = cT.getBoundingClientRect();
-            const oTRel = oTR.top - oR.top;
-            const cTRel = cTR.top - cR.top;
-            const text = (oT.textContent || '').slice(0, 20);
-            console.log(`    ✏️ 텍스트[${ti}] "${text}":`,
-              `원본 박스내top=${oTRel.toFixed(1)}px`,
-              `clone 박스내top=${cTRel.toFixed(1)}px`,
-              `차이=${(cTRel - oTRel).toFixed(1)}px`,
-              `폰트크기=${getComputedStyle(oT).fontSize} → ${getComputedStyle(cT).fontSize}`,
-              `라인높이=${getComputedStyle(oT).lineHeight} → ${getComputedStyle(cT).lineHeight}`);
-          });
-        });
-      });
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    } catch (err) {
-      console.error('🔍 [캡처 디버그] 좌표 측정 실패:', err);
-    }
-    // cloned 문서에서도 .pre-capture 클래스가 적용되도록 보장
-    const pages = clonedDoc.querySelectorAll('.coupang-page');
-    pages.forEach((p) => {
-      p.classList.add('pre-capture');
-      // 🆕 캡처 시 마지막 자식의 margin-bottom이 잘리는 것을 방지
-      // html2canvas는 collapsing margin을 누락하므로 명시적 padding-bottom 추가
-      if (!p.dataset._capturePad) {
-        p.style.paddingBottom = '8px';
-        p.dataset._capturePad = '1';
-      }
-      // ⛔ 폰트/lineHeight/letterSpacing/padding 강제 변환 코드 모두 제거 (2026-04-28)
-      //    이유: 화면 폰트(Pretendard)와 PNG 폰트(NanumSquare 강제)가 달라져
-      //    글씨가 두꺼워 보이는 문제 발생. 화면 = PNG 동일 폰트 유지가 최우선.
-      //
-      // ✅ 유일하게 유지: overflow:hidden + line-clamp 해제
-      //    이유: P1 강점카드 등에서 흰색 박스가 글씨를 덮어 잘려 보이는 문제 방지.
-      //    단, 사진 박스(<img> 포함, background-image 포함)의 overflow:hidden은 유지.
-      const all = p.querySelectorAll('*');
-      all.forEach((el) => {
-        if (!el.style) return;
-        const ovf = el.style.overflow;
-        const wlc = el.style.webkitLineClamp || el.style.WebkitLineClamp;
-        const txOv = el.style.textOverflow;
-        if (ovf === 'hidden') {
-          const hasImg = el.querySelector && el.querySelector('img');
-          const bgImg = el.style.backgroundImage;
-          const hasBgImg = bgImg && bgImg !== 'none' && bgImg !== '';
-          if (!hasImg && !hasBgImg) {
-            el.style.overflow = 'visible';
-          }
-        }
-        if (wlc) {
-          el.style.webkitLineClamp = 'unset';
-          el.style.WebkitLineClamp = 'unset';
-          if (el.style.display === '-webkit-box' || el.style.display === '-webkit-inline-box') {
-            el.style.display = 'block';
-          }
-        }
-        if (txOv === 'ellipsis') {
-          el.style.textOverflow = 'clip';
-        }
-      });
-
-      // 🧹 (2026-05-02) P1 강점 카드 line-height 강제 복사 코드 제거.
-      //   이전: index.css의 line-height: 1.5 !important 규칙을 덮어쓰기 위해 필요했음.
-      //   현재: 강제 규칙이 모두 제거되어 inline lineHeight가 그대로 적용됨.
-      //         별도 JS 보정 불필요.
-    });
-  },
+  // 🆕 (2026-05-02) html-to-image는 SVG foreignObject로 렌더링하므로
+  //   원본 DOM에 직접 영향을 주지 않음. onclone 콜백은 없으나,
+  //   캡처 직전에 우리가 직접 DOM을 일시 수정하고 복원하는 방식 사용.
 };
 
 // 🆕 노드의 실제 콘텐츠 높이를 정확히 측정 (margin 포함)
-// html2canvas는 자체 측정이 종종 마지막 자식의 margin-bottom을 누락시킴 →
-// scrollHeight + 자식 마지막 margin을 더해서 안전한 높이를 반환
 function getCaptureHeight(node) {
   if (!node) return 0;
-  // 1) 기본 scrollHeight (대부분 정확)
   let h = node.scrollHeight || node.offsetHeight || 0;
-  // 2) 마지막 자식의 margin-bottom 보정 (collapsing margin 누락 방지)
   try {
     const last = node.lastElementChild;
     if (last) {
@@ -178,7 +69,7 @@ function getCaptureHeight(node) {
   return Math.ceil(h);
 }
 
-// 🆕 캡처 직전, 노드에 명시적 height를 설정해서 html2canvas가
+// 🆕 캡처 직전, 노드에 명시적 height를 설정해서 라이브러리가
 // 정확한 영역을 캡처하도록 함. 캡처 후 원래대로 복원.
 function lockHeightForCapture(node) {
   if (!node) return () => {};
@@ -187,13 +78,17 @@ function lockHeightForCapture(node) {
     height: node.style.height,
     minHeight: node.style.minHeight,
   };
-  // .coupang-page 내부 첫 div(.position:relative)에는 손대지 않고,
-  // ref 래퍼(=node)에만 높이를 명시
   node.style.minHeight = h + 'px';
   return () => {
     node.style.height = prev.height;
     node.style.minHeight = prev.minHeight;
   };
+}
+
+// 🆕 노드 너비 측정 (PNG 출력 크기 결정용)
+function getCaptureWidth(node) {
+  if (!node) return 0;
+  return Math.ceil(node.scrollWidth || node.offsetWidth || 780);
 }
 
 /* ───────── 단일 페이지 ───────── */
@@ -206,22 +101,24 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   const removeClass = applyCaptureClass(node);
   const restoreHeight = lockHeightForCapture(node);
   try {
-    const html2canvas = await getHtml2Canvas();
-    // 🆕 명시적 height 전달 — html2canvas가 마지막 콘텐츠를 잘리지 않게 보장
+    const htmlToImage = await getHtmlToImage();
     const captureH = getCaptureHeight(node);
-    const canvas = await html2canvas(node, {
+    const captureW = getCaptureWidth(node);
+    const blob = await htmlToImage.toBlob(node, {
       ...CAPTURE_OPTIONS,
+      width: captureW,
       height: captureH,
-      windowHeight: captureH,
+      style: {
+        // 캡처 시 노드의 width/height를 명시 (라이브러리가 정확히 캡처하도록)
+        width: captureW + 'px',
+        height: captureH + 'px',
+      },
     });
-    await new Promise((resolve) => {
-      canvas.toBlob((blob) => {
-        if (!blob) return resolve();
-        const url = URL.createObjectURL(blob);
-        triggerDownload(url, filename);
-        setTimeout(() => { URL.revokeObjectURL(url); resolve(); }, 1000);
-      }, 'image/png');
-    });
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, filename);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
   } finally {
     restoreHeight();
     removeClass();
@@ -249,9 +146,8 @@ export function downloadAsHtml(node, filename = 'coupang-detail.html') {
 export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png', onProgress) {
   if (!pages?.length) throw new Error('내보낼 페이지가 없습니다.');
   const total = pages.length;
-  const canvases = [];
-  const html2canvas = await getHtml2Canvas();
-  // 🆕 모든 페이지에 캡처 클래스 적용 (한 번에) + 폰트 로딩
+  const canvases = [];  // {width, height, dataUrl} 배열로 저장
+  const htmlToImage = await getHtmlToImage();
   await prepareForCapture();
   const cleanups = pages.map(({ node }) => applyCaptureClass(node));
   const heightRestores = [];
@@ -260,16 +156,21 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
       const { key, node } = pages[i];
       onProgress?.({ done: i, total, label: `${key} 캡처 중...` });
       await waitForImages(node);
-      // 🆕 명시적 height 전달 — 마지막 콘텐츠 잘림 방지
       const restoreH = lockHeightForCapture(node);
       heightRestores.push(restoreH);
       const captureH = getCaptureHeight(node);
-      const c = await html2canvas(node, {
+      const captureW = getCaptureWidth(node);
+      // html-to-image는 직접 canvas를 반환하는 toCanvas 메서드 제공
+      const canvas = await htmlToImage.toCanvas(node, {
         ...CAPTURE_OPTIONS,
+        width: captureW,
         height: captureH,
-        windowHeight: captureH,
+        style: {
+          width: captureW + 'px',
+          height: captureH + 'px',
+        },
       });
-      canvases.push(c);
+      canvases.push(canvas);
     }
   } finally {
     heightRestores.forEach((fn) => fn());
@@ -331,17 +232,8 @@ export function downloadAllAsHtml(pages, filename = 'coupang-all.html') {
 /* ───────── Figma 내보내기 ───────── */
 
 /**
- * Figma 가져오기용 JSON. Figma 플러그인 "html.to.design" 또는
- * "Figma to HTML/HTML to Figma"에서 사용 가능한 두 가지 포맷을 지원.
- *
- * 가장 단순/안정적인 워크플로우:
- *  1) 각 페이지를 PNG로 캡처
- *  2) 각 PNG를 base64로 인코딩
- *  3) Figma 플러그인 (예: "Image to Figma", "html.to.design")이 읽을 수 있는
- *     JSON 매니페스트 + ZIP 형태로 내보내기
- *
- * 여기서는 가장 호환성 높은 방식: **각 페이지 PNG + 매니페스트 JSON**을
- * 한 번에 다운로드. 사용자는 Figma 캠버스에 PNG들을 드래그앤드롭하면 됨.
+ * Figma 가져오기용 PNG + 매니페스트 JSON. 사용자는 Figma 캠버스에 PNG들을
+ * 드래그앤드롭하면 됨.
  */
 export async function downloadForFigma(pages, productName = 'product', onProgress) {
   if (!pages?.length) throw new Error('내보낼 페이지가 없습니다.');
@@ -359,7 +251,7 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
   };
 
   // 각 페이지 PNG로 다운로드
-  const html2canvas = await getHtml2Canvas();
+  const htmlToImage = await getHtmlToImage();
   await prepareForCapture();
   for (let i = 0; i < pages.length; i++) {
     const { key, node } = pages[i];
@@ -370,10 +262,15 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
     let canvas;
     try {
       const captureH = getCaptureHeight(node);
-      canvas = await html2canvas(node, {
+      const captureW = getCaptureWidth(node);
+      canvas = await htmlToImage.toCanvas(node, {
         ...CAPTURE_OPTIONS,
+        width: captureW,
         height: captureH,
-        windowHeight: captureH,
+        style: {
+          width: captureW + 'px',
+          height: captureH + 'px',
+        },
       });
     } finally {
       restoreH();
@@ -391,9 +288,9 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
     manifest.pages.push({
       key,
       file: pngName,
-      width: Math.round(canvas.width / 2),  // scale=2이므로 원본 px
+      width: Math.round(canvas.width / 2),  // pixelRatio=2이므로 원본 px
       height: Math.round(canvas.height / 2),
-      y: i === 0 ? 0 : null,  // y는 사용자가 Figma에서 자동 정렬
+      y: i === 0 ? 0 : null,
     });
     await new Promise((r) => setTimeout(r, 250));
   }
