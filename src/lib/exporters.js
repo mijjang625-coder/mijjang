@@ -36,8 +36,14 @@ function applyCaptureClass(node) {
 // - foreignObjectRendering: false (true면 SVG로 렌더해서 폰트 metric이 또 달라짐)
 // - letterRendering: true → 글자 단위로 위치 측정 (한글 정렬 정확도 향상)
 // - imageTimeout: 0 → 이미지 로딩 무한 대기 (이미 waitForImages로 보장됨)
+// 🆕 2026-04-29: scale 2 → 1 변경 (사용자 요청)
+//    원인: 화면(780px)과 PNG(1560px = scale:2)의 픽셀 기준 차이로
+//          한글 폰트 ascent/descent 가 재계산되어 글씨가 위/아래로 1~3px 어긋남.
+//    해결: scale=1 로 화면과 PNG 모두 780px 동일 기준 → 폰트 메트릭 완전 일치.
+//    PNG 화질: 780px (쿠팡/스마트스토어 상세페이지 권장 너비 860px 이하라 실용 OK)
+//    되돌리려면 scale 값을 다시 2 로 변경하면 됨.
 const CAPTURE_OPTIONS = {
-  scale: 2,
+  scale: 1,
   useCORS: true,
   allowTaint: true,
   backgroundColor: '#ffffff',
@@ -341,8 +347,9 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
     manifest.pages.push({
       key,
       file: pngName,
-      width: Math.round(canvas.width / 2),  // scale=2이므로 원본 px
-      height: Math.round(canvas.height / 2),
+      // 🆕 2026-04-29: scale=1 로 변경했으므로 canvas 크기가 곧 원본 px
+      width: Math.round(canvas.width),
+      height: Math.round(canvas.height),
       y: i === 0 ? 0 : null,  // y는 사용자가 Figma에서 자동 정렬
     });
     await new Promise((r) => setTimeout(r, 250));
