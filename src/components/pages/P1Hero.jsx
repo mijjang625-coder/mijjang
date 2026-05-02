@@ -295,11 +295,10 @@ export default function P1Hero({
                 {...(cardCfg.iconColor ? { color: cardCfg.iconColor } : {})}
               />
 
-              {/* 🆕🆕 타이틀+설명을 시각적으로 한 박스 (2026-04-28)
-                    — 두 EditableText는 유지(데이터/AI 호환), 다만 사이 gap을 0으로 +
-                      한 컨테이너로 감싸 점선 outline이 두 개로 보여도 한 덩어리처럼 묶음. */}
+              {/* 타이틀+설명을 시각적으로 한 박스로 묶음
+                    — 두 EditableText는 유지(데이터/AI 호환), 사이 gap을 0으로 설정해
+                      한 덩어리처럼 보이도록 함. */}
               <div
-                className="p1-strength-text-group"
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -308,9 +307,7 @@ export default function P1Hero({
                   gap: 0,
                 }}
               >
-                {/* 타이틀
-                    🐛 (2026-04-28) 부모 .p1-strength-text-group 클래스로 캡처 시 line-height 강제 적용 제외
-                    → 화면(1.4) = PNG(1.4) 동일 유지하여 글씨 크기/줄간격이 변하지 않음 */}
+                {/* 타이틀 */}
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.title`)}
                   as="div"
@@ -333,8 +330,7 @@ export default function P1Hero({
                   {c.title}
                 </EditableText>
 
-                {/* 설명
-                    🐛 (2026-04-28) 부모 .p1-strength-text-group 클래스로 캡처 시 line-height 강제 적용 제외 */}
+                {/* 설명 */}
                 <EditableText
                   {...editPropsFor(`P1.strengthCards.${i}.desc`)}
                   as="div"
@@ -802,7 +798,6 @@ export default function P1Hero({
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {
-          console.log('[P1] onChangeShapeLayer:', shapeId, action, 'kindFn=', typeof onChangeLayerKind, 'MAIN=', MAIN_LAYERS);
           if (typeof onChangeLayerKind === 'function') {
             onChangeLayerKind('shape', shapeId, action, MAIN_LAYERS);
           }
