@@ -308,16 +308,14 @@ export default function P10Faq({
               }}
             >
               <div
-                className="p10-compliance-cell"
                 style={{
-                  // 2026-04-29 v2: 글씨를 더 위로 올림 — 위 8px / 아래 20px (차이 12px)
-                  padding: '8px 16px 20px',
+                  padding: '14px 16px',
                   backgroundColor: BRAND.colors.sub,
                   fontSize: 16,
                   fontWeight: 800,
                   color: BRAND.colors.text,
                   letterSpacing: '-0.02em',
-                  lineHeight: 1.2,
+                  lineHeight: 1.4,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -331,14 +329,12 @@ export default function P10Faq({
                 {row.label}
               </div>
               <div
-                className="p10-compliance-cell"
                 style={{
-                  // 2026-04-29 v2: 글씨를 더 위로 올림 — 위 8px / 아래 20px (차이 12px)
-                  padding: '8px 18px 20px',
+                  padding: '14px 18px',
                   fontSize: 16,
                   fontWeight: 500,
                   color: BRAND.colors.text,
-                  lineHeight: 1.2,
+                  lineHeight: 1.4,
                   letterSpacing: '-0.02em',
                   wordBreak: 'keep-all',
                   display: 'flex',
@@ -356,10 +352,8 @@ export default function P10Faq({
       </div>
 
       {/* ─────────── 5. 마감 CTA 영역 ─────────── */}
-      {/* 🆕 하단 여백을 margin이 아닌 padding으로 적용 — html2canvas가
-            margin을 캡처에서 누락시키는 문제 방지 (마지막 글자 잘림 현상 수정)
-            2026-04-29: 사용자 요청 - 50px → 100px 로 늘려 끝 부분이 갑자기 끊기는 느낌 제거 */}
-      <div style={{ padding: '0 0 100px' }}>
+      {/* 하단 여백 — 페이지 끝 부분 자연스러운 마무리 */}
+      <div style={{ padding: '0 0 60px' }}>
       <div
         style={{
           margin: '20px 40px 0',
