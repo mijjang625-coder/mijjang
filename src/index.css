@@ -97,7 +97,16 @@ body {
   font-variant-numeric: normal;
 }
 
-/* 🆕 모든 텍스트 요소(span/div/p/h1~h6)에 동일한 line-height 강제 */
+/* 🧹 (2026-05-02) 글씨 강제 보정 규칙 전면 초기화
+   ─────────────────────────────────────────────────────────
+   이전: NanumSquare 폰트 시대(폰트 다름 가정 하에)의 잔재로,
+        라벨/배지 line-height 강제, h1~h4 padding 강제, 알약 라벨 inline-flex 강제,
+        P10 표 셀 비대칭 padding 등 수많은 강제 보정 규칙이 누적되어 있었음.
+        그 결과 화면 != PNG가 되어, 화면을 일부러 위로 올려 보정해야 하는
+        본말전도 상태 발생.
+   현재: 폰트가 화면=PNG로 통일되었으므로 모든 강제 보정 규칙을 제거.
+        이제 화면에서 보이는 그대로 PNG가 출력됨.
+   참고: vertical-align: baseline 만 유지 (baseline shift 방지). */
 .coupang-page.pre-capture h1,
 .coupang-page.pre-capture h2,
 .coupang-page.pre-capture h3,
@@ -107,147 +116,5 @@ body {
 .coupang-page.pre-capture p,
 .coupang-page.pre-capture span,
 .coupang-page.pre-capture div {
-  /* baseline shift 방지 — vertical-align을 baseline으로 통일 */
   vertical-align: baseline;
-}
-
-/* 라벨/배지 — display:flex + alignItems:center 조합이 흔히 사용되는 곳.
-   html2canvas는 inline-block + line-height 트릭을 종종 잘못 해석하므로
-   pre-capture 모드에서는 모든 inline-block 라벨에 명시적 line-height 부여 */
-.coupang-page.pre-capture div[style*="border-radius: 999"],
-.coupang-page.pre-capture div[style*="borderRadius:999"] {
-  /* 라벨/배지의 텍스트가 정확히 중앙 정렬되도록 */
-  line-height: 1;
-}
-
-/* 원형 배지 (border-radius:50%) 안의 텍스트는 항상 정중앙 */
-.coupang-page.pre-capture div[style*="border-radius: 50%"],
-.coupang-page.pre-capture div[style*="borderRadius:50%"] {
-  /* flex 정렬은 이미 inline style에 있고, line-height 추가 강제 */
-  line-height: 1.1;
-}
-
-/* P9 STEP 원형 배지 — STEP<br/>{n} 패턴이 가장 잘 어긋남.
-   2026-04-28: P9 STEP 동그라미 자체를 제거했으므로 이 규칙은 더이상
-   활성화되지 않지만, 만약 다른 페이지에서 동일 클래스를 쓰면 보호 차원에서 유지 */
-.coupang-page.pre-capture .step-circle-badge {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-direction: column;
-  line-height: 1.05 !important;
-  text-align: center;
-  padding: 0;
-}
-.coupang-page.pre-capture .step-circle-badge > br {
-  /* STEP과 숫자 사이 줄바꿈 간격 통일 */
-  line-height: 1;
-}
-
-/* 🆕🆕 (2026-04-28) P1/P2/P3 글씨 잘림·밀림 핵심 수정
-   ─────────────────────────────────────────────────────────
-   증상: 화면에서는 멀쩡한데 PNG로 변환하면
-        - P1 강점 카드의 "완벽한 청소 도구" 등이 박스 위쪽으로 잘림
-        - P2 "POINT 01" 라벨이 박스 아래로 밀려서 절반만 보임
-        - P3 체크 항목 텍스트들의 줄간격이 들쑥날쑥
-   원인: html2canvas가 한글 폰트의 line-box height를 잘못 계산.
-        inline에 line-height: 1.4 같은 값이 있을 때 폰트의 ascent보다
-        line-box가 작아져서 위/아래로 글자가 잘림.
-   해결: 캡처 시에만 모든 텍스트 요소의 line-height를 1.5 이상으로 끌어올려
-        line-box가 충분한 높이를 갖도록 강제. */
-
-/* 모든 EditableText/일반 텍스트 — line-height 최소 1.5 보장 */
-.coupang-page.pre-capture h1,
-.coupang-page.pre-capture h2,
-.coupang-page.pre-capture h3,
-.coupang-page.pre-capture h4 {
-  /* 큰 제목 — line-height: 1.2~1.3이 보통이라 PNG에서 위/아래가 잘림.
-     여기서는 1.4로 살짝 올려서 안전하게 */
-  line-height: 1.4 !important;
-  padding-top: 0.05em;
-  padding-bottom: 0.05em;
-}
-
-/* 🐛 (2026-04-28) 셀렉터 [data-edit-text] → [data-editable] 정정.
-   원인: EditableText 컴포넌트는 data-editable="true" 만 출력하므로
-        [data-edit-text] 셀렉터는 그 어떤 요소에도 매칭되지 않아 
-        line-height 1.5 강제 보정이 전혀 작동하지 않았음.
-   ⚠️ 결과적으로 P1 강점 카드 보호 규칙도 동작 못 했고,
-      P4 "고객님들의 생생한 후기" 같은 일반 텍스트의 라인높이도 잘못 적용됨. */
-/* 🆕 (2026-05-02) line-height 1.5 강제 제거.
-   이전: NanumSquare 강제 폰트 시대에 PNG 잘림 방지용으로 추가됨.
-        그러나 화면(inline lineHeight)과 PNG(1.5)가 달라 본문 위치 어긋남의 주범.
-   현재: 폰트가 화면=PNG로 통일되었으므로 inline style의 lineHeight를 그대로 사용. */
-/*
-.coupang-page.pre-capture p,
-.coupang-page.pre-capture span,
-.coupang-page.pre-capture div[data-editable],
-.coupang-page.pre-capture [contenteditable] {
-  line-height: 1.5 !important;
-}
-*/
-
-/* 🆕 (2026-04-28) P1 강점 카드 텍스트 — 화면 = PNG 동일하게 보이도록 보호
-   → 타이틀(line-height 1.4) / 설명(1.5)이 PNG에서 강제 1.5/패딩으로 변경되던 문제 해결.
-   주의: 타이틀 1.4를 그대로 쓰면 한글 ascent 문제로 PNG에서 글자가 잘릴 수 있어,
-        타이틀에는 미세 padding-top/bottom 만 살짝 부여 (line-height는 inline 그대로).
-   🐛 (2026-04-28 v2) 셀렉터 [data-edit-text] → [data-editable] 정정. */
-.coupang-page.pre-capture .p1-strength-text-group [data-editable],
-.coupang-page.pre-capture .p1-strength-text-group div,
-.coupang-page.pre-capture .p1-strength-text-group span,
-.coupang-page.pre-capture .p1-strength-text-group p {
-  /* line-height는 inline style을 그대로 사용하도록 비강제로 둠.
-     onclone JS에서 element.style.lineHeight를 명시 복사해 적용함.
-     padding은 0으로 강제 (borderRadius 18 일괄 padding-top 4px 적용 회피). */
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-/* 라벨/배지 같은 작은 박스 (padding이 적은 inline-block)
-   - "POINT 01" 같은 알약 모양 — 박스 높이가 작아서 line-height 1.5 강제하면
-     박스가 커져버림. 이런 경우엔 1.2 + 미세 padding-top 보정 */
-.coupang-page.pre-capture span[style*="border-radius: 999"],
-.coupang-page.pre-capture span[style*="borderRadius:999"],
-.coupang-page.pre-capture div[style*="border-radius: 999"],
-.coupang-page.pre-capture div[style*="borderRadius:999"] {
-  line-height: 1.2 !important;
-  /* 글자가 박스 아래로 밀려 절반 잘리는 현상 → padding-top 미세 추가로 보정 */
-  padding-top: 1px !important;
-  padding-bottom: 1px !important;
-  /* display: flex로 강제하면 vertical center가 폰트 metric 무관하게 작동 */
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-/* 🆕 (2026-05-02) border-radius 16/18/20 박스 padding-top +4px 강제 제거.
-   이전: NanumSquare 폰트 시대에 ascent 잘림 방지용.
-        그러나 P3 추천 박스 등 borderRadius 16 박스에 4px이 추가되어
-        화면 != PNG 위치 어긋남 발생.
-   현재: 폰트 통일로 ascent 차이 없으므로 inline padding 그대로 사용. */
-/*
-.coupang-page.pre-capture div[style*="border-radius: 16"],
-.coupang-page.pre-capture div[style*="border-radius: 18"],
-.coupang-page.pre-capture div[style*="border-radius: 20"],
-.coupang-page.pre-capture div[style*="borderRadius: 16"],
-.coupang-page.pre-capture div[style*="borderRadius: 18"],
-.coupang-page.pre-capture div[style*="borderRadius: 20"] {
-  padding-top: calc(var(--orig-pt, 0px) + 4px);
-}
-*/
-
-/* 🆕 (2026-04-29) P10 필수표기사항 표 셀 — PNG에서 글씨 내려가 보이는 문제 수정
-   원인: 위쪽 일반 텍스트 규칙(line-height: 1.5 !important)이 표 셀에도 적용되어
-        화면(line-height: 1.2)과 PNG가 어긋남.
-   해결: 표 셀 전용 클래스 .p10-compliance-cell 에 line-height 1.2를 강제 보호하고,
-        한글 baseline 보정용 비대칭 padding(위 작게 / 아래 크게) 도 유지. */
-.coupang-page.pre-capture .p10-compliance-cell,
-.coupang-page.pre-capture .p10-compliance-cell * {
-  line-height: 1.2 !important;
-}
-.coupang-page.pre-capture .p10-compliance-cell {
-  /* 2026-04-29 v2: 글씨를 더 위로 올림 — 위 8px / 아래 20px (차이 12px)
-     화면과 PNG 동일하게 시각적 중앙 정렬 보장 */
-  padding-top: 8px !important;
-  padding-bottom: 20px !important;
 }
