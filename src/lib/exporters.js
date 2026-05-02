@@ -51,6 +51,63 @@ const CAPTURE_OPTIONS = {
   imageTimeout: 0,
   // onclone: 캡처 직전 cloned DOM을 추가 보정
   onclone: (clonedDoc) => {
+    // 🔍 [DEBUG 2026-05-02] 캡처 직전 좌표 진단
+    //   화면(원본 DOM)의 좌표와 cloned DOM의 좌표를 비교해
+    //   html2canvas가 어디서 위치를 다르게 그리는지 추적.
+    try {
+      const origPages = document.querySelectorAll('.coupang-page');
+      const clonePages = clonedDoc.querySelectorAll('.coupang-page');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🔍 [캡처 디버그] 원본 vs cloned DOM 좌표 비교');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      origPages.forEach((origP, idx) => {
+        const cloneP = clonePages[idx];
+        if (!cloneP) return;
+        // 페이지 자체 위치
+        const origRect = origP.getBoundingClientRect();
+        const cloneRect = cloneP.getBoundingClientRect();
+        console.log(`📄 페이지[${idx}] 자체:`,
+          `원본=(top:${origRect.top.toFixed(1)}, h:${origRect.height.toFixed(1)})`,
+          `clone=(top:${cloneRect.top.toFixed(1)}, h:${cloneRect.height.toFixed(1)})`);
+        // 페이지 내부의 점선 박스(border-radius 16) 좌표
+        const origBoxes = origP.querySelectorAll('div[style*="border-radius: 16"], div[style*="borderRadius: 16"]');
+        const cloneBoxes = cloneP.querySelectorAll('div[style*="border-radius: 16"], div[style*="borderRadius: 16"]');
+        origBoxes.forEach((origBox, bi) => {
+          const cloneBox = cloneBoxes[bi];
+          if (!cloneBox) return;
+          const oR = origBox.getBoundingClientRect();
+          const cR = cloneBox.getBoundingClientRect();
+          // 페이지 내부 상대 좌표
+          const oRel = oR.top - origRect.top;
+          const cRel = cR.top - cloneRect.top;
+          console.log(`  📦 박스[${bi}] (radius 16):`,
+            `원본 상대top=${oRel.toFixed(1)}px, h=${oR.height.toFixed(1)}`,
+            `clone 상대top=${cRel.toFixed(1)}px, h=${cR.height.toFixed(1)}`,
+            `차이=${(cRel - oRel).toFixed(1)}px`);
+          // 박스 내부의 텍스트 요소들
+          const origTexts = origBox.querySelectorAll('h1, h2, h3, h4, p, span[data-editable], div[data-editable]');
+          const cloneTexts = cloneBox.querySelectorAll('h1, h2, h3, h4, p, span[data-editable], div[data-editable]');
+          origTexts.forEach((oT, ti) => {
+            const cT = cloneTexts[ti];
+            if (!cT) return;
+            const oTR = oT.getBoundingClientRect();
+            const cTR = cT.getBoundingClientRect();
+            const oTRel = oTR.top - oR.top;
+            const cTRel = cTR.top - cR.top;
+            const text = (oT.textContent || '').slice(0, 20);
+            console.log(`    ✏️ 텍스트[${ti}] "${text}":`,
+              `원본 박스내top=${oTRel.toFixed(1)}px`,
+              `clone 박스내top=${cTRel.toFixed(1)}px`,
+              `차이=${(cTRel - oTRel).toFixed(1)}px`,
+              `폰트크기=${getComputedStyle(oT).fontSize} → ${getComputedStyle(cT).fontSize}`,
+              `라인높이=${getComputedStyle(oT).lineHeight} → ${getComputedStyle(cT).lineHeight}`);
+          });
+        });
+      });
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    } catch (err) {
+      console.error('🔍 [캡처 디버그] 좌표 측정 실패:', err);
+    }
     // cloned 문서에서도 .pre-capture 클래스가 적용되도록 보장
     const pages = clonedDoc.querySelectorAll('.coupang-page');
     pages.forEach((p) => {
