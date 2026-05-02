@@ -76,11 +76,17 @@ export default function P3Target({
             style={{
               border: `2px dashed ${BRAND.colors.main}`,
               borderRadius: 16,
-              padding: '36px 20px 36px',
+              padding: '40px 20px',
               backgroundColor: 'rgba(255,255,255,0.7)',
+              minHeight: 220,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 18,
             }}
           >
-            {badge && (<div style={{ marginBottom: 16 }}><PillBadge>{badge}</PillBadge></div>)}
+            {badge && (<div><PillBadge>{badge}</PillBadge></div>)}
             <EditableText
               {...editPropsFor('P3.mainTitle')}
               as="h2"
