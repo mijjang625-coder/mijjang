@@ -78,14 +78,16 @@ body {
    해결: .pre-capture 클래스를 캡처 직전에 .coupang-page에 추가하고,
         라벨/배지 안의 텍스트에 line-height와 정렬을 명시적으로 강제.
 */
-/* 🆕 캡처 모드 핵심 원리:
-   화면 = Pretendard Variable 폰트 (정확한 metric)
-   html2canvas = 보통 fallback 시스템 폰트로 그림 → ascent/descent 다름 → 텍스트 밀림
-   해결: pre-capture 시 단일 정적 폰트(NanumSquare)로 강제 통일.
-   NanumSquare는 cdn으로 로드되어 있고 metric이 안정적 */
+/* 🆕 캡처 모드 핵심 원리 (2026-05-02 변경):
+   이전: pre-capture 시 NanumSquare로 강제 통일 → 화면(Pretendard)과 폰트가 달라
+         글씨 너비/baseline 어긋남 → 페이지마다 수동 1px 보정 누적 → 본말전도.
+   현재: 화면과 PNG 모두 동일한 Pretendard Variable 사용 →
+         html2canvas가 같은 폰트로 렌더링하므로 화면과 PNG가 일치.
+   참고: document.fonts.ready로 폰트 로딩 완료를 기다린 후 캡처하므로 fallback 위험 낮음. */
 .coupang-page.pre-capture,
 .coupang-page.pre-capture * {
-  font-family: 'NanumSquare', 'Nanum Square', 'Apple SD Gothic Neo', sans-serif !important;
+  /* font-family는 화면과 동일하게 유지 — 강제 변경하지 않음.
+     inline style/CSS 변수(--app-font)를 그대로 따라감. */
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
