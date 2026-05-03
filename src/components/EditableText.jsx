@@ -22,6 +22,21 @@ import { FONT_PRESETS } from '../lib/theme.js';
  *   - 하위 호환: override.text (plain text) 도 계속 지원
  */
 const DRAG_THRESHOLD = 5; // px — 이 이상 움직여야 실제 드래그로 인식
+const SNAP_THRESHOLD = 8; // px — 부모 좌/우/가운데 스냅 거리
+const MIN_TEXTBOX_W = 40; // px — 글박스 최소 폭
+const MIN_TEXTBOX_H = 20; // px — 글박스 최소 높이
+
+// 🆕 (2026-05-03) 글박스 리사이즈 핸들 8개 (코너 4 + 변 4)
+const RESIZE_HANDLES = [
+  { id: 'nw', cursor: 'nwse-resize', style: { left: -6, top: -6 } },
+  { id: 'n',  cursor: 'ns-resize',   style: { left: '50%', top: -6, transform: 'translateX(-50%)' } },
+  { id: 'ne', cursor: 'nesw-resize', style: { right: -6, top: -6 } },
+  { id: 'w',  cursor: 'ew-resize',   style: { left: -6, top: '50%', transform: 'translateY(-50%)' } },
+  { id: 'e',  cursor: 'ew-resize',   style: { right: -6, top: '50%', transform: 'translateY(-50%)' } },
+  { id: 'sw', cursor: 'nesw-resize', style: { left: -6, bottom: -6 } },
+  { id: 's',  cursor: 'ns-resize',   style: { left: '50%', bottom: -6, transform: 'translateX(-50%)' } },
+  { id: 'se', cursor: 'nwse-resize', style: { right: -6, bottom: -6 } },
+];
 
 // 🆕 텍스트를 안전한 HTML로 변환 (plain text → HTML)
 function escapeHtml(s) {
@@ -63,11 +78,49 @@ export default function EditableText({
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0, active: false, started: false });
 
+  // 🆕 (2026-05-03) 리사이즈 상태
+  const [resizing, setResizing] = useState(null);
+  const [snapLine, setSnapLine] = useState(null); // 'left' | 'right' | 'center' | null
+  const wrapperRef = useRef(null);
+
   // 현재 적용할 값 (override가 있으면 우선)
   const mergedHtml = resolveInitialHtml(override, children);
   const mergedText = override?.text !== undefined ? override.text : (typeof children === 'string' ? children : '');
   const mergedStyle = { ...defaultStyle, ...(override?.style || {}) };
   const offset = override?.offset || { x: 0, y: 0 };
+  // 🆕 글박스 frame (override.frame 이 있으면 명시적 width/height/x/y 적용)
+  const frame = override?.frame || null;
+  // 🆕 글박스 z-index (override.zIndex, 기본은 모든 이미지/도형보다 위 = 10000)
+  const textZIndex = override?.zIndex ?? 10000;
+
+  // 🆕 (2026-05-03) editMode 진입 시 frame 이 없으면 자동으로 현재 렌더 크기를 frame 으로 저장
+  //   → 사용자가 별도 버튼을 누르지 않아도 즉시 8개 핸들로 박스 크기 조정 가능
+  //   → "표면상 보이는 것 없이" 자연스럽게 동작
+  const autoFrameDoneRef = useRef(false);
+  useEffect(() => {
+    if (!editMode) { autoFrameDoneRef.current = false; return; }
+    if (frame) { autoFrameDoneRef.current = true; return; }
+    if (autoFrameDoneRef.current) return;
+    if (!ref.current) return;
+    // 다음 페인트 후 측정 (레이아웃 안정 후)
+    const raf = requestAnimationFrame(() => {
+      if (!ref.current || frame) return;
+      const r = ref.current.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        autoFrameDoneRef.current = true;
+        onChange({
+          frame: {
+            width: Math.round(r.width),
+            height: Math.round(r.height),
+            x: 0,
+            y: 0,
+          },
+        });
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode, frame]);
 
   // ⚠️ Hook 규칙 — useEffect는 early return 보다 먼저 호출되어야 함
   //    (editMode 토글 시 Hook 개수가 바뀌면 React가 크래시함)
@@ -272,6 +325,88 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ─────────── 🆕 (2026-05-03) 리사이즈 ───────────
+  // 글박스의 width/height/x/y 만 변경 — 폰트 크기는 변경하지 않음
+  // 폭이 줄어들면 자동 줄바꿈, 높이 넘치면 잘림 (overflow:hidden)
+  const handleResizeStart = (e, handleId) => {
+    if (!wrapperRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = wrapperRef.current.getBoundingClientRect();
+    setResizing({
+      handle: handleId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: frame?.width ?? rect.width,
+      startH: frame?.height ?? rect.height,
+      startFx: frame?.x ?? 0,
+      startFy: frame?.y ?? 0,
+    });
+  };
+
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e) => {
+      const dx = e.clientX - resizing.startX;
+      const dy = e.clientY - resizing.startY;
+      let { startW, startH, startFx, startFy } = resizing;
+      let w = startW, h = startH, fx = startFx, fy = startFy;
+      const handle = resizing.handle;
+
+      if (handle.includes('e')) w = startW + dx;
+      if (handle.includes('w')) { w = startW - dx; fx = startFx + dx; }
+      if (handle.includes('s')) h = startH + dy;
+      if (handle.includes('n')) { h = startH - dy; fy = startFy + dy; }
+
+      w = Math.max(MIN_TEXTBOX_W, w);
+      h = Math.max(MIN_TEXTBOX_H, h);
+
+      // 🆕 부모 좌/우/가운데 스냅 (사진과 동일)
+      let snapV = null;
+      try {
+        const parent = wrapperRef.current?.parentElement;
+        if (parent) {
+          const parentRect = parent.getBoundingClientRect();
+          const wrapperRect = wrapperRef.current.getBoundingClientRect();
+          const offsetLeftInParent = wrapperRect.left - parentRect.left - (frame?.x ?? 0);
+          // 좌측 0
+          if (Math.abs(fx) < SNAP_THRESHOLD) { fx = 0; snapV = 'left'; }
+          // 우측 정렬 — 부모 폭 - 박스 폭
+          const rightTarget = parentRect.width - offsetLeftInParent - w;
+          if (Math.abs(fx - rightTarget) < SNAP_THRESHOLD) {
+            if (handle.includes('w')) fx = rightTarget;
+            else w = parentRect.width - offsetLeftInParent - fx;
+            snapV = 'right';
+          }
+          // 가운데 정렬
+          const centerTarget = (parentRect.width - offsetLeftInParent * 2 - w) / 2;
+          if (Math.abs(fx - centerTarget) < SNAP_THRESHOLD) {
+            fx = centerTarget;
+            snapV = 'center';
+          }
+        }
+      } catch {}
+      setSnapLine(snapV);
+
+      onChange({
+        frame: {
+          width: Math.round(w),
+          height: Math.round(h),
+          x: Math.round(fx),
+          y: Math.round(fy),
+        },
+      });
+    };
+    const onUp = () => { setResizing(null); setSnapLine(null); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resizing]);
+
   // 🆕 편집 중 contentEditable 영역에 초기 HTML 주입
   //    React는 contentEditable 요소의 자식을 직접 제어하면 안 되므로
   //    isEditing 시작 시점에 한 번만 innerHTML을 설정하고, 이후엔 사용자 입력에 맡김
@@ -281,6 +416,20 @@ export default function EditableText({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing]);
+
+  // 🆕 (2026-05-03) frame(width/height/x/y) 가 있으면 박스 크기/위치를 명시
+  // 폰트 크기는 mergedStyle.fontSize 그대로 → 박스 크기 변경이 글씨 크기에 영향 없음
+  // overflow:hidden + wordBreak:break-word → 폭 줄어들면 자동 줄바꿈, 높이 넘치면 잘림
+  const frameStyle = frame ? {
+    width: frame.width,
+    height: frame.height,
+    transform: `translate(${(offset.x || 0) + (frame.x || 0)}px, ${(offset.y || 0) + (frame.y || 0)}px)`,
+    overflow: 'hidden',
+    wordBreak: 'break-word',
+    overflowWrap: 'break-word',
+  } : {
+    transform: `translate(${offset.x}px, ${offset.y}px)`,
+  };
 
   // ✅ 모든 Hook 호출 뒤에서 early return — Hook 규칙 준수
   if (!editMode) {
@@ -294,6 +443,11 @@ export default function EditableText({
           ...style,
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
           whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
+          // 🆕 frame 이 있으면 width/height/transform 적용
+          ...frameStyle,
+          // 🆕 z-index — 글박스는 모든 이미지/도형보다 위 (기본 10000)
+          position: frame ? 'relative' : (mergedStyle.position || undefined),
+          zIndex: textZIndex,
         }}
         dangerouslySetInnerHTML={{ __html: displayHtml }}
       />
@@ -358,63 +512,198 @@ export default function EditableText({
     ? {} // 편집 중엔 React가 자식 제어 안 함 (contentEditable이 사용자 입력 직접 처리)
     : { dangerouslySetInnerHTML: { __html: mergedHtml || escapeHtml(placeholder || '') } };
 
+  // 🆕 (2026-05-03) 편집 모드 렌더링
+  // - frame 이 있으면 wrapper(absolute 또는 relative)로 감싸 width/height/x/y 적용
+  // - frame 이 없으면 기존 동작 유지 (Tag 자체에 transform offset 적용)
+  // - 활성(showToolbar/isEditing/hovering) 시 8개 리사이즈 핸들 + 크기 라벨 표시
+  const showHandles = !!frame && (showToolbar || isEditing || hovering);
+  const wrapperBaseStyle = frame
+    ? {
+        position: 'relative',
+        display: 'inline-block',
+        width: frame.width,
+        height: frame.height,
+        transform: `translate(${(offset.x || 0) + (frame.x || 0)}px, ${(offset.y || 0) + (frame.y || 0)}px)`,
+        zIndex: textZIndex,
+        verticalAlign: 'top',
+      }
+    : {
+        position: 'relative',
+        display: 'inline-block',
+        zIndex: textZIndex,
+        verticalAlign: 'top',
+      };
+
+  const innerTextStyle = frame
+    ? {
+        ...mergedStyle,
+        ...style,
+        whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
+        // 🆕 박스 안에 정확히 맞춤 — 폭 자동 줄바꿈, 높이 넘치면 잘림
+        width: '100%',
+        height: '100%',
+        margin: 0,
+        outline: outlineStyle,
+        outlineOffset: 0,
+        cursor: isEditing ? 'text' : 'pointer',
+        userSelect: isEditing ? 'text' : 'none',
+        backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
+        transition: 'background-color 0.15s, outline-color 0.15s',
+        overflow: 'hidden',
+        wordBreak: 'break-word',
+        overflowWrap: 'break-word',
+        boxSizing: 'border-box',
+      }
+    : {
+        ...mergedStyle,
+        ...style,
+        whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
+        transform: `translate(${offset.x}px, ${offset.y}px)`,
+        outline: outlineStyle,
+        outlineOffset: 2,
+        cursor: isEditing ? 'text' : 'pointer',
+        position: 'relative',
+        userSelect: isEditing ? 'text' : 'none',
+        backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
+        transition: 'background-color 0.15s, outline-color 0.15s',
+      };
+
+  const onKeyDownHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      ref.current?.blur();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode('\n');
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+
+  // frame 이 없을 때는 기존 구조 유지 (단일 Tag)
+  if (!frame) {
+    return (
+      <>
+        <Tag
+          ref={ref}
+          data-editable="true"
+          className={className}
+          contentEditable={isEditing}
+          suppressContentEditableWarning
+          onDoubleClick={startEditing}
+          onClick={handleClick}
+          onBlur={finishEditing}
+          onMouseDown={handleMouseDown}
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+          onKeyDown={onKeyDownHandler}
+          title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료, 드래그 선택: 부분 서식)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
+          style={{ ...innerTextStyle, zIndex: textZIndex }}
+          {...editableProps}
+        />
+        {/* 🆕 (2026-05-03) "📐 박스 크기 조정" 버튼 제거 — editMode 진입 시 frame 이 자동 생성되므로
+            사용자에게 별도 UI 노출 없이 바로 8개 핸들로 박스 크기 조정 가능 */}
+        {showToolbar && (
+          <MiniToolbar
+            pos={toolbarPos}
+            currentStyle={mergedStyle}
+            onApply={applyStyle}
+            onReset={resetStyle}
+            onClose={() => setShowToolbar(false)}
+          />
+        )}
+        {isEditing && inlineToolbar.show && (
+          <InlineToolbar pos={inlineToolbar} onApply={applyInline} />
+        )}
+      </>
+    );
+  }
+
+  // frame 이 있을 때 — wrapper + 리사이즈 핸들 + 크기 라벨
   return (
     <>
-      <Tag
-        ref={ref}
+      <span
+        ref={wrapperRef}
         data-editable="true"
         className={className}
-        contentEditable={isEditing}
-        suppressContentEditableWarning
-        onDoubleClick={startEditing}
-        onClick={handleClick}
-        onBlur={finishEditing}
-        onMouseDown={handleMouseDown}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            ref.current?.blur();
-            return;
-          }
-          // 🆕 Enter 키 → 줄바꿈 허용 (Shift+Enter는 단락, Enter도 단순 줄바꿈)
-          //   기본 contentEditable의 Enter 동작이 브라우저마다 다름(<div>/<br>/<p>)
-          //   → 일관성을 위해 \n 문자를 직접 삽입해 innerText에 \n 으로 저장되게 함
-          //   (PNG 캡처/화면 표시 시 whiteSpace: pre-wrap 으로 줄바꿈됨)
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            // 현재 선택 영역에 \n 삽입
-            const sel = window.getSelection();
-            if (!sel || sel.rangeCount === 0) return;
-            const range = sel.getRangeAt(0);
-            range.deleteContents();
-            const textNode = document.createTextNode('\n');
-            range.insertNode(textNode);
-            // 커서를 \n 뒤로 이동
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        }}
-        title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료, 드래그 선택: 부분 서식)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
-        style={{
-          ...mergedStyle,
-          ...style,
-          // 🆕 편집 모드에서도 줄바꿈(\n) 표시 유지
-          whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
-          transform: `translate(${offset.x}px, ${offset.y}px)`,
-          outline: outlineStyle,
-          outlineOffset: 2,
-          cursor: isEditing ? 'text' : 'pointer',
-          position: 'relative',
-          userSelect: isEditing ? 'text' : 'none',
-          backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
-          transition: 'background-color 0.15s, outline-color 0.15s',
-        }}
-        {...editableProps}
-      />
+        style={wrapperBaseStyle}
+      >
+        <Tag
+          ref={ref}
+          contentEditable={isEditing}
+          suppressContentEditableWarning
+          onDoubleClick={startEditing}
+          onClick={handleClick}
+          onBlur={finishEditing}
+          onMouseDown={handleMouseDown}
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+          onKeyDown={onKeyDownHandler}
+          title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동 · 핸들 드래그: 박스 크기'}
+          style={innerTextStyle}
+          {...editableProps}
+        />
+
+        {/* 🆕 8개 리사이즈 핸들 */}
+        {showHandles && RESIZE_HANDLES.map((hd) => (
+          <div
+            key={hd.id}
+            data-handle="true"
+            onMouseDown={(e) => handleResizeStart(e, hd.id)}
+            style={{
+              position: 'absolute',
+              ...hd.style,
+              width: 12, height: 12,
+              backgroundColor: '#3b82f6',
+              border: '2px solid #fff',
+              borderRadius: 3,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              cursor: hd.cursor,
+              zIndex: 100001,
+            }}
+          />
+        ))}
+
+        {/* 🆕 크기 라벨 */}
+        {showHandles && (
+          <div
+            data-edit-ui="size-label"
+            style={{
+              position: 'absolute',
+              right: 4, top: -22,
+              backgroundColor: 'rgba(30,41,59,0.85)', color: '#fff',
+              padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 800,
+              zIndex: 100001, pointerEvents: 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            {Math.round(frame.width)} × {Math.round(frame.height)}
+          </div>
+        )}
+
+        {/* 🆕 스냅 가이드 라인 */}
+        {snapLine && (
+          <div
+            data-edit-ui="snap-line"
+            style={{
+              position: 'absolute',
+              left: snapLine === 'left' ? 0 : (snapLine === 'right' ? '100%' : '50%'),
+              top: -8, bottom: -8, width: 2,
+              backgroundColor: '#f59e0b',
+              transform: snapLine === 'center' ? 'translateX(-50%)' : (snapLine === 'right' ? 'translateX(-100%)' : 'none'),
+              pointerEvents: 'none', zIndex: 100000,
+            }}
+          />
+        )}
+      </span>
 
       {showToolbar && (
         <MiniToolbar
@@ -423,17 +712,50 @@ export default function EditableText({
           onApply={applyStyle}
           onReset={resetStyle}
           onClose={() => setShowToolbar(false)}
+          onResetFrame={() => onChange({ frame: null })}
         />
       )}
 
-      {/* 🆕 인라인 툴바 — 선택 부분만 서식 변경 */}
       {isEditing && inlineToolbar.show && (
-        <InlineToolbar
-          pos={inlineToolbar}
-          onApply={applyInline}
-        />
+        <InlineToolbar pos={inlineToolbar} onApply={applyInline} />
       )}
     </>
+  );
+}
+
+// 🆕 frame 이 없는 글박스에 hover 시 우측 상단에 표시되는 "📐 박스 활성화" 버튼
+// 클릭하면 현재 렌더된 크기를 frame 으로 저장 → 리사이즈 핸들 사용 가능
+function ActivateFrameButton({ anchorRef, onClick }) {
+  const [pos, setPos] = useState(null);
+  useEffect(() => {
+    if (!anchorRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    setPos({ top: r.top + 4, left: r.right - 100 });
+  }, [anchorRef]);
+  if (!pos) return null;
+  return (
+    <button
+      data-edit-ui="activate-frame"
+      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
+      style={{
+        position: 'fixed',
+        top: pos.top, left: pos.left,
+        backgroundColor: '#1e293b',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 4,
+        padding: '4px 8px',
+        fontSize: 10,
+        fontWeight: 700,
+        cursor: 'pointer',
+        zIndex: 100001,
+        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+      }}
+      title="이 글박스의 크기를 조정 가능하게 활성화"
+    >
+      📐 박스 크기 조정
+    </button>
   );
 }
 
@@ -472,7 +794,7 @@ function readSelectionFontSize(sel) {
 }
 
 // ─────────── 셀 전체 툴바 (기존) ───────────
-function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
+function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose, onResetFrame }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
 
   return (
@@ -585,6 +907,17 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
       >
         ↺
       </button>
+
+      {/* 🆕 박스 크기 초기화 (frame 이 있을 때만) */}
+      {onResetFrame && (
+        <button
+          style={{ ...toolbarBtnStyle, backgroundColor: '#0f766e', fontSize: 11 }}
+          onClick={onResetFrame}
+          title="박스 크기 초기화 (자동 크기로)"
+        >
+          📐↺
+        </button>
+      )}
 
       {/* 닫기 */}
       <button style={toolbarBtnStyle} onClick={onClose} title="툴바 닫기">

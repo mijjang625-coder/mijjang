@@ -525,6 +525,13 @@ export default function App() {
         if (z !== undefined) updateImageOverride(pageNum, l.id, { zIndex: z });
       }
     });
+    // 🆕 (2026-05-03) 글박스(text) z-index 는 textOverrides 에 기록
+    orderedFromTop.forEach((l) => {
+      if (l.kind === 'text') {
+        const z = zMap[`text:${l.id}`];
+        if (z !== undefined) updateTextOverride(pageNum, l.id, { zIndex: z });
+      }
+    });
   };
 
   // 페이지의 현재 모든 레이어를 z-index 내림차순(앞→뒤) 으로 반환
@@ -557,7 +564,16 @@ export default function App() {
       id: s.id,
       zIndex: s.zIndex ?? 700,
     }));
-    return [...mains, ...free, ...inlineList, ...shapeList].sort((a, b) => b.zIndex - a.zIndex);
+    // 🆕 (2026-05-03) 글박스(text) — textOverrides 에서 추출
+    // 기본 z-index 10000 (모든 이미지/도형보다 위)
+    const textList = Object.entries(textOverrides[pageNum] || {})
+      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset))
+      .map(([id, ov]) => ({
+        kind: 'text',
+        id,
+        zIndex: ov.zIndex ?? 10000,
+      }));
+    return [...mains, ...free, ...inlineList, ...shapeList, ...textList].sort((a, b) => b.zIndex - a.zIndex);
   };
 
   // 단건 레이어 액션: front/back/forward/backward

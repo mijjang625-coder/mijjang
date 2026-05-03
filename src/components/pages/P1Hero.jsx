@@ -121,6 +121,22 @@ export default function P1Hero({
         zIndex: s.zIndex ?? 700,
       };
     }),
+    // 🆕 (2026-05-03) 글박스 레이어 — overrides 에서 frame/zIndex 가 있는 항목만 추출
+    ...Object.entries(overrides || {})
+      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset))
+      .map(([id, ov]) => {
+        // id 가 'P1.mainHeadline' 형태 → 마지막 토큰을 보여주기 좋게 변환
+        const shortId = id.split('.').slice(1).join('.') || id;
+        const def = `🅰 글박스: ${shortId}`;
+        return {
+          kind: 'text',
+          id,
+          defaultName: def,
+          label: layerNames[id] || def,
+          textPreview: (ov.text || '').slice(0, 24),
+          zIndex: ov.zIndex ?? 10000,
+        };
+      }),
   ].sort((a, b) => b.zIndex - a.zIndex);
 
   const handleLayerAction = (layer, action) => {
