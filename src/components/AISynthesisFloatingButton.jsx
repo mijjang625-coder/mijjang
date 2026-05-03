@@ -43,14 +43,14 @@ export default function AISynthesisFloatingButton({
 
   return (
     <>
-      {/* 🎨 플로팅 버튼 — '도형 추가'(top:272) 바로 밑 (top:330) */}
+      {/* 🎨 플로팅 버튼 — '레이어'(top:324) 바로 밑 (top:376) */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         title="단품 사진 → AI 합성으로 다양한 연출컷 생성 (배경교체 / 사용장면 / Before/After / 손에쥔컷)"
         style={{
           position: 'fixed',
-          right: 24, top: 330,
+          right: 24, top: 376,
           zIndex: 9999,
           backgroundColor: open ? '#C2410C' : '#E87A2B',
           color: '#fff',
@@ -65,7 +65,7 @@ export default function AISynthesisFloatingButton({
           gap: 6,
         }}
       >
-        🎨 AI 합성
+        🎨 AI 수정
         <span style={{
           backgroundColor: '#fef3c7',
           color: '#92400e',

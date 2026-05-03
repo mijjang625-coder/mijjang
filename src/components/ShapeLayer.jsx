@@ -141,24 +141,41 @@ export default function ShapeLayer({
       )}
 
       {/* 도형 렌더 */}
-      {shapes.map((shape) => (
-        <Shape
-          key={shape.id}
-          shape={shape}
-          editMode={editMode}
-          isActive={activeLayerId === `shape:${shape.id}`}
-          onActivate={() => onSetActiveLayer(`shape:${shape.id}`)}
-          onUpdate={(partial) => onUpdateShape(shape.id, partial)}
-          onDelete={() => onDeleteShape(shape.id)}
-          onChangeLayer={(action) => onChangeShapeLayer(shape.id, action)}
-        />
-      ))}
+      {shapes.map((shape) => {
+        // 🆕 (2026-05-03) 가시성 토글 — visibility:hidden (PNG 캡처에도 반영)
+        if (shape.hidden) {
+          return (
+            <div key={shape.id} aria-hidden="true" style={{ visibility: 'hidden' }}>
+              <Shape
+                shape={shape}
+                editMode={false}
+                isActive={false}
+                onUpdate={() => {}}
+                onDelete={() => {}}
+                onChangeLayer={() => {}}
+              />
+            </div>
+          );
+        }
+        return (
+          <Shape
+            key={shape.id}
+            shape={shape}
+            editMode={editMode}
+            isActive={activeLayerId === `shape:${shape.id}`}
+            onActivate={() => onSetActiveLayer(`shape:${shape.id}`)}
+            onUpdate={(partial) => onUpdateShape(shape.id, partial)}
+            onDelete={() => onDeleteShape(shape.id)}
+            onChangeLayer={(action) => onChangeShapeLayer(shape.id, action)}
+          />
+        );
+      })}
 
       {/* 🟦 도형 추가 버튼 + 패널 — 편집모드에서만 (fixed 로 화면 우측에 고정) */}
       {editMode && (
         <div ref={pickerRef} style={{
           position: 'fixed',
-          right: 24, top: 272,
+          right: 24, top: 220,
           zIndex: 100000,
         }}>
           <button

@@ -4,6 +4,7 @@ import { PageFrame, Img, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import FreeImage from '../FreeImage.jsx';
+import FreeText from '../FreeText.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
 
 // P1: 메인 히어로 + 강점 카드 3개
@@ -22,6 +23,11 @@ export default function P1Hero({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  // 📝 자유 글박스 props
+  freeTexts = [],
+  onAddFreeText = () => {},
+  onUpdateFreeText = () => {},
+  onDeleteFreeText = () => {},
   // 🟦 도형 레이어 props
   shapes = [],
   onAddShape = () => {},
@@ -30,6 +36,7 @@ export default function P1Hero({
   onChangeLayer = () => {},
   onChangeLayerKind = null, // (kind, id, action, mainLayers) => void
   onReorderLayers = () => {},
+  onToggleLayerVisibility = () => {},
   layerNames = {},
   onSetLayerName = () => {},
   activeLayerId = null,
@@ -96,6 +103,7 @@ export default function P1Hero({
       label: layerNames[m.id] || m.defaultName,
       src: imageOverrides[m.id]?.src || image,
       zIndex: imageOverrides[m.id]?.zIndex ?? m.defaultZ,
+      hidden: !!imageOverrides[m.id]?.hidden,
     })),
     ...(freeImages || []).map((it, i) => {
       const def = `📷 추가 사진 ${i + 1}`;
@@ -106,6 +114,7 @@ export default function P1Hero({
         label: layerNames[it.id] || def,
         src: it.src,
         zIndex: it.zIndex ?? 1,
+        hidden: !!it.hidden,
       };
     }),
     // 🟦 도형 레이어
@@ -119,6 +128,20 @@ export default function P1Hero({
         shapeType: s.type,
         shapeColor: s.stroke || s.fill || '#a855f7',
         zIndex: s.zIndex ?? 700,
+        hidden: !!s.hidden,
+      };
+    }),
+    // 🆕 (2026-05-03) 자유 글박스 레이어 (FreeText)
+    ...(freeTexts || []).map((it, i) => {
+      const def = `📝 자유 글박스 ${i + 1}`;
+      return {
+        kind: 'freetext',
+        id: it.id,
+        defaultName: def,
+        label: layerNames[it.id] || def,
+        textPreview: (it.text || it.html || '').replace(/<[^>]*>/g, '').slice(0, 24),
+        zIndex: it.zIndex ?? 10000,
+        hidden: !!it.hidden,
       };
     }),
     // 🆕 (2026-05-03) 글박스 레이어 — overrides 에서 frame/zIndex 가 있는 항목만 추출
@@ -135,6 +158,7 @@ export default function P1Hero({
           label: layerNames[id] || def,
           textPreview: (ov.text || '').slice(0, 24),
           zIndex: ov.zIndex ?? 10000,
+          hidden: !!ov.hidden,
         };
       }),
   ].sort((a, b) => b.zIndex - a.zIndex);
@@ -258,6 +282,8 @@ export default function P1Hero({
             position: 'relative',
             zIndex: mainZ,
             borderRadius: 22,
+            // 🆕 (2026-05-03) 메인 이미지 가시성 토글 (PNG 캡처에도 반영)
+            visibility: imageOverrides['P1.heroImage']?.hidden ? 'hidden' : 'visible',
           }}
         >
           <EditableImage
@@ -398,6 +424,23 @@ export default function P1Hero({
       {/* ─── 자유 배치 이미지 캠버스 (절대 위치) ─── */}
       {(freeImages || []).map((item) => {
         const itemActive = isLayerActive('free', item.id);
+        // 🆕 (2026-05-03) 가시성 토글 — visibility:hidden (PNG 캡처에도 반영)
+        if (item.hidden) {
+          return (
+            <div key={item.id} aria-hidden="true" style={{ visibility: 'hidden' }}>
+              <FreeImage
+                item={{ ...item, galleryImages: validImages }}
+                editMode={false}
+                isActive={false}
+                hasActiveOther={false}
+                canvasWidth={780}
+                onUpdate={() => {}}
+                onDelete={() => {}}
+                onChangeLayer={() => {}}
+              />
+            </div>
+          );
+        }
         return (
           <FreeImage
             key={item.id}
@@ -414,10 +457,40 @@ export default function P1Hero({
         );
       })}
 
+      {/* ─── 📝 자유 글박스 (position: absolute, 페이지 흐름 영향 없음) ─── */}
+      {(freeTexts || []).map((item) => {
+        // 🆕 (2026-05-03) 가시성 토글 — visibility:hidden (PNG 캡처에도 반영)
+        if (item.hidden) {
+          return (
+            <div key={item.id} aria-hidden="true" style={{ visibility: 'hidden' }}>
+              <FreeText
+                item={item}
+                editMode={false}
+                canvasWidth={780}
+                onUpdate={() => {}}
+                onDelete={() => {}}
+                onChangeLayer={() => {}}
+              />
+            </div>
+          );
+        }
+        return (
+          <FreeText
+            key={item.id}
+            item={item}
+            editMode={editMode}
+            canvasWidth={780}
+            onUpdate={(partial) => onUpdateFreeText(item.id, partial)}
+            onDelete={() => onDeleteFreeText(item.id)}
+            onChangeLayer={(action) => handleLayerAction({ kind: 'freetext', id: item.id }, action)}
+          />
+        );
+      })}
+
       {/* ─── 플로팅 버튼 영역 (편집모드에서만) ─── */}
       {editMode && (
         <>
-          {/* 사진 추가 버튼 — fixed: 화면 우측 상단 (P2~P10 공통과 통일) */}
+          {/* 사진 추가 — 단독 (top:168) */}
           <button
             onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
             style={{
@@ -459,13 +532,53 @@ export default function P1Hero({
             )}
           </button>
 
-          {/* 레이어 패널 토글 버튼 — fixed: 사진 추가 바로 밑 */}
+          {/* 📝 글박스 추가 — top:272 (도형 추가 바로 아래) */}
+          <button
+            onClick={() => onAddFreeText()}
+            style={{
+              position: 'fixed',
+              right: 24,
+              top: 272,
+              zIndex: 9999,
+              backgroundColor: '#f59e0b',
+              color: '#fff',
+              border: '2px solid #fff',
+              padding: '8px 12px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
+          >
+            📝 글박스 추가
+            {(freeTexts || []).length > 0 && (
+              <span
+                style={{
+                  backgroundColor: '#fff',
+                  color: '#f59e0b',
+                  borderRadius: 999,
+                  padding: '1px 6px',
+                  fontSize: 10,
+                  fontWeight: 900,
+                }}
+              >
+                {freeTexts.length}
+              </span>
+            )}
+          </button>
+
+          {/* 레이어 패널 토글 버튼 — fixed: top:324 (글박스 추가 바로 밑) */}
           <button
             onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
             style={{
               position: 'fixed',
               right: 24,
-              top: 220,
+              top: 324,
               zIndex: 9999,
               backgroundColor: showLayers ? '#1e293b' : '#475569',
               color: '#fff',
@@ -573,11 +686,29 @@ export default function P1Hero({
                     backgroundColor: isItemActive ? '#fffbeb'
                           : layer.kind === 'main' ? '#eff6ff'
                           : '#fafaf9',
-                    opacity: dragIdx === idx ? 0.4 : 1,
+                    opacity: dragIdx === idx ? 0.4 : (layer.hidden ? 0.55 : 1),
                     cursor: isEditingName ? 'text' : 'grab',
                     transition: 'border-color 0.1s, background-color 0.1s',
                   }}
                 >
+                  {/* 🆕 (2026-05-03) 가시성 토글 — 포토샵 방식 (PNG 캡처에도 반영) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleLayerVisibility(layer.kind, layer.id);
+                    }}
+                    title={layer.hidden ? '레이어 보이기' : '레이어 숨기기 (PNG에도 반영됨)'}
+                    style={{
+                      width: 22, height: 22, flexShrink: 0,
+                      border: '1px solid ' + (layer.hidden ? '#cbd5e1' : '#bae6fd'),
+                      backgroundColor: layer.hidden ? '#f1f5f9' : '#eff6ff',
+                      borderRadius: 4, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, lineHeight: 1, padding: 0,
+                    }}
+                  >
+                    {layer.hidden ? '🚫' : '👁'}
+                  </button>
                   {/* 드래그 핸들 */}
                   <div style={{
                     fontSize: 14,

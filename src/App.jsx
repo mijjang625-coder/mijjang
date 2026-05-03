@@ -178,6 +178,12 @@ export default function App() {
   //   slot == null  → 자유 위치 (기존 동작, 자유사진끼리 자유롭게 배치/겹침)
   const [freeImages, setFreeImages] = useState({});
 
+  // 📝 페이지별 자유 글박스 (자유 위치 — position: absolute)
+  // { P1: [{ id, x, y, width, height, html, text, style, zIndex }, ...] }
+  // - "📝 글박스 추가" 버튼으로 추가됨
+  // - 페이지 normal flow 에 영향 없음 — 크기를 늘려도 사진/다른 요소가 밀리지 않음
+  const [freeTexts, setFreeTexts] = useState({});
+
   // 🟦 페이지별 도형 (사각형, 원, 선, 화살표, 하이라이트)
   // { P1: [{ id, type, x, y, w, h, stroke, strokeWidth, fill, opacity, zIndex }, ...] }
   // type: 'rect' | 'circle' | 'line' | 'arrow' | 'highlight'
@@ -202,6 +208,7 @@ export default function App() {
     textOverrides: {},
     imageOverrides: {},
     freeImages: {},
+    freeTexts: {},
     shapes: {},
     layerNames: {},
   });
@@ -213,6 +220,7 @@ export default function App() {
       textOverrides: setTextOverrides,
       imageOverrides: setImageOverrides,
       freeImages: setFreeImages,
+      freeTexts: setFreeTexts,
       shapes: setShapes,
       layerNames: setLayerNames,
     });
@@ -224,9 +232,10 @@ export default function App() {
     textOverrides,
     imageOverrides,
     freeImages,
+    freeTexts,
     shapes,
     layerNames,
-  }), [pages, textOverrides, imageOverrides, freeImages, shapes, layerNames]);
+  }), [pages, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames]);
 
   // 키보드 단축키 등록 (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z)
   useUndoRedoKeyboard(undoHistory.undo, undoHistory.redo);
@@ -396,6 +405,67 @@ export default function App() {
     });
   };
 
+  // ─── 📝 자유 글박스 CRUD ───────────────────────────────────────────
+  // 📝 자유 글박스 추가 — "글박스 추가" 버튼으로 호출
+  // - 페이지 위쪽에 기본 크기로 생성
+  // - 같은 위치에 이미 글박스가 있으면 비스듬히 쌓아 겹침 표시
+  const addFreeText = (pageNum) => {
+    pushHistory(`${pageNum} 글박스 추가`);
+    setFreeTexts((prev) => {
+      const list = prev[pageNum] || [];
+      const id = 'freetext_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+      const NEW_W = 280;
+      const NEW_H = 60;
+      const PAGE_W = 780;
+      const baseX = Math.round((PAGE_W - NEW_W) / 2);
+      const BASE_Y = 100;
+      const occupied = list.filter((it) => Math.abs((it.y || 0) - BASE_Y) < 50).length;
+      const x = baseX + occupied * 30;
+      const y = BASE_Y + occupied * 30;
+      const newItem = {
+        id,
+        x, y,
+        width: NEW_W,
+        height: NEW_H,
+        html: '글씨를 입력하세요',
+        text: '글씨를 입력하세요',
+        style: {
+          fontSize: 18,
+          fontWeight: 700,
+          color: '#2F2A26',
+          textAlign: 'center',
+          fontFamily: "'NanumSquare','나눔스퀘어',system-ui,-apple-system,sans-serif",
+        },
+        zIndex: 10000 + list.length, // 모든 이미지/도형보다 앞
+      };
+      return { ...prev, [pageNum]: [...list, newItem] };
+    });
+  };
+
+  // 자유 글박스 업데이트 (위치/크기/내용/스타일/z-index)
+  const updateFreeText = (pageNum, id, partial) => {
+    pushHistoryDebounced(`freetext.${pageNum}.${id}`, `${pageNum} 글박스 편집`);
+    setFreeTexts((prev) => {
+      const list = prev[pageNum] || [];
+      return {
+        ...prev,
+        [pageNum]: list.map((it) => (it.id === id ? { ...it, ...partial } : it)),
+      };
+    });
+  };
+
+  // 자유 글박스 삭제
+  const deleteFreeText = (pageNum, id) => {
+    pushHistory(`${pageNum} 글박스 삭제`);
+    setFreeTexts((prev) => {
+      const list = prev[pageNum] || [];
+      return {
+        ...prev,
+        [pageNum]: list.filter((it) => it.id !== id),
+      };
+    });
+  };
+
   // ─── 🟦 도형 CRUD ─────────────────────────────────────────────────
   // 도형 추가
   // - geometry 인자가 있으면 사용자가 드래그한 위치/크기로 생성 (Photoshop 방식)
@@ -518,18 +588,19 @@ export default function App() {
       });
       return { ...prev, [pageNum]: list };
     });
+    // 🆕 (2026-05-03) 자유 글박스(freetext) z-index 일괄 적용
+    setFreeTexts((prev) => {
+      const list = (prev[pageNum] || []).map((it) => {
+        const z = zMap[`freetext:${it.id}`];
+        return z !== undefined ? { ...it, zIndex: z } : it;
+      });
+      return { ...prev, [pageNum]: list };
+    });
     // 메인 사진들 z-index는 imageOverrides 에 기록
     orderedFromTop.forEach((l) => {
       if (l.kind === 'main') {
         const z = zMap[`main:${l.id}`];
         if (z !== undefined) updateImageOverride(pageNum, l.id, { zIndex: z });
-      }
-    });
-    // 🆕 (2026-05-03) 글박스(text) z-index 는 textOverrides 에 기록
-    orderedFromTop.forEach((l) => {
-      if (l.kind === 'text') {
-        const z = zMap[`text:${l.id}`];
-        if (z !== undefined) updateTextOverride(pageNum, l.id, { zIndex: z });
       }
     });
   };
@@ -564,16 +635,13 @@ export default function App() {
       id: s.id,
       zIndex: s.zIndex ?? 700,
     }));
-    // 🆕 (2026-05-03) 글박스(text) — textOverrides 에서 추출
-    // 기본 z-index 10000 (모든 이미지/도형보다 위)
-    const textList = Object.entries(textOverrides[pageNum] || {})
-      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset))
-      .map(([id, ov]) => ({
-        kind: 'text',
-        id,
-        zIndex: ov.zIndex ?? 10000,
-      }));
-    return [...mains, ...free, ...inlineList, ...shapeList, ...textList].sort((a, b) => b.zIndex - a.zIndex);
+    // 🆕 (2026-05-03) 자유 글박스(freetext) — 기본 z-index 10000 (모든 이미지/도형보다 위)
+    const freeTextList = (freeTexts[pageNum] || []).map((it) => ({
+      kind: 'freetext',
+      id: it.id,
+      zIndex: it.zIndex ?? 10000,
+    }));
+    return [...mains, ...free, ...inlineList, ...shapeList, ...freeTextList].sort((a, b) => b.zIndex - a.zIndex);
   };
 
   // 단건 레이어 액션: front/back/forward/backward
@@ -606,6 +674,48 @@ export default function App() {
   const reorderLayers = (pageNum, newOrder) => {
     if (!Array.isArray(newOrder) || newOrder.length === 0) return;
     applyNormalizedZ(pageNum, newOrder);
+  };
+
+  // 🆕 (2026-05-03) 레이어 가시성 토글 — 포토샵 방식 눈 아이콘
+  // kind: 'main' | 'free' | 'inline' | 'shape' | 'freetext'
+  // hidden:true 면 visibility:hidden — PNG 캡처에도 그대로 반영됨
+  const toggleLayerVisibility = (pageNum, kind, id) => {
+    pushHistory(`${pageNum} 레이어 가시성 토글`);
+    if (kind === 'main') {
+      setImageOverrides((prev) => {
+        const pagePrev = prev[pageNum] || {};
+        const itemPrev = pagePrev[id] || {};
+        const nextHidden = !itemPrev.hidden;
+        return {
+          ...prev,
+          [pageNum]: { ...pagePrev, [id]: { ...itemPrev, hidden: nextHidden } },
+        };
+      });
+    } else if (kind === 'free' || kind === 'inline') {
+      setFreeImages((prev) => {
+        const list = prev[pageNum] || [];
+        return {
+          ...prev,
+          [pageNum]: list.map((it) => (it.id === id ? { ...it, hidden: !it.hidden } : it)),
+        };
+      });
+    } else if (kind === 'shape') {
+      setShapes((prev) => {
+        const list = prev[pageNum] || [];
+        return {
+          ...prev,
+          [pageNum]: list.map((it) => (it.id === id ? { ...it, hidden: !it.hidden } : it)),
+        };
+      });
+    } else if (kind === 'freetext') {
+      setFreeTexts((prev) => {
+        const list = prev[pageNum] || [];
+        return {
+          ...prev,
+          [pageNum]: list.map((it) => (it.id === id ? { ...it, hidden: !it.hidden } : it)),
+        };
+      });
+    }
   };
 
   // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
@@ -706,6 +816,7 @@ export default function App() {
           if (saved.textOverrides) setTextOverrides(saved.textOverrides);
           if (saved.imageOverrides) setImageOverrides(saved.imageOverrides);
           if (saved.freeImages) setFreeImages(saved.freeImages);
+          if (saved.freeTexts) setFreeTexts(saved.freeTexts);
           if (saved.shapes) setShapes(saved.shapes);
           if (saved.layerNames) setLayerNames(saved.layerNames);
           if (saved.p5Version) setP5Version(saved.p5Version);
@@ -717,6 +828,7 @@ export default function App() {
             textOverrides: saved.textOverrides || {},
             imageOverrides: saved.imageOverrides || {},
             freeImages: saved.freeImages || {},
+            freeTexts: saved.freeTexts || {},
             shapes: saved.shapes || {},
             layerNames: saved.layerNames || {},
           });
@@ -753,10 +865,10 @@ export default function App() {
     if (!hydrated) return; // 첫 hydration 전에는 저장하지 않음 (덮어쓰기 방지)
     debouncedSaveRef.current({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
     });
   }, [hydrated, brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory]);
+      textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory]);
 
   // 수동 내보내기 (JSON 파일로 다운로드)
   const handleExportProject = useCallback(() => {
@@ -765,9 +877,9 @@ export default function App() {
     const filename = `coupang-${productName}-${stamp}.json`;
     downloadProjectJSON({
       brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory,
+      textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
     }, filename);
-  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, shapes, layerNames, p5Version, revisionHistory]);
+  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory]);
 
   // 수동 불러오기 (JSON 파일 입력)
   const fileInputRef = useRef(null);
@@ -784,6 +896,7 @@ export default function App() {
       setTextOverrides(data.textOverrides || {});
       setImageOverrides(data.imageOverrides || {});
       setFreeImages(data.freeImages || {});
+      setFreeTexts(data.freeTexts || {});
       setShapes(data.shapes || {});
       setLayerNames(data.layerNames || {});
       setP5Version(data.p5Version || 'text');
@@ -794,6 +907,7 @@ export default function App() {
         textOverrides: data.textOverrides || {},
         imageOverrides: data.imageOverrides || {},
         freeImages: data.freeImages || {},
+        freeTexts: data.freeTexts || {},
         shapes: data.shapes || {},
         layerNames: data.layerNames || {},
       });
@@ -819,6 +933,7 @@ export default function App() {
     setTextOverrides({});
     setImageOverrides({});
     setFreeImages({});
+    setFreeTexts({});
     setLayerNames({});
     setP5Version('text');
     setRevisionHistory({});
@@ -1962,6 +2077,10 @@ export default function App() {
                     onAddFreeImageToSlot={(slot, src) => addFreeImageToSlot(currentPage, slot, src)}
                     onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
                     onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
+                    freeTexts={freeTexts[currentPage] || []}
+                    onAddFreeText={() => addFreeText(currentPage)}
+                    onUpdateFreeText={(id, partial) => updateFreeText(currentPage, id, partial)}
+                    onDeleteFreeText={(id) => deleteFreeText(currentPage, id)}
                     shapes={shapes[currentPage] || []}
                     onAddShape={(type, geometry) => addShape(currentPage, type, geometry)}
                     onUpdateShape={(id, partial) => updateShape(currentPage, id, partial)}
@@ -1971,6 +2090,7 @@ export default function App() {
                       changeLayerNormalized(currentPage, kind, id, action, mainLayers)
                     }
                     onReorderLayers={(newOrder) => reorderLayers(currentPage, newOrder)}
+                    onToggleLayerVisibility={(kind, id) => toggleLayerVisibility(currentPage, kind, id)}
                     layerNames={layerNames[currentPage] || {}}
                     onSetLayerName={(layerId, name) => setLayerName(currentPage, layerId, name)}
                     activeLayerId={activeLayerId}
@@ -2117,6 +2237,10 @@ export default function App() {
                         onAddFreeImageToSlot={() => {}}
                         onUpdateFreeImage={() => {}}
                         onDeleteFreeImage={() => {}}
+                        freeTexts={freeTexts[pageKey] || []}
+                        onAddFreeText={() => {}}
+                        onUpdateFreeText={() => {}}
+                        onDeleteFreeText={() => {}}
                         shapes={shapes[pageKey] || []}
                         onAddShape={() => {}}
                         onUpdateShape={() => {}}
@@ -2124,6 +2248,7 @@ export default function App() {
                         onChangeLayer={() => {}}
                         onChangeLayerKind={() => {}}
                         onReorderLayers={() => {}}
+                        onToggleLayerVisibility={() => {}}
                         layerNames={layerNames[pageKey] || {}}
                         onSetLayerName={() => {}}
                         activeLayerId={null}
@@ -2222,6 +2347,10 @@ export default function App() {
                 onAddFreeImageToSlot={() => {}}
                 onUpdateFreeImage={() => {}}
                 onDeleteFreeImage={() => {}}
+                freeTexts={freeTexts[p] || []}
+                onAddFreeText={() => {}}
+                onUpdateFreeText={() => {}}
+                onDeleteFreeText={() => {}}
                 shapes={shapes[p] || []}
                 onAddShape={() => {}}
                 onUpdateShape={() => {}}
@@ -2229,6 +2358,7 @@ export default function App() {
                 onChangeLayer={() => {}}
                 onChangeLayerKind={() => {}}
                 onReorderLayers={() => {}}
+                onToggleLayerVisibility={() => {}}
                 layerNames={layerNames[p] || {}}
                 onSetLayerName={() => {}}
                 activeLayerId={null}

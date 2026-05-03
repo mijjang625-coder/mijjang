@@ -46,6 +46,7 @@ export function useFreeImageLayer({
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
+  onToggleLayerVisibility = () => {},
   onSetLayerName = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
@@ -82,6 +83,7 @@ export function useFreeImageLayer({
       label: layerNames[m.id] || m.defaultName,
       src: imageOverrides[m.id]?.src || image,
       zIndex: imageOverrides[m.id]?.zIndex ?? m.defaultZ ?? 1,
+      hidden: !!imageOverrides[m.id]?.hidden,
     })),
     ...(freeImages || []).map((it, i) => {
       const def = `📷 자유사진 ${i + 1}`;
@@ -92,6 +94,7 @@ export function useFreeImageLayer({
         label: layerNames[it.id] || def,
         src: it.src,
         zIndex: it.zIndex ?? 1,
+        hidden: !!it.hidden,
       };
     }),
     ...(inlineImages || []).map((it, i) => {
@@ -105,6 +108,7 @@ export function useFreeImageLayer({
         // 인라인은 본문 흐름이라 zIndex 가 의미는 작지만 표기상 보여주기 위해 인덱스 사용
         zIndex: it.zIndex ?? (500 + i),
         slot: it.slot,
+        hidden: !!it.hidden,
       };
     }),
     ...(shapes || []).map((s, i) => {
@@ -119,6 +123,7 @@ export function useFreeImageLayer({
         shapeType: s.type,
         shapeColor: s.stroke && s.stroke !== 'none' ? s.stroke : (s.fill && s.fill !== 'none' ? s.fill : '#94a3b8'),
         zIndex: s.zIndex ?? 700,
+        hidden: !!s.hidden,
       };
     }),
   ].sort((a, b) => b.zIndex - a.zIndex);
@@ -171,6 +176,28 @@ export function useFreeImageLayer({
   const renderFreeImages = () =>
     (freeImages || []).map((item) => {
       const itemActive = isLayerActive('free', item.id);
+      // 🆕 (2026-05-03) 레이어 숨김(hidden=true) — visibility:hidden 으로 PNG 캡처에도 반영
+      if (item.hidden) {
+        return (
+          <div
+            key={item.id}
+            data-free-image-hidden="true"
+            style={{ visibility: 'hidden' }}
+            aria-hidden="true"
+          >
+            <FreeImage
+              item={{ ...item, galleryImages: validImages }}
+              editMode={false}
+              isActive={false}
+              hasActiveOther={false}
+              canvasWidth={780}
+              onUpdate={() => {}}
+              onDelete={() => {}}
+              onChangeLayer={() => {}}
+            />
+          </div>
+        );
+      }
       return (
         <FreeImage
           key={item.id}
@@ -192,7 +219,7 @@ export function useFreeImageLayer({
     if (!editMode) return null;
     return (
       <>
-        {/* 사진 추가 버튼 — fixed 로 화면 우측에 고정 */}
+        {/* 사진 추가 버튼 — fixed 로 화면 우측에 고정 (top:168) */}
         <button
           onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
           style={{
@@ -214,11 +241,11 @@ export function useFreeImageLayer({
           )}
         </button>
 
-        {/* 레이어 패널 토글 — fixed 로 스크롤과 무관하게 화면 우측에 고정 */}
+        {/* 레이어 패널 토글 — top:324 (도형 추가:220, 글박스 추가:272 다음) */}
         <button
           onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
           style={{
-            position: 'fixed', right: 24, top: 220,
+            position: 'fixed', right: 24, top: 324,
             zIndex: 9999,
             backgroundColor: showLayers ? '#1e293b' : '#475569', color: '#fff',
             border: '2px solid #fff', padding: '8px 12px', borderRadius: 999,
@@ -309,11 +336,29 @@ export function useFreeImageLayer({
                     borderRadius: 6,
                     backgroundColor: isItemActive ? '#fffbeb'
                           : layer.kind === 'main' ? '#eff6ff' : '#fafaf9',
-                    opacity: dragIdx === idx ? 0.4 : 1,
+                    opacity: dragIdx === idx ? 0.4 : (layer.hidden ? 0.55 : 1),
                     cursor: isEditingName ? 'text' : 'grab',
                     transition: 'border-color 0.1s, background-color 0.1s',
                   }}
                 >
+                  {/* 🆕 (2026-05-03) 가시성 토글 — 포토샵 방식 눈 아이콘 (PNG 캡처에도 반영) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleLayerVisibility(layer.kind, layer.id);
+                    }}
+                    title={layer.hidden ? '레이어 보이기' : '레이어 숨기기 (PNG에도 반영됨)'}
+                    style={{
+                      width: 22, height: 22, flexShrink: 0,
+                      border: '1px solid ' + (layer.hidden ? '#cbd5e1' : '#bae6fd'),
+                      backgroundColor: layer.hidden ? '#f1f5f9' : '#eff6ff',
+                      borderRadius: 4, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, lineHeight: 1, padding: 0,
+                    }}
+                  >
+                    {layer.hidden ? '🚫' : '👁'}
+                  </button>
                   <div style={{
                     fontSize: 14, color: '#94a3b8', cursor: 'grab',
                     userSelect: 'none', flexShrink: 0, paddingRight: 2,
