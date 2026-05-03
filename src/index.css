@@ -118,3 +118,43 @@ body {
 .coupang-page.pre-capture div {
   vertical-align: baseline;
 }
+
+/* 🆕 (2026-05-03) 캡처 시 편집 가이드(점선/실선 테두리, outline) 모두 제거
+   ─────────────────────────────────────────────────────────
+   문제: 편집 모드에서 EditableText / EditableImage / FreeImage / ShapeLayer 가
+        inline style 로 outline/border (점선 빨강·파랑·노랑) 를 표시하는데,
+        PNG 캡처 시 그대로 찍혀 나옴.
+   해결: pre-capture 모드에서 inline style 보다 우선순위가 높은 !important 로
+        outline/border 를 강제 제거. 진짜 콘텐츠 테두리(이미지·도형 자체의
+        둥근 모서리/배경) 는 영향받지 않음 — 어차피 inline style은 outline 만 사용.
+   대상:
+     [data-edit-text]   — EditableText  (텍스트 셀)
+     [data-edit-image]  — EditableImage (메인 이미지 프레임)
+     [data-free-image]  — FreeImage     (자유 사진)
+     [data-shape]       — ShapeLayer    (도형 호버/선택 표시)
+     [data-handle]      — 리사이즈 핸들 (혹시 누락된 것 대비)
+     [data-toolbar], [data-inline-toolbar], [data-free-toolbar],
+     [data-shape-toolbar], [data-replace-panel]
+                        — 편집 툴바/패널 (filter 로 이미 제외되지만 안전망)
+*/
+.coupang-page.pre-capture [data-editable],
+.coupang-page.pre-capture [data-edit-text],
+.coupang-page.pre-capture [data-edit-image],
+.coupang-page.pre-capture [data-free-image],
+.coupang-page.pre-capture [data-shape] {
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+}
+
+/* 핸들 / 툴바 / 패널은 캡처에서 완전히 숨김 (filter 외 안전망) */
+.coupang-page.pre-capture [data-handle],
+.coupang-page.pre-capture [data-toolbar],
+.coupang-page.pre-capture [data-inline-toolbar],
+.coupang-page.pre-capture [data-free-toolbar],
+.coupang-page.pre-capture [data-shape-toolbar],
+.coupang-page.pre-capture [data-replace-panel] {
+  display: none !important;
+  visibility: hidden !important;
+}

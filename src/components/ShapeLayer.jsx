@@ -572,6 +572,7 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
   return (
     <div
       ref={wrapRef}
+      data-shape="true"
       onMouseDown={handlePosDragStart}
       style={{
         position: 'absolute',
