@@ -601,12 +601,15 @@ export default function FreeImage({
 
       {/* 크기 표시 */}
       {showHandles && (
-        <div style={{
-          position: 'absolute', right: 4, top: 4,
-          backgroundColor: 'rgba(30,41,59,0.85)', color: '#fff',
-          padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 800,
-          zIndex: 30, pointerEvents: 'none',
-        }}>
+        <div
+          data-edit-ui="size-label"
+          style={{
+            position: 'absolute', right: 4, top: 4,
+            backgroundColor: 'rgba(30,41,59,0.85)', color: '#fff',
+            padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 800,
+            zIndex: 30, pointerEvents: 'none',
+          }}
+        >
           {Math.round(w)}×{Math.round(h)}
         </div>
       )}

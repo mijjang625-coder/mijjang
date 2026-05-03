@@ -866,6 +866,7 @@ export default function EditableImage({
       {/* 크기 표시 */}
       {showUI && hasFrame && (
         <div
+          data-edit-ui="size-label"
           style={{
             position: 'absolute',
             left: fx + fw - 90,

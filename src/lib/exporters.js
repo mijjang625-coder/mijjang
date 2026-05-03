@@ -80,6 +80,105 @@ function applyCaptureClass(node) {
   return () => node.classList.remove('pre-capture');
 }
 
+// 🆕 (2026-05-03) 가장 확실한 편집 가이드 제거 — DOM 직접 조작
+// CSS !important 로도 inline style 의 outline/border 가 캡처에 그대로 찍히는
+// 경우가 있어, 캡처 직전에 DOM 의 element.style 을 직접 비우고
+// 캡처 후 원래 값으로 복원한다.
+//
+// 처리 대상:
+//   1) [data-editable]      — EditableText (글박스 점선)
+//   2) [data-edit-image]    — EditableImage (메인 사진 프레임 점선)
+//   3) [data-free-image]    — FreeImage (자유 사진 점선)
+//   4) [data-shape]         — ShapeLayer (도형 점선)
+//   5) [data-edit-ui]       — 크기 라벨 등 편집 보조 UI → 완전히 숨김
+//   6) [data-handle], [data-shape-handle] — 리사이즈 핸들 → 완전히 숨김
+//   7) [data-toolbar] 등    — 편집 툴바/패널 → 완전히 숨김 (filter 외 안전망)
+//
+// 반환값: 원상복구 함수
+function stripEditingChrome(rootNode) {
+  if (!rootNode) return () => {};
+  const restored = []; // {el, prop, value} 또는 {el, attr:'data-prev-display', value}
+
+  // 1) outline/border 제거 대상 셀렉터
+  const outlineSelectors = [
+    '[data-editable]',
+    '[data-edit-image]',
+    '[data-free-image]',
+    '[data-shape]',
+  ];
+  // 2) 완전 숨김 대상 셀렉터
+  const hideSelectors = [
+    '[data-edit-ui]',
+    '[data-handle]',
+    '[data-shape-handle]',
+    '[data-toolbar]',
+    '[data-inline-toolbar]',
+    '[data-free-toolbar]',
+    '[data-shape-toolbar]',
+    '[data-replace-panel]',
+    '[data-replace-trigger]',
+  ];
+
+  try {
+    // outline/border 제거
+    const outlineNodes = rootNode.querySelectorAll(outlineSelectors.join(','));
+    outlineNodes.forEach((el) => {
+      const s = el.style;
+      // outline 계열
+      if (s.outline) {
+        restored.push({ el, prop: 'outline', value: s.outline });
+        s.outline = 'none';
+      }
+      if (s.outlineWidth) {
+        restored.push({ el, prop: 'outlineWidth', value: s.outlineWidth });
+        s.outlineWidth = '0';
+      }
+      if (s.outlineStyle) {
+        restored.push({ el, prop: 'outlineStyle', value: s.outlineStyle });
+        s.outlineStyle = 'none';
+      }
+      if (s.outlineColor) {
+        restored.push({ el, prop: 'outlineColor', value: s.outlineColor });
+        s.outlineColor = 'transparent';
+      }
+      // border 가 점선/대시인 경우만 제거 (실선 콘텐츠 테두리는 보존)
+      const cs = window.getComputedStyle(el);
+      const bs = cs.borderStyle || '';
+      if (bs.includes('dashed') || bs.includes('dotted')) {
+        if (s.border) {
+          restored.push({ el, prop: 'border', value: s.border });
+          s.border = 'none';
+        }
+        if (s.borderStyle) {
+          restored.push({ el, prop: 'borderStyle', value: s.borderStyle });
+          s.borderStyle = 'none';
+        }
+      }
+      // boxShadow 가 편집 강조용으로 사용된 경우는 inline 에 남아있지만,
+      // 콘텐츠용 shadow 와 구분이 어려워 그대로 둠.
+    });
+
+    // 편집 보조 UI 완전 숨김
+    const hideNodes = rootNode.querySelectorAll(hideSelectors.join(','));
+    hideNodes.forEach((el) => {
+      const prevDisplay = el.style.display;
+      restored.push({ el, prop: 'display', value: prevDisplay });
+      el.style.display = 'none';
+    });
+  } catch (err) {
+    console.warn('[PNG] stripEditingChrome 실패:', err);
+  }
+
+  // 원상복구 함수
+  return () => {
+    for (const r of restored) {
+      try {
+        r.el.style[r.prop] = r.value;
+      } catch {}
+    }
+  };
+}
+
 // 🆕 공통 html-to-image 옵션
 // - pixelRatio: 2 (기존 html2canvas의 scale: 2와 동일한 효과 — 고해상도 PNG)
 // - cacheBust: true (이미지 CORS/캐시 문제 회피)
@@ -158,8 +257,12 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   await prepareForCapture();
   const removeClass = applyCaptureClass(node);
   const restoreHeight = lockHeightForCapture(node);
+  // 🆕 (2026-05-03) 편집 가이드(점선/border/크기라벨/핸들) DOM 직접 제거
+  const restoreChrome = stripEditingChrome(node);
   // 🆕 외부 CORS stylesheet 임시 비활성화 (SecurityError 방지 + 속도 개선)
   const restoreStylesheets = disableExternalStylesheets();
+  // DOM 변경이 화면에 반영되도록 한 프레임 대기
+  await new Promise((r) => requestAnimationFrame(() => r()));
   try {
     const htmlToImage = await getHtmlToImage();
     const captureH = getCaptureHeight(node);
@@ -190,6 +293,7 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
     throw err;
   } finally {
     restoreStylesheets();
+    restoreChrome();
     restoreHeight();
     removeClass();
   }
@@ -221,6 +325,7 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
   await prepareForCapture();
   const cleanups = pages.map(({ node }) => applyCaptureClass(node));
   const heightRestores = [];
+  const chromeRestores = [];
   // 🆕 외부 CORS stylesheet 임시 비활성화
   const restoreStylesheets = disableExternalStylesheets();
   try {
@@ -230,6 +335,11 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
       await waitForImages(node);
       const restoreH = lockHeightForCapture(node);
       heightRestores.push(restoreH);
+      // 🆕 (2026-05-03) 편집 가이드(점선/border/크기라벨/핸들) DOM 직접 제거
+      const restoreCh = stripEditingChrome(node);
+      chromeRestores.push(restoreCh);
+      // DOM 변경이 화면에 반영되도록 한 프레임 대기
+      await new Promise((r) => requestAnimationFrame(() => r()));
       const captureH = getCaptureHeight(node);
       const captureW = getCaptureWidth(node);
       // html-to-image는 직접 canvas를 반환하는 toCanvas 메서드 제공
@@ -246,6 +356,7 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
     }
   } finally {
     restoreStylesheets();
+    chromeRestores.forEach((fn) => fn());
     heightRestores.forEach((fn) => fn());
     cleanups.forEach((fn) => fn());
   }
@@ -335,6 +446,9 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
     await waitForImages(node);
     const removeClass = applyCaptureClass(node);
     const restoreH = lockHeightForCapture(node);
+    // 🆕 (2026-05-03) 편집 가이드 DOM 직접 제거
+    const restoreCh = stripEditingChrome(node);
+    await new Promise((r) => requestAnimationFrame(() => r()));
     let canvas;
     try {
       const captureH = getCaptureHeight(node);
@@ -349,6 +463,7 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
         },
       });
     } finally {
+      restoreCh();
       restoreH();
       removeClass();
     }

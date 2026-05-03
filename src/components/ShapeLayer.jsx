@@ -387,14 +387,17 @@ function PreviewShape({ type, box }) {
       backgroundColor: 'rgba(239, 68, 68, 0.08)',
     }}>
       {/* 크기 라벨 */}
-      <div style={{
-        position: 'absolute',
-        bottom: -22, right: 0,
-        backgroundColor: '#1f2937', color: '#fff',
-        fontSize: 10, fontWeight: 700,
-        padding: '2px 6px', borderRadius: 4,
-        whiteSpace: 'nowrap',
-      }}>
+      <div
+        data-edit-ui="size-label"
+        style={{
+          position: 'absolute',
+          bottom: -22, right: 0,
+          backgroundColor: '#1f2937', color: '#fff',
+          fontSize: 10, fontWeight: 700,
+          padding: '2px 6px', borderRadius: 4,
+          whiteSpace: 'nowrap',
+        }}
+      >
         {Math.round(box.w)} × {Math.round(box.h)}
       </div>
     </div>

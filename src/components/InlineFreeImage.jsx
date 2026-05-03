@@ -387,12 +387,15 @@ export default function InlineFreeImage({
 
         {/* 크기 표시 (활성 + 편집모드) */}
         {editMode && isActive && (
-          <div style={{
-            position: 'absolute', right: 6, top: 6,
-            backgroundColor: 'rgba(30,41,59,0.85)', color: '#fff',
-            padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 800,
-            zIndex: 10, pointerEvents: 'none',
-          }}>
+          <div
+            data-edit-ui="size-label"
+            style={{
+              position: 'absolute', right: 6, top: 6,
+              backgroundColor: 'rgba(30,41,59,0.85)', color: '#fff',
+              padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 800,
+              zIndex: 10, pointerEvents: 'none',
+            }}
+          >
             {Math.round(w)}×{Math.round(h)}
           </div>
         )}
