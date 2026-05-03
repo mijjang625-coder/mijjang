@@ -33,6 +33,46 @@ async function prepareForCapture() {
   await new Promise((r) => requestAnimationFrame(() => r()));
 }
 
+// 🆕 (2026-05-03) 외부(CORS) stylesheet 임시 비활성화
+// html-to-image는 옵션과 무관하게 모든 stylesheet의 cssRules에 접근하려 시도하며,
+// 외부 도메인(CDN, fonts.googleapis.com 등)에서 로드된 CSS는 CORS 정책으로
+// cssRules 접근이 차단되어 SecurityError 발생 → 각 stylesheet마다 try/catch
+// 처리되지만 시간이 오래 걸리고 콘솔에 에러가 누적됨.
+// 해결: 캡처 직전에 외부 stylesheet의 disabled = true로 설정하고, 캡처 후 복원.
+// 이렇게 하면 라이브러리가 해당 stylesheet를 스킵해서 빠르고 깨끗하게 캡처됨.
+function disableExternalStylesheets() {
+  const disabled = [];
+  const sameOrigin = window.location.origin;
+  try {
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        const href = sheet.href;
+        if (!href) continue; // inline <style> — 동일 origin이므로 안전
+        // 동일 origin이 아니면 외부 stylesheet
+        if (!href.startsWith(sameOrigin)) {
+          // cssRules 접근 시도 — SecurityError 나면 진짜 외부
+          try {
+            // eslint-disable-next-line no-unused-expressions
+            sheet.cssRules;
+          } catch {
+            // CORS 차단된 stylesheet → 임시 비활성화
+            if (!sheet.disabled) {
+              sheet.disabled = true;
+              disabled.push(sheet);
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  // 복원 함수 반환
+  return () => {
+    for (const sheet of disabled) {
+      try { sheet.disabled = false; } catch {}
+    }
+  };
+}
+
 // 🆕 캡처 시 텍스트 위치 보정용 클래스 일시 적용
 // .coupang-page에 .pre-capture 추가
 function applyCaptureClass(node) {
@@ -112,11 +152,14 @@ function getCaptureWidth(node) {
 /** Render a DOM node to a PNG image and trigger download. */
 export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   if (!node) throw new Error('렌더링할 노드가 없습니다.');
-  console.log('[PNG] 시작:', filename, 'node:', node);
+  const t0 = performance.now();
+  console.log('[PNG] 시작:', filename);
   await waitForImages(node);
   await prepareForCapture();
   const removeClass = applyCaptureClass(node);
   const restoreHeight = lockHeightForCapture(node);
+  // 🆕 외부 CORS stylesheet 임시 비활성화 (SecurityError 방지 + 속도 개선)
+  const restoreStylesheets = disableExternalStylesheets();
   try {
     const htmlToImage = await getHtmlToImage();
     const captureH = getCaptureHeight(node);
@@ -133,7 +176,8 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
       },
     });
     if (blob) {
-      console.log('[PNG] blob 생성 완료, 크기:', blob.size, 'bytes');
+      const elapsed = Math.round(performance.now() - t0);
+      console.log(`[PNG] blob 생성 완료, 크기: ${blob.size} bytes, 소요시간: ${elapsed}ms`);
       const url = URL.createObjectURL(blob);
       triggerDownload(url, filename);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -145,6 +189,7 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
     console.error('[PNG] 캡처 실패:', err);
     throw err;
   } finally {
+    restoreStylesheets();
     restoreHeight();
     removeClass();
   }
@@ -176,6 +221,8 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
   await prepareForCapture();
   const cleanups = pages.map(({ node }) => applyCaptureClass(node));
   const heightRestores = [];
+  // 🆕 외부 CORS stylesheet 임시 비활성화
+  const restoreStylesheets = disableExternalStylesheets();
   try {
     for (let i = 0; i < pages.length; i++) {
       const { key, node } = pages[i];
@@ -198,6 +245,7 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
       canvases.push(canvas);
     }
   } finally {
+    restoreStylesheets();
     heightRestores.forEach((fn) => fn());
     cleanups.forEach((fn) => fn());
   }
@@ -278,6 +326,9 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
   // 각 페이지 PNG로 다운로드
   const htmlToImage = await getHtmlToImage();
   await prepareForCapture();
+  // 🆕 외부 CORS stylesheet 임시 비활성화 (전체 루프 동안)
+  const restoreStylesheets = disableExternalStylesheets();
+  try {
   for (let i = 0; i < pages.length; i++) {
     const { key, node } = pages[i];
     onProgress?.({ done: i, total: pages.length + 2, label: `${key} → PNG` });
@@ -318,6 +369,9 @@ export async function downloadForFigma(pages, productName = 'product', onProgres
       y: i === 0 ? 0 : null,
     });
     await new Promise((r) => setTimeout(r, 250));
+  }
+  } finally {
+    restoreStylesheets();
   }
 
   // figma-pages.html — html.to.design 플러그인 import용
