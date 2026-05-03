@@ -43,12 +43,28 @@ function applyCaptureClass(node) {
 // 🆕 공통 html-to-image 옵션
 // - pixelRatio: 2 (기존 html2canvas의 scale: 2와 동일한 효과 — 고해상도 PNG)
 // - cacheBust: true (이미지 CORS/캐시 문제 회피)
-// - skipFonts: false (웹폰트 임베드 시도)
-// - filter: 캡처에서 제외할 노드 (없음)
+// - skipFonts: true (🚨 2026-05-03 수정: 외부 CSS의 cssRules 접근 시
+//                    SecurityError 발생 → PNG 생성 실패. 폰트 임베드 스킵하고
+//                    페이지에 이미 로드된 시스템/웹폰트로 렌더링.)
+// - filter: 캡처에서 제외할 노드 (편집 UI 툴바)
 const CAPTURE_OPTIONS = {
   pixelRatio: 2,
   cacheBust: true,
   backgroundColor: '#ffffff',
+  skipFonts: true,
+  // 🆕 (2026-05-03) 편집용 툴바/패널 제외 — z-index 100000+ 영역
+  filter: (node) => {
+    if (!node || !node.getAttribute) return true;
+    // 편집 툴바/인라인 툴바 제외
+    if (node.hasAttribute?.('data-toolbar')) return false;
+    if (node.hasAttribute?.('data-inline-toolbar')) return false;
+    if (node.hasAttribute?.('data-free-toolbar')) return false;
+    if (node.hasAttribute?.('data-shape-toolbar')) return false;
+    if (node.hasAttribute?.('data-replace-panel')) return false;
+    if (node.hasAttribute?.('data-handle')) return false;
+    if (node.hasAttribute?.('data-replace-trigger')) return false;
+    return true;
+  },
   // 🆕 (2026-05-02) html-to-image는 SVG foreignObject로 렌더링하므로
   //   원본 DOM에 직접 영향을 주지 않음. onclone 콜백은 없으나,
   //   캡처 직전에 우리가 직접 DOM을 일시 수정하고 복원하는 방식 사용.
@@ -96,6 +112,7 @@ function getCaptureWidth(node) {
 /** Render a DOM node to a PNG image and trigger download. */
 export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   if (!node) throw new Error('렌더링할 노드가 없습니다.');
+  console.log('[PNG] 시작:', filename, 'node:', node);
   await waitForImages(node);
   await prepareForCapture();
   const removeClass = applyCaptureClass(node);
@@ -104,6 +121,7 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
     const htmlToImage = await getHtmlToImage();
     const captureH = getCaptureHeight(node);
     const captureW = getCaptureWidth(node);
+    console.log('[PNG] 캡처 크기:', captureW, 'x', captureH);
     const blob = await htmlToImage.toBlob(node, {
       ...CAPTURE_OPTIONS,
       width: captureW,
@@ -115,10 +133,17 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
       },
     });
     if (blob) {
+      console.log('[PNG] blob 생성 완료, 크기:', blob.size, 'bytes');
       const url = URL.createObjectURL(blob);
       triggerDownload(url, filename);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } else {
+      console.error('[PNG] blob이 null입니다.');
+      throw new Error('PNG 생성에 실패했습니다 (blob=null).');
     }
+  } catch (err) {
+    console.error('[PNG] 캡처 실패:', err);
+    throw err;
   } finally {
     restoreHeight();
     removeClass();
