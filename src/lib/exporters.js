@@ -100,11 +100,19 @@ function stripEditingChrome(rootNode) {
   const restored = []; // {el, prop, value} 또는 {el, attr:'data-prev-display', value}
 
   // 1) outline/border 제거 대상 셀렉터
+  //    🆕 (2026-05-03) 자식 요소까지 포괄 — EditableText의 frame 모드는
+  //       wrapper(span[data-editable]) > inner span > Tag[data-editable] 구조라
+  //       wrapper 만 제거하면 내부 Tag 의 inline outline 이 남아서 점선이 그대로 보임.
+  //       자식 요소까지 모두 outline 제거.
   const outlineSelectors = [
     '[data-editable]',
+    '[data-editable] *',
     '[data-edit-image]',
+    '[data-edit-image] *',
     '[data-free-image]',
+    '[data-free-image] *',
     '[data-shape]',
+    '[data-shape] *',
   ];
   // 2) 완전 숨김 대상 셀렉터
   const hideSelectors = [

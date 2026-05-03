@@ -96,6 +96,7 @@ export default function EditableText({
   // 🆕 (2026-05-03) editMode 진입 시 frame 이 없으면 자동으로 현재 렌더 크기를 frame 으로 저장
   //   → 사용자가 별도 버튼을 누르지 않아도 즉시 8개 핸들로 박스 크기 조정 가능
   //   → "표면상 보이는 것 없이" 자연스럽게 동작
+  //   → originalW/H 도 함께 저장 → placeholder 가 원래 공간을 차지하므로 사진/다른 요소가 밀리지 않음
   const autoFrameDoneRef = useRef(false);
   useEffect(() => {
     if (!editMode) { autoFrameDoneRef.current = false; return; }
@@ -114,6 +115,9 @@ export default function EditableText({
             height: Math.round(r.height),
             x: 0,
             y: 0,
+            // 🆕 placeholder 용 원래 크기 — 이후 frame 변경되어도 공간은 유지
+            originalW: Math.round(r.width),
+            originalH: Math.round(r.height),
           },
         });
       }
@@ -512,20 +516,24 @@ export default function EditableText({
     ? {} // 편집 중엔 React가 자식 제어 안 함 (contentEditable이 사용자 입력 직접 처리)
     : { dangerouslySetInnerHTML: { __html: mergedHtml || escapeHtml(placeholder || '') } };
 
-  // 🆕 (2026-05-03) 편집 모드 렌더링
-  // - frame 이 있으면 wrapper(absolute 또는 relative)로 감싸 width/height/x/y 적용
+  // 🆕 (2026-05-03) 편집 모드 렌더링 — placeholder 방식
+  // - frame 이 있으면 외부 placeholder span(원래 크기 차지) + 내부 absolute span(실제 글박스)
+  //   → 글박스 크기 조정해도 사진/다른 요소가 밀리지 않음 (원래 자리 그대로 유지)
   // - frame 이 없으면 기존 동작 유지 (Tag 자체에 transform offset 적용)
   // - 활성(showToolbar/isEditing/hovering) 시 8개 리사이즈 핸들 + 크기 라벨 표시
   const showHandles = !!frame && (showToolbar || isEditing || hovering);
+  // placeholder 크기 — originalW/H 가 있으면 그 값, 없으면 frame.width/height (하위 호환)
+  const placeholderW = frame?.originalW ?? frame?.width;
+  const placeholderH = frame?.originalH ?? frame?.height;
   const wrapperBaseStyle = frame
     ? {
+        // placeholder — 원래 글박스가 차지하던 공간을 유지 (다른 요소 밀림 방지)
         position: 'relative',
         display: 'inline-block',
-        width: frame.width,
-        height: frame.height,
-        transform: `translate(${(offset.x || 0) + (frame.x || 0)}px, ${(offset.y || 0) + (frame.y || 0)}px)`,
-        zIndex: textZIndex,
+        width: placeholderW,
+        height: placeholderH,
         verticalAlign: 'top',
+        // placeholder 자체엔 transform/zIndex 없음 — 내부 absolute 박스만 떠다님
       }
     : {
         position: 'relative',
@@ -533,6 +541,18 @@ export default function EditableText({
         zIndex: textZIndex,
         verticalAlign: 'top',
       };
+  // 실제 글박스 (absolute로 띄움) — frame.x/y/width/height 자유 조정
+  const floatBoxStyle = frame
+    ? {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: frame.width,
+        height: frame.height,
+        transform: `translate(${(offset.x || 0) + (frame.x || 0)}px, ${(offset.y || 0) + (frame.y || 0)}px)`,
+        zIndex: textZIndex,
+      }
+    : null;
 
   const innerTextStyle = frame
     ? {
@@ -628,81 +648,88 @@ export default function EditableText({
     );
   }
 
-  // frame 이 있을 때 — wrapper + 리사이즈 핸들 + 크기 라벨
+  // frame 이 있을 때 — placeholder span(원래 자리 유지) + 내부 absolute float 박스(자유 크기/위치)
   return (
     <>
       <span
-        ref={wrapperRef}
-        data-editable="true"
+        data-edit-ui="text-placeholder"
         className={className}
         style={wrapperBaseStyle}
       >
-        <Tag
-          ref={ref}
-          contentEditable={isEditing}
-          suppressContentEditableWarning
-          onDoubleClick={startEditing}
-          onClick={handleClick}
-          onBlur={finishEditing}
-          onMouseDown={handleMouseDown}
-          onMouseEnter={() => setHovering(true)}
-          onMouseLeave={() => setHovering(false)}
-          onKeyDown={onKeyDownHandler}
-          title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동 · 핸들 드래그: 박스 크기'}
-          style={innerTextStyle}
-          {...editableProps}
-        />
-
-        {/* 🆕 8개 리사이즈 핸들 */}
-        {showHandles && RESIZE_HANDLES.map((hd) => (
-          <div
-            key={hd.id}
-            data-handle="true"
-            onMouseDown={(e) => handleResizeStart(e, hd.id)}
-            style={{
-              position: 'absolute',
-              ...hd.style,
-              width: 12, height: 12,
-              backgroundColor: '#3b82f6',
-              border: '2px solid #fff',
-              borderRadius: 3,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              cursor: hd.cursor,
-              zIndex: 100001,
-            }}
+        {/* 실제 글박스 — placeholder 안에서 absolute 로 떠다님 */}
+        <span
+          ref={wrapperRef}
+          data-editable="true"
+          style={floatBoxStyle}
+        >
+          <Tag
+            ref={ref}
+            data-editable="true"
+            contentEditable={isEditing}
+            suppressContentEditableWarning
+            onDoubleClick={startEditing}
+            onClick={handleClick}
+            onBlur={finishEditing}
+            onMouseDown={handleMouseDown}
+            onMouseEnter={() => setHovering(true)}
+            onMouseLeave={() => setHovering(false)}
+            onKeyDown={onKeyDownHandler}
+            title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동 · 핸들 드래그: 박스 크기'}
+            style={innerTextStyle}
+            {...editableProps}
           />
-        ))}
 
-        {/* 🆕 크기 라벨 */}
-        {showHandles && (
-          <div
-            data-edit-ui="size-label"
-            style={{
-              position: 'absolute',
-              right: 4, top: -22,
-              backgroundColor: 'rgba(30,41,59,0.85)', color: '#fff',
-              padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 800,
-              zIndex: 100001, pointerEvents: 'none', whiteSpace: 'nowrap',
-            }}
-          >
-            {Math.round(frame.width)} × {Math.round(frame.height)}
-          </div>
-        )}
+          {/* 🆕 8개 리사이즈 핸들 */}
+          {showHandles && RESIZE_HANDLES.map((hd) => (
+            <div
+              key={hd.id}
+              data-handle="true"
+              onMouseDown={(e) => handleResizeStart(e, hd.id)}
+              style={{
+                position: 'absolute',
+                ...hd.style,
+                width: 12, height: 12,
+                backgroundColor: '#3b82f6',
+                border: '2px solid #fff',
+                borderRadius: 3,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                cursor: hd.cursor,
+                zIndex: 100001,
+              }}
+            />
+          ))}
 
-        {/* 🆕 스냅 가이드 라인 */}
-        {snapLine && (
-          <div
-            data-edit-ui="snap-line"
-            style={{
-              position: 'absolute',
-              left: snapLine === 'left' ? 0 : (snapLine === 'right' ? '100%' : '50%'),
-              top: -8, bottom: -8, width: 2,
-              backgroundColor: '#f59e0b',
-              transform: snapLine === 'center' ? 'translateX(-50%)' : (snapLine === 'right' ? 'translateX(-100%)' : 'none'),
-              pointerEvents: 'none', zIndex: 100000,
-            }}
-          />
-        )}
+          {/* 🆕 크기 라벨 */}
+          {showHandles && (
+            <div
+              data-edit-ui="size-label"
+              style={{
+                position: 'absolute',
+                right: 4, top: -22,
+                backgroundColor: 'rgba(30,41,59,0.85)', color: '#fff',
+                padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 800,
+                zIndex: 100001, pointerEvents: 'none', whiteSpace: 'nowrap',
+              }}
+            >
+              {Math.round(frame.width)} × {Math.round(frame.height)}
+            </div>
+          )}
+
+          {/* 🆕 스냅 가이드 라인 */}
+          {snapLine && (
+            <div
+              data-edit-ui="snap-line"
+              style={{
+                position: 'absolute',
+                left: snapLine === 'left' ? 0 : (snapLine === 'right' ? '100%' : '50%'),
+                top: -8, bottom: -8, width: 2,
+                backgroundColor: '#f59e0b',
+                transform: snapLine === 'center' ? 'translateX(-50%)' : (snapLine === 'right' ? 'translateX(-100%)' : 'none'),
+                pointerEvents: 'none', zIndex: 100000,
+              }}
+            />
+          )}
+        </span>
       </span>
 
       {showToolbar && (
