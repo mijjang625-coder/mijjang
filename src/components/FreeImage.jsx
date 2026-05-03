@@ -165,12 +165,24 @@ export default function FreeImage({
     e.preventDefault();
     e.stopPropagation();
     setSelected(true);
+    // 🆕 (2026-05-03) 리사이즈 시작 시점의 사진 절대 크기/오프셋 기억
+    // → Shift 단방향 리사이즈 시 사진 위치/크기를 유지하기 위해 사용
+    const startCover = coverSize(w, h, imgNatural.w, imgNatural.h);
+    const startScale = crop?.scale ?? 1.0;
+    const startOffsetXR = crop?.offsetXR ?? 0;
+    const startOffsetYR = crop?.offsetYR ?? 0;
     setResizing({
       handle: handleId,
       startX: e.clientX,
       startY: e.clientY,
       sw: w, sh: h, sx: x, sy: y,
       ar: w / h,
+      // 🆕 사진 절대 크기/위치 보존용
+      startImgW: startCover.w * startScale,
+      startImgH: startCover.h * startScale,
+      startScale,
+      startOffsetX: startOffsetXR * w,  // 절대 px 오프셋
+      startOffsetY: startOffsetYR * h,
     });
   };
 
@@ -203,10 +215,39 @@ export default function FreeImage({
 
       nw = Math.max(MIN_SIZE, nw);
       nh = Math.max(MIN_SIZE, nh);
-      onUpdate({
+
+      // 🆕 (2026-05-03) Shift(자유 변형) 리사이즈 시 사진 절대 크기/위치 유지
+      // → 박스만 줄이고 내부 사진은 그대로 둠 (초점/위치 보존)
+      const update = {
         w: Math.round(nw), h: Math.round(nh),
         x: Math.round(nx), y: Math.round(ny),
-      });
+      };
+      if (!ratioLock) {
+        // 🆕 (2026-05-03) Shift 단방향 리사이즈 — 사진 절대 크기/위치 완전 고정
+        // 사진 화면상 left/top과 width/height를 그대로 유지하도록
+        // scale과 offset을 동시에 보정한다.
+        const newCover = coverSize(nw, nh, imgNatural.w, imgNatural.h);
+        if (newCover.w > 0 && newCover.h > 0) {
+          // cover는 종횡비가 고정 → 한 축 기준 scale이면 양 축 모두 비례 유지
+          const newScale = resizing.startImgW / newCover.w;
+          const newImgW = newCover.w * newScale;
+          const newImgH = newCover.h * newScale;
+          // 기존 사진의 절대 left/top (박스 좌상단 기준 px)
+          const oldImgLeft = (resizing.sw - resizing.startImgW) / 2 + resizing.startOffsetX;
+          const oldImgTop  = (resizing.sh - resizing.startImgH) / 2 + resizing.startOffsetY;
+          // 새 박스에서 사진 left/top을 그대로 유지하도록 offset 재계산
+          const newOffsetX = oldImgLeft - (nw - newImgW) / 2;
+          const newOffsetY = oldImgTop  - (nh - newImgH) / 2;
+          const newOffsetXR = nw > 0 ? newOffsetX / nw : 0;
+          const newOffsetYR = nh > 0 ? newOffsetY / nh : 0;
+          update.crop = {
+            scale: newScale,
+            offsetXR: newOffsetXR,
+            offsetYR: newOffsetYR,
+          };
+        }
+      }
+      onUpdate(update);
     };
     const onUp = () => setResizing(null);
     window.addEventListener('mousemove', onMove);

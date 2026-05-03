@@ -200,6 +200,12 @@ export default function EditableImage({
     const h = frame?.height ?? rect.height;
     const fx = frame?.x ?? 0;
     const fy = frame?.y ?? 0;
+    // 🆕 (2026-05-03) 리사이즈 시작 시점의 사진 절대 크기/오프셋 기억
+    // → Shift 단방향 리사이즈 시 사진 위치/크기를 유지하기 위해 사용
+    const startCover = coverSize(w, h, imgNatural.w, imgNatural.h);
+    const startScale = crop?.scale ?? 1.0;
+    const startOffsetXR = crop?.offsetXR ?? 0;
+    const startOffsetYR = crop?.offsetYR ?? 0;
     setResizing({
       handle: handleId,
       startX: e.clientX,
@@ -209,6 +215,14 @@ export default function EditableImage({
       startFx: fx,
       startFy: fy,
       aspectRatio: w / h,
+      // 🆕 사진 절대 크기/위치 보존용
+      startImgW: startCover.w * startScale,
+      startImgH: startCover.h * startScale,
+      startScale,
+      startOffsetXR,
+      startOffsetYR,
+      startOffsetX: startOffsetXR * w,  // 절대 px 오프셋
+      startOffsetY: startOffsetYR * h,
     });
   };
 
@@ -271,9 +285,46 @@ export default function EditableImage({
       }
       setSnapLines({ v: snapV, h: null });
 
-      onChange({
+      // 🆕 (2026-05-03) Shift(자유 변형) 리사이즈 시 사진 절대 크기/위치 유지
+      // → 박스만 줄이고 내부 사진은 그대로 둠 (초점/위치 보존)
+      // ratioLock=true(기본 비율 유지)일 때는 cover가 박스에 맞춰 자연스럽게
+      // 변하므로 보정 불필요 (기존 동작 유지)
+      const update = {
         frame: { width: Math.round(w), height: Math.round(h), x: Math.round(fx), y: Math.round(fy) },
-      });
+      };
+      if (!ratioLock) {
+        // 🆕 (2026-05-03) Shift 단방향 리사이즈 — 사진 절대 크기/위치 완전 고정
+        // 이미지의 화면상 위치(left, top)와 크기(width, height)를 그대로 유지
+        //
+        // 사진 화면상 left = (boxW - imgW)/2 + offsetX
+        // 사진 화면상 top  = (boxH - imgH)/2 + offsetY
+        // 사진 width = cover.w * scale = startImgW (유지)
+        // 사진 height= cover.h * scale = startImgH (유지)
+        const newCover = coverSize(w, h, imgNatural.w, imgNatural.h);
+        if (newCover.w > 0 && newCover.h > 0) {
+          // cover는 종횡비(natW/natH)가 동일하므로 한 축 기준 scale이면 양 축 모두 비례 유지됨
+          // → 가로 기준으로만 스케일 산출 (cover.w*scale == startImgW)
+          const newScale = resizing.startImgW / newCover.w;
+          // 새 사진 절대 크기 (이론상 startImgW/H와 동일하지만 부동소수점 오차 방지)
+          const newImgW = newCover.w * newScale;
+          const newImgH = newCover.h * newScale;
+          // 기존 사진의 절대 left/top (박스 좌상단 기준 px)
+          const oldImgLeft = (resizing.startW - resizing.startImgW) / 2 + resizing.startOffsetX;
+          const oldImgTop  = (resizing.startH - resizing.startImgH) / 2 + resizing.startOffsetY;
+          // 새 박스에서 사진 left/top을 그대로 유지하려면 offset을 다시 계산
+          const newOffsetX = oldImgLeft - (w - newImgW) / 2;
+          const newOffsetY = oldImgTop  - (h - newImgH) / 2;
+          // 비율로 변환 (저장은 R 형식)
+          const newOffsetXR = w > 0 ? newOffsetX / w : 0;
+          const newOffsetYR = h > 0 ? newOffsetY / h : 0;
+          update.crop = {
+            scale: newScale,
+            offsetXR: newOffsetXR,
+            offsetYR: newOffsetYR,
+          };
+        }
+      }
+      onChange(update);
     };
     const onUp = () => { setResizing(null); setSnapLines({ v: null, h: null }); };
     window.addEventListener('mousemove', onMove);
