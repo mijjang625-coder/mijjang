@@ -45,6 +45,8 @@ export function useFreeImageLayer({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onAddFreeText = () => {},   // 🆕 (2026-05-06) 자유 글박스 추가
+  onAddShape = null,          // 🆕 (2026-05-06) 도형 추가 (선택적; 도형은 보통 ShapeLayer 가 자체 버튼 제공)
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -269,6 +271,27 @@ export function useFreeImageLayer({
               backgroundColor: '#fff', color: '#3b82f6', borderRadius: 999,
               padding: '1px 7px', fontSize: 10, fontWeight: 900, marginLeft: 4,
             }}>{freeImages.length}</span>
+          )}
+        </button>
+
+        {/* 📝 글박스 추가 — top:272 (도형 추가:220 다음) */}
+        <button
+          onClick={() => onAddFreeText()}
+          style={{
+            position: 'fixed', right: 24, top: 272, zIndex: 100000,
+            backgroundColor: '#f59e0b', color: '#fff', border: '2px solid #fff',
+            padding: '8px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800,
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}
+          title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
+        >
+          📝 글박스 추가
+          {(freeTexts || []).length > 0 && (
+            <span style={{
+              backgroundColor: '#fff', color: '#f59e0b', borderRadius: 999,
+              padding: '1px 6px', fontSize: 10, fontWeight: 900,
+            }}>{freeTexts.length}</span>
           )}
         </button>
 
