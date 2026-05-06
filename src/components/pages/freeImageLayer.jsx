@@ -26,6 +26,7 @@
  */
 import { useEffect, useState } from 'react';
 import FreeImage from '../FreeImage.jsx';
+import FreeText from '../FreeText.jsx';
 
 export function useFreeImageLayer({
   pageKey,
@@ -46,6 +47,8 @@ export function useFreeImageLayer({
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
   onAddFreeText = () => {},   // 🆕 (2026-05-06) 자유 글박스 추가
+  onUpdateFreeText = () => {},// 🆕 (2026-05-06) 자유 글박스 수정
+  onDeleteFreeText = () => {},// 🆕 (2026-05-06) 자유 글박스 삭제
   onAddShape = null,          // 🆕 (2026-05-06) 도형 추가 (선택적; 도형은 보통 ShapeLayer 가 자체 버튼 제공)
   onChangeLayer = () => {},
   onChangeLayerKind = null,
@@ -243,6 +246,42 @@ export function useFreeImageLayer({
           onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
           onDelete={() => onDeleteFreeImage(item.id)}
           onChangeLayer={(action) => handleLayerAction({ kind: 'free', id: item.id }, action)}
+        />
+      );
+    });
+
+  /** 자유 글박스 절대 배치 렌더 (FreeText) */
+  const renderFreeTexts = () =>
+    (freeTexts || []).map((item) => {
+      // 🆕 (2026-05-06) 가시성 토글 — visibility:hidden (PNG 캡처에도 반영)
+      if (item.hidden) {
+        return (
+          <div
+            key={item.id}
+            data-free-text-hidden="true"
+            style={{ visibility: 'hidden' }}
+            aria-hidden="true"
+          >
+            <FreeText
+              item={item}
+              editMode={false}
+              canvasWidth={780}
+              onUpdate={() => {}}
+              onDelete={() => {}}
+              onChangeLayer={() => {}}
+            />
+          </div>
+        );
+      }
+      return (
+        <FreeText
+          key={item.id}
+          item={item}
+          editMode={editMode}
+          canvasWidth={780}
+          onUpdate={(partial) => onUpdateFreeText(item.id, partial)}
+          onDelete={() => onDeleteFreeText(item.id)}
+          onChangeLayer={(action) => handleLayerAction({ kind: 'freetext', id: item.id }, action)}
         />
       );
     });
@@ -615,6 +654,7 @@ export function useFreeImageLayer({
     hasActiveLayer,
     handleLayerAction,
     renderFreeImages,
+    renderFreeTexts,
     renderOverlay,
     validImages,
   };

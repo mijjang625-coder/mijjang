@@ -63,7 +63,7 @@ export default function P6Material({
     pageKey: 'P6', mainLayers, image: materialImage, allImages, baseHeight: Math.max(1150, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
     onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
     shapes,
     onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
@@ -287,6 +287,7 @@ export default function P6Material({
     </div>
 
     {layer.renderFreeImages()}
+    {layer.renderFreeTexts()}
     {layer.renderOverlay()}
       {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
       <ShapeLayer

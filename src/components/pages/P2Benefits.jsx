@@ -90,6 +90,8 @@ export default function P2Benefits({
     onUpdateFreeImage,
     onDeleteFreeImage,
     onAddFreeText,
+    onUpdateFreeText,
+    onDeleteFreeText,
     onChangeLayer,
     onChangeLayerKind,
     onReorderLayers,
@@ -293,6 +295,7 @@ export default function P2Benefits({
       </div>
 
       {layer.renderFreeImages()}
+      {layer.renderFreeTexts()}
       {layer.renderOverlay()}
 
       {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}

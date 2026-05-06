@@ -85,7 +85,7 @@ export default function P5Compare({
     pageKey: 'P5', mainLayers, image: ourImage, allImages, baseHeight: Math.max(900, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
     onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
     shapes,
     onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
@@ -489,6 +489,7 @@ export default function P5Compare({
       </div>
 
       {layer.renderFreeImages()}
+      {layer.renderFreeTexts()}
       {layer.renderOverlay()}
       {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
       <ShapeLayer
