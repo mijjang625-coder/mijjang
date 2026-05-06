@@ -289,6 +289,9 @@ export default function EditableText({
   if (!editMode) {
     // 🆕 일반 표시 모드 — 부분 서식 보존 위해 dangerouslySetInnerHTML 사용
     const displayHtml = mergedHtml && mergedHtml.trim() ? mergedHtml : escapeHtml(placeholder || '');
+    // 🆕 (2026-05-03) 가시성 토글: hidden 상태일 때만 visibility:hidden 적용
+    //   (visible 인 경우 속성 자체를 빼서 html-to-image SVG foreignObject 변환에 영향 없음)
+    const visStyle = isHidden ? { visibility: 'hidden' } : {};
     return (
       <Tag
         className={className}
@@ -297,8 +300,7 @@ export default function EditableText({
           ...style,
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
           whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
-          // 🆕 (2026-05-03) 가시성 토글 — PNG 캡처에도 반영
-          visibility: isHidden ? 'hidden' : (mergedStyle.visibility || style.visibility || 'visible'),
+          ...visStyle,
         }}
         dangerouslySetInnerHTML={{ __html: displayHtml }}
       />
@@ -417,10 +419,10 @@ export default function EditableText({
           userSelect: isEditing ? 'text' : 'none',
           backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
           transition: 'background-color 0.15s, outline-color 0.15s',
-          // 🆕 (2026-05-03) 가시성 토글 — 편집모드에서도 숨김 (PNG 캡처에도 반영)
-          //   숨겨진 글박스를 다시 보이게 하려면 레이어 패널 눈 아이콘으로 끄세요.
+          // 🆕 (2026-05-03) 가시성 토글 — 편집모드에서는 opacity 만 낮춰
+          //   사용자가 클릭해서 다시 보이게 토글할 수 있게 함.
+          //   visibility:hidden 은 비편집 모드(=캡처/저장)에서만 적용됨.
           opacity: isHidden ? 0.25 : 1,
-          visibility: isHidden && !isEditing ? 'hidden' : 'visible',
         }}
         {...editableProps}
       />
