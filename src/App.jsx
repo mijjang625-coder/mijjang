@@ -677,7 +677,7 @@ export default function App() {
   };
 
   // 🆕 (2026-05-03) 레이어 가시성 토글 — 포토샵 방식 눈 아이콘
-  // kind: 'main' | 'free' | 'inline' | 'shape' | 'freetext'
+  // kind: 'main' | 'free' | 'inline' | 'shape' | 'freetext' | 'text'
   // hidden:true 면 visibility:hidden — PNG 캡처에도 그대로 반영됨
   const toggleLayerVisibility = (pageNum, kind, id) => {
     pushHistory(`${pageNum} 레이어 가시성 토글`);
@@ -713,6 +713,18 @@ export default function App() {
         return {
           ...prev,
           [pageNum]: list.map((it) => (it.id === id ? { ...it, hidden: !it.hidden } : it)),
+        };
+      });
+    } else if (kind === 'text') {
+      // 🆕 기존 글박스(textOverrides) — id 형태: 'P1.mainHeadline' 등
+      // textOverrides 는 페이지별 객체이므로 id 자체를 키로 사용
+      setTextOverrides((prev) => {
+        const pagePrev = prev[pageNum] || {};
+        const itemPrev = pagePrev[id] || {};
+        const nextHidden = !itemPrev.hidden;
+        return {
+          ...prev,
+          [pageNum]: { ...pagePrev, [id]: { ...itemPrev, hidden: nextHidden } },
         };
       });
     }

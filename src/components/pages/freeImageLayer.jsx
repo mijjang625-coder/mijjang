@@ -223,7 +223,7 @@ export function useFreeImageLayer({
         <button
           onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
           style={{
-            position: 'fixed', right: 24, top: 168, zIndex: 9999,
+            position: 'fixed', right: 24, top: 168, zIndex: 100000,
             backgroundColor: '#3b82f6', color: '#fff', border: '2px solid #fff',
             padding: '10px 14px', borderRadius: 999, fontSize: 13, fontWeight: 800,
             cursor: 'pointer', boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
@@ -246,7 +246,7 @@ export function useFreeImageLayer({
           onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
           style={{
             position: 'fixed', right: 24, top: 324,
-            zIndex: 9999,
+            zIndex: 100000,
             backgroundColor: showLayers ? '#1e293b' : '#475569', color: '#fff',
             border: '2px solid #fff', padding: '8px 12px', borderRadius: 999,
             fontSize: 12, fontWeight: 800, cursor: 'pointer',
@@ -266,7 +266,7 @@ export function useFreeImageLayer({
           <div
             style={{
               position: 'fixed', right: 180, top: 168,
-              zIndex: 9998,
+              zIndex: 100001,
               width: 320, maxHeight: 'calc(100vh - 200px)', overflow: 'auto',
               backgroundColor: '#fff', border: '1px solid #e2ddd4',
               borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.22)', padding: 12,
@@ -481,7 +481,7 @@ export function useFreeImageLayer({
         {showPicker && (
           <div
             style={{
-              position: 'fixed', right: 180, top: 168, zIndex: 9998,
+              position: 'fixed', right: 180, top: 168, zIndex: 100001,
               width: 320, maxHeight: 'calc(100vh - 200px)', overflow: 'auto',
               backgroundColor: '#fff', border: '1px solid #e2ddd4',
               borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.22)', padding: 14,

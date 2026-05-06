@@ -282,6 +282,9 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing]);
 
+  // 🆕 (2026-05-03) 가시성 토글 (포토샵 방식) — visibility:hidden (PNG 캡처에도 반영)
+  const isHidden = !!override?.hidden;
+
   // ✅ 모든 Hook 호출 뒤에서 early return — Hook 규칙 준수
   if (!editMode) {
     // 🆕 일반 표시 모드 — 부분 서식 보존 위해 dangerouslySetInnerHTML 사용
@@ -294,6 +297,8 @@ export default function EditableText({
           ...style,
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
           whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
+          // 🆕 (2026-05-03) 가시성 토글 — PNG 캡처에도 반영
+          visibility: isHidden ? 'hidden' : (mergedStyle.visibility || style.visibility || 'visible'),
         }}
         dangerouslySetInnerHTML={{ __html: displayHtml }}
       />
@@ -412,6 +417,10 @@ export default function EditableText({
           userSelect: isEditing ? 'text' : 'none',
           backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
           transition: 'background-color 0.15s, outline-color 0.15s',
+          // 🆕 (2026-05-03) 가시성 토글 — 편집모드에서도 숨김 (PNG 캡처에도 반영)
+          //   숨겨진 글박스를 다시 보이게 하려면 레이어 패널 눈 아이콘으로 끄세요.
+          opacity: isHidden ? 0.25 : 1,
+          visibility: isHidden && !isEditing ? 'hidden' : 'visible',
         }}
         {...editableProps}
       />

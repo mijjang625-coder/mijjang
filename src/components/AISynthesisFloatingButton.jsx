@@ -51,7 +51,7 @@ export default function AISynthesisFloatingButton({
         style={{
           position: 'fixed',
           right: 24, top: 376,
-          zIndex: 9999,
+          zIndex: 100000,
           backgroundColor: open ? '#C2410C' : '#E87A2B',
           color: '#fff',
           border: '2px solid #fff',
