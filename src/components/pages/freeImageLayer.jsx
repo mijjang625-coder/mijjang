@@ -37,6 +37,8 @@ export function useFreeImageLayer({
   freeImages = [],          // 자유 위치 사진 (slot=null) — 절대 좌표
   inlineImages = [],        // 인라인 사진 (slot != null) — 본문 흐름
   shapes = [],              // 도형 (rect/circle/line/arrow/highlight)
+  freeTexts = [],           // 🆕 (2026-05-06) 자유 글박스 (FreeText)
+  textOverrides = {},       // 🆕 (2026-05-06) 메인 글박스(EditableText) overrides — { 'P3.title': {hidden,...}, ... }
   onDeleteShape = () => {},
   imageOverrides = {},
   layerNames = {},
@@ -126,6 +128,35 @@ export function useFreeImageLayer({
         hidden: !!s.hidden,
       };
     }),
+    // 🆕 (2026-05-06) 자유 글박스 레이어 (FreeText)
+    ...(freeTexts || []).map((it, i) => {
+      const def = `📝 자유 글박스 ${i + 1}`;
+      return {
+        kind: 'freetext',
+        id: it.id,
+        defaultName: def,
+        label: layerNames[it.id] || def,
+        textPreview: (it.text || it.html || '').replace(/<[^>]*>/g, '').slice(0, 24),
+        zIndex: it.zIndex ?? 10000,
+        hidden: !!it.hidden,
+      };
+    }),
+    // 🆕 (2026-05-06) 메인 글박스 레이어 — overrides 에서 의미있는 항목만 추출
+    ...Object.entries(textOverrides || {})
+      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset || ov.hidden))
+      .map(([id, ov]) => {
+        const shortId = id.split('.').slice(1).join('.') || id;
+        const def = `🅰 글박스: ${shortId}`;
+        return {
+          kind: 'text',
+          id,
+          defaultName: def,
+          label: layerNames[id] || def,
+          textPreview: (ov.text || '').slice(0, 24),
+          zIndex: ov.zIndex ?? 10000,
+          hidden: !!ov.hidden,
+        };
+      }),
   ].sort((a, b) => b.zIndex - a.zIndex);
 
   const handleLayerAction = (layer, action) => {
@@ -368,6 +399,17 @@ export function useFreeImageLayer({
                   ) : layer.src ? (
                     <img src={layer.src} alt="" crossOrigin="anonymous"
                       style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                  ) : (layer.kind === 'text' || layer.kind === 'freetext') ? (
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 4, flexShrink: 0,
+                      backgroundColor: layer.kind === 'freetext' ? '#fef3c7' : '#e0e7ff',
+                      border: '1px solid ' + (layer.kind === 'freetext' ? '#fcd34d' : '#c7d2fe'),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 16, fontWeight: 900,
+                      color: layer.kind === 'freetext' ? '#b45309' : '#4338ca',
+                    }}>
+                      🅰
+                    </div>
                   ) : (
                     <div style={{ width: 36, height: 36, borderRadius: 4, flexShrink: 0, backgroundColor: '#e2e8f0' }} />
                   )}

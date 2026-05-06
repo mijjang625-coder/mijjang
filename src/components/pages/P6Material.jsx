@@ -24,6 +24,7 @@ export default function P6Material({
   onChangeLayerKind = null,
   onReorderLayers = () => {},
   onToggleLayerVisibility = () => {},
+  freeTexts = [],
   layerNames = {},
   onSetLayerName = () => {},
   // 🟦 도형 레이어 props (ShapeLayer)
@@ -62,6 +63,7 @@ export default function P6Material({
     shapes,
     onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
+    freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
   });
   const matActive = layer.isLayerActive('main', matId);

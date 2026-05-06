@@ -46,6 +46,7 @@ export default function P5Compare({
   onChangeLayerKind = null,
   onReorderLayers = () => {},
   onToggleLayerVisibility = () => {},
+  freeTexts = [],
   layerNames = {},
   onSetLayerName = () => {},
   // 🟦 도형 레이어 props (ShapeLayer)
@@ -84,6 +85,7 @@ export default function P5Compare({
     shapes,
     onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
+    freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
   });
   const mainActive = layer.isLayerActive('main', mainImgId);

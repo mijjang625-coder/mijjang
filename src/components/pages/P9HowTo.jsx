@@ -32,6 +32,7 @@ export default function P9HowTo({
   onChangeLayerKind = null,
   onReorderLayers = () => {},
   onToggleLayerVisibility = () => {},
+  freeTexts = [],
   layerNames = {},
   onSetLayerName = () => {},
   // 🟦 도형 레이어 props (ShapeLayer)
@@ -77,6 +78,7 @@ export default function P9HowTo({
     shapes,
     onDeleteShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
+    freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
   });
 

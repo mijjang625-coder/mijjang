@@ -419,10 +419,11 @@ export default function EditableText({
           userSelect: isEditing ? 'text' : 'none',
           backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
           transition: 'background-color 0.15s, outline-color 0.15s',
-          // 🆕 (2026-05-03) 가시성 토글 — 편집모드에서는 opacity 만 낮춰
-          //   사용자가 클릭해서 다시 보이게 토글할 수 있게 함.
-          //   visibility:hidden 은 비편집 모드(=캡처/저장)에서만 적용됨.
-          opacity: isHidden ? 0.25 : 1,
+          // 🆕 (2026-05-06) 가시성 토글 — FreeText 와 동작 통일:
+          //   hidden 상태일 때 편집 모드에서도 visibility:hidden 으로 완전히 숨김.
+          //   다시 켜는 것은 레이어 패널의 눈 아이콘으로만 가능 (FreeText/FreeImage 와 동일).
+          //   PNG 캡처 시에도 그대로 숨겨진 상태로 출력됨.
+          ...(isHidden ? { visibility: 'hidden' } : null),
         }}
         {...editableProps}
       />
