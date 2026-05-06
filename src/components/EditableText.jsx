@@ -316,40 +316,56 @@ export default function EditableText({
   const resetStyle = () => onChange({ style: {}, offset: { x: 0, y: 0 } });
 
   // 🆕 인라인 툴바 — 선택 부분에만 서식 적용 후 즉시 저장
+  // 🆕 (2026-05-06) execCommand('foreColor') 가 줄바꿈(\n) 텍스트노드를 만났을 때
+  //   <font> 태그가 DOM 트리를 깨면서 React 의 다음 렌더에서 Uncaught 예외 → 화면 흰색
+  //   현상을 유발하므로, 색상도 직접 span 으로 감싸는 방식으로 변경.
+  //   bold/removeFormat 도 try/catch 로 보호하여 실패 시 화면이 꺼지지 않도록 함.
   const applyInline = (action) => {
     if (!ref.current) return;
     // 포커스 유지 + 선택 영역 보존
-    ref.current.focus();
+    try {
+      ref.current.focus();
+    } catch (_) { /* ignore */ }
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
 
-    // execCommand는 deprecated이지만 contentEditable 환경에서는 여전히 가장 호환성 좋은 방법
     try {
       if (action.type === 'bold') {
-        document.execCommand('bold', false, null);
+        // bold 도 직접 span 으로 처리 — execCommand 가 줄바꿈 노드 가로지르면 DOM 깨짐
+        applySpanStyle(sel, { fontWeight: '900' });
       } else if (action.type === 'color') {
-        document.execCommand('foreColor', false, action.value);
+        // 🆕 색상도 직접 span 으로 — execCommand('foreColor') 미사용
+        applySpanStyle(sel, { color: action.value });
       } else if (action.type === 'fontSize') {
-        // execCommand('fontSize')는 1~7 사이즈만 받음 → 직접 span으로 감싸기
         applySpanStyle(sel, { fontSize: action.value + 'px' });
       } else if (action.type === 'fontSizeDelta') {
-        // 선택 부분의 현재 fontSize를 읽어 +/- 적용
         const currentSize = readSelectionFontSize(sel) || (parseInt(mergedStyle.fontSize, 10) || 16);
         const next = Math.max(8, currentSize + action.delta);
         applySpanStyle(sel, { fontSize: next + 'px' });
       } else if (action.type === 'reset') {
-        // 선택 부분의 인라인 서식 제거
-        document.execCommand('removeFormat', false, null);
+        // 선택 부분의 인라인 서식 제거 — execCommand 도 try/catch 로 보호
+        try {
+          document.execCommand('removeFormat', false, null);
+        } catch (_) { /* ignore */ }
       }
     } catch (err) {
-      // execCommand 실패 시 무시
+      // 어떤 경우에도 throw 가 부모 컴포넌트로 올라가지 않도록 보호
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[EditableText] applyInline failed:', err);
+      }
     }
 
-    // 변경 즉시 저장
-    if (ref.current) {
-      const newHtml = ref.current.innerHTML;
-      const newText = ref.current.innerText;
-      onChange({ html: newHtml, text: newText });
+    // 변경 즉시 저장 — onChange 자체도 try/catch 로 보호
+    try {
+      if (ref.current) {
+        const newHtml = ref.current.innerHTML;
+        const newText = ref.current.innerText;
+        onChange({ html: newHtml, text: newText });
+      }
+    } catch (err) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[EditableText] onChange failed:', err);
+      }
     }
   };
 
@@ -450,12 +466,22 @@ export default function EditableText({
 }
 
 // 🆕 선택 영역을 <span style="..."> 으로 감싸기
+// 🆕 (2026-05-06) 줄바꿈(\n) 텍스트노드가 포함된 다중 줄 선택에서도 DOM 손상 없이
+//   안전하게 동작하도록 보강. extractContents 가 \n 을 가로지를 때 발생할 수 있는
+//   예외를 잡아 화면이 꺼지지 않도록 try/catch 로 보호하고, 실패 시 selection 을 원복.
 function applySpanStyle(sel, styleObj) {
   if (!sel || sel.rangeCount === 0) return;
   const range = sel.getRangeAt(0);
   if (range.collapsed) return;
+
+  // 원래 selection 을 복구하기 위한 백업
+  const backup = range.cloneRange();
+
   const span = document.createElement('span');
-  Object.entries(styleObj).forEach(([k, v]) => { span.style[k] = v; });
+  Object.entries(styleObj).forEach(([k, v]) => {
+    try { span.style[k] = v; } catch (_) { /* ignore invalid style */ }
+  });
+
   try {
     // 선택 영역 추출 → span에 넣기
     const contents = range.extractContents();
@@ -467,7 +493,14 @@ function applySpanStyle(sel, styleObj) {
     sel.removeAllRanges();
     sel.addRange(newRange);
   } catch (err) {
-    // 복잡한 DOM 구조에서 실패 가능 — 무시
+    // 복잡한 DOM 구조에서 실패해도 화면이 꺼지지 않도록 selection 원복
+    try {
+      sel.removeAllRanges();
+      sel.addRange(backup);
+    } catch (_) { /* ignore */ }
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[EditableText] applySpanStyle failed:', err);
+    }
   }
 }
 
