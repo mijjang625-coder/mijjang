@@ -1793,7 +1793,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 🤖 우측: AI가 채울 항목 안내 박스 — 제목 영역과 동일한 높이, 내용 많아지면 세로 2단 */}
+              {/* 🤖 우측: AI가 채울 항목 안내 박스 — 아래 미리보기 카드의 "실행취소" 버튼과 좌측 라인 정렬
+                  ml-auto 로 우측 정렬 + 폭을 제한하여 좌측 시작점을 "실행취소" 버튼 X 좌표와 맞춤 */}
               {(() => {
                 const common = validateCommonBrief(brief, images);
                 const specific = validatePageRequirements(currentPage, brief);
@@ -1803,8 +1804,16 @@ export default function App() {
                 const useTwoColumns = allWarnings.length >= 4;
                 return (
                   <div
-                    className="flex-1 p-3 rounded-lg border text-xs flex flex-col justify-center overflow-hidden"
-                    style={{ backgroundColor: '#FFF8F0', borderColor: '#FDBA74', color: '#9A3412' }}
+                    className="ml-auto p-3 rounded-lg border text-xs flex flex-col justify-center overflow-hidden"
+                    style={{
+                      backgroundColor: '#FFF8F0',
+                      borderColor: '#FDBA74',
+                      color: '#9A3412',
+                      // 미리보기 카드의 우측 컨트롤 그룹(실행취소~다음)과 동일한 폭
+                      // → 좌측 모서리가 "실행취소" 버튼과 같은 세로 라인에서 시작
+                      width: '540px',
+                      maxWidth: '60%',
+                    }}
                   >
                     <div className="font-bold mb-1">🤖 빈 칸이 있습니다 — 페이지 생성 시 AI가 자동으로 채웁니다</div>
                     <ul
