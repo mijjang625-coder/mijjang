@@ -99,6 +99,8 @@ export default function Sidebar({
           </Section>
           </div>
 
+          {/* ─────────── 그룹 1: 디자인 설정 (톤앤매너 / 폰트 / P1 강점 카드) ─────────── */}
+          <div className="pt-3">
           <Section title="톤앤매너 (색상 테마)" emoji="🎨" collapsible defaultCollapsed>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               상품 분위기에 맞는 컬러 팔레트를 선택하세요.
@@ -343,8 +345,11 @@ export default function Sidebar({
               );
             })()}
           </Section>
+          </div>
+          {/* ─────────── 그룹 1 끝 ─────────── */}
 
-          {/* ─────────── 🆕 분석 도구 (P1 강점 카드 다음) ─────────── */}
+          {/* ─────────── 그룹 2: AI 분석 도구 (리뷰 분석 / 경쟁사 분석 / 참조 자료) ─────────── */}
+          <div className="pt-3">
           <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
             <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
             <ReviewAnalyzer
@@ -945,8 +950,11 @@ Q5. / A5.
               )}
             </div>
           </Section>
+          </div>
+          {/* ─────────── 그룹 2 끝 ─────────── */}
 
-          <div data-tour="product-info">
+          {/* ─────────── 그룹 3: 콘텐츠 입력 (제품 정보 ~ FAQ) ─────────── */}
+          <div data-tour="product-info" className="pt-3">
           <Section title="3. 제품 기본 정보" emoji="🛍️" collapsible>
             <Field label="제품명" required>
               <input value={brief.productName} onChange={(e) => updateBrief({ productName: e.target.value })} className="input" placeholder="예) 욕실용 실리콘 미끄럼방지 매트" />
@@ -1249,6 +1257,7 @@ Q5. / A5.
               </div>
             ))}
           </Section>
+          {/* ─────────── 그룹 3 끝 ─────────── */}
         </aside>
   );
 }
