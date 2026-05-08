@@ -954,7 +954,8 @@ Q5. / A5.
           {/* ─────────── 그룹 2 끝 ─────────── */}
 
           {/* ─────────── 그룹 3: 콘텐츠 입력 (제품 정보 ~ FAQ) ─────────── */}
-          <div data-tour="product-info" className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          <div data-tour="product-info">
           <Section title="3. 제품 기본 정보" emoji="🛍️" collapsible flat>
             <Field label="제품명" required>
               <input value={brief.productName} onChange={(e) => updateBrief({ productName: e.target.value })} className="input" placeholder="예) 욕실용 실리콘 미끄럼방지 매트" />
@@ -1257,6 +1258,7 @@ Q5. / A5.
               </div>
             ))}
           </Section>
+          </div>
           {/* ─────────── 그룹 3 끝 ─────────── */}
         </aside>
   );
