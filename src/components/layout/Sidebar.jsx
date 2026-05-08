@@ -71,7 +71,7 @@ export default function Sidebar({
 }) {
   return (
         <aside
-          className="space-y-4 xl:sticky xl:overflow-y-auto xl:pr-2"
+          className="space-y-2 xl:sticky xl:overflow-y-auto xl:pr-1"
           style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
         >
           <div data-tour="api-key">
