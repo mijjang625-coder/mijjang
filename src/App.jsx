@@ -1873,11 +1873,7 @@ export default function App() {
             {/* 🗑 (2026-04-28 사용자 요청) "사용 사진" / "디자인/배치 지시" 카드 제거 — 화면 공간 절약
                 데이터(currentResult.usedPhotos / designNotes)는 그대로 유지 — AI 응답엔 영향 없음 */}
 
-            {!currentResult && !isLoading && (
-              <div className="p-6 rounded-xl text-center text-sm border-2 border-dashed" style={{ borderColor: '#C8B6A6', backgroundColor: '#F7F3EE', color: '#6b635c' }}>
-                좌측에 정보를 입력한 뒤 상단 <b>{currentPage} 생성</b> 버튼을 눌러주세요.
-              </div>
-            )}
+            {/* 🗑 (사용자 요청) "좌측에 정보를 입력한 뒤..." 안내 박스 제거 — 모든 페이지 공통 */}
 
             {/* ⏱ 페이지 생성 진행률 (예상 시간 표시) */}
             {generationProgress && (() => {
