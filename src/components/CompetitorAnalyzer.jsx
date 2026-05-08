@@ -1,5 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { analyzeCompetitor } from '../lib/competitorAnalyzer.js';
+
+// 🆕 (2026-05-08) 새로고침 후에도 분석 결과가 유지되도록 localStorage 영속화 키
+const STORAGE_KEY = 'competitorAnalyzer.v1';
 
 /**
  * CompetitorAnalyzer — 경쟁사 상세페이지 AI 분석기
@@ -36,6 +39,32 @@ export default function CompetitorAnalyzer({
   const [activeTab, setActiveTab] = useState('summary'); // summary | structure | usp | gap | headlines
   const [applied, setApplied] = useState(false); // 브리프 반영 여부 표시
   const fileInputRef = useRef(null);
+  // 🆕 첫 로드 1회만 복원 (이후 setResult 등으로 인한 재실행 방지)
+  const hydratedRef = useRef(false);
+
+  // 🆕 (2026-05-08) localStorage 자동 복원 — 페이지 새로고침해도 분석 결과 유지
+  //   ReviewAnalyzer 와 같은 패턴. screenshots 는 dataURL 이라 용량이 커서 저장 안 함.
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.competitorUrl) setCompetitorUrl(saved.competitorUrl);
+      if (saved.result) setResult(saved.result);
+      if (saved.activeTab) setActiveTab(saved.activeTab);
+    } catch (_) {}
+  }, []);
+
+  // 🆕 (2026-05-08) 변경 시 자동 저장
+  //   screenshots 는 base64 dataURL 이라 5MB localStorage 한도 초과 위험 → 저장 제외
+  useEffect(() => {
+    try {
+      const data = JSON.stringify({ competitorUrl, result, activeTab });
+      localStorage.setItem(STORAGE_KEY, data);
+    } catch (_) {}
+  }, [competitorUrl, result, activeTab]);
 
   // 스크린샷 업로드 (data URL 변환)
   const handleUpload = async (e) => {
