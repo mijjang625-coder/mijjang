@@ -58,6 +58,10 @@ export default function EditableText({
 
   // 🆕 인라인 툴바 (선택 부분 서식용) 상태
   const [inlineToolbar, setInlineToolbar] = useState({ show: false, top: 0, left: 0 });
+  // 🆕 (2026-05-06) 인라인 툴바 작업 직후 selectionchange 로 인한 자동 닫힘 방지 가드
+  //   color/bold/fontSize 적용 직후 selection 이 잠깐 collapsed 되거나 재설정될 때
+  //   handleSelectionChange 가 툴바를 닫아버리는 현상을 막기 위한 짧은 시간 가드
+  const inlineApplyingRef = useRef(false);
 
   // 드래그 상태
   const [dragging, setDragging] = useState(false);
@@ -157,6 +161,9 @@ export default function EditableText({
       return;
     }
     const handleSelectionChange = () => {
+      // 🆕 (2026-05-06) 인라인 툴바에서 색상/굵게/크기 적용 직후 selection 이 잠깐
+      //   collapsed 되거나 재설정될 때 툴바가 닫히는 현상 방지 — 가드 켜진 동안엔 무시
+      if (inlineApplyingRef.current) return;
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
         setInlineToolbar((s) => (s.show ? { show: false, top: 0, left: 0 } : s));
@@ -322,12 +329,18 @@ export default function EditableText({
   //   bold/removeFormat 도 try/catch 로 보호하여 실패 시 화면이 꺼지지 않도록 함.
   const applyInline = (action) => {
     if (!ref.current) return;
+    // 🆕 (2026-05-06) 가드 ON — selectionchange 로 인한 인라인 툴바 자동 닫힘 방지
+    inlineApplyingRef.current = true;
     // 포커스 유지 + 선택 영역 보존
     try {
       ref.current.focus();
     } catch (_) { /* ignore */ }
     const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+      // 가드 해제 후 종료
+      setTimeout(() => { inlineApplyingRef.current = false; }, 250);
+      return;
+    }
 
     try {
       if (action.type === 'bold') {
@@ -367,6 +380,10 @@ export default function EditableText({
         console.warn('[EditableText] onChange failed:', err);
       }
     }
+
+    // 🆕 (2026-05-06) 가드 OFF — onChange 후 React 리렌더 + selectionchange 이벤트가
+    //   완전히 처리될 때까지 충분히 기다린 뒤 해제 (250ms 면 안전)
+    setTimeout(() => { inlineApplyingRef.current = false; }, 250);
   };
 
   // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
