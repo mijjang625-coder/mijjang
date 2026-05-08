@@ -100,61 +100,24 @@ export default function EditableText({
   const startEditing = (e) => {
     e.stopPropagation();
     // 🆕 (2026-05-08) 이미 편집 중이면 — innerHTML 재주입 / selection 강제 변경 안 함.
-    //   브라우저가 자동으로 잡아준 word selection 을 그대로 보존.
+    //   이렇게 안 하면 "이미 서식 적용된 글씨 (span 으로 감싸진 부분)" 위에서 더블클릭할 때
+    //   브라우저가 자동으로 잡아준 word selection 이 우리 setTimeout 의
+    //   selectNodeContents 로 덮어써져서 선택이 풀려버림.
     if (isEditing) {
       return;
     }
-    // 🆕 (2026-05-08) 더블클릭 좌표 백업 — setTimeout 내부에서 caretRangeFromPoint 로
-    //   해당 위치의 단어를 정확히 선택하기 위함.
-    const clickX = e.clientX;
-    const clickY = e.clientY;
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
     setTimeout(() => {
-      if (!ref.current) return;
-      ref.current.focus();
-      const sel = window.getSelection();
-      // 🆕 (2026-05-08) 더블클릭 위치의 단어를 잡아주기 — caretRangeFromPoint 로
-      //   클릭 좌표의 텍스트 노드를 찾고, 양쪽으로 단어 경계까지 확장.
-      //   이전엔 selectNodeContents 로 전체를 잡아버려서 이미 서식 적용된 글씨 위에서
-      //   더블클릭해도 단어가 아닌 글씨 전체가 선택되는 현상이 있었음.
-      try {
-        let range = null;
-        if (typeof document.caretRangeFromPoint === 'function') {
-          range = document.caretRangeFromPoint(clickX, clickY);
-        } else if (typeof document.caretPositionFromPoint === 'function') {
-          const pos = document.caretPositionFromPoint(clickX, clickY);
-          if (pos) {
-            range = document.createRange();
-            range.setStart(pos.offsetNode, pos.offset);
-            range.collapse(true);
-          }
-        }
-        if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
-          // 단어 경계 확장 — 공백/줄바꿈/구두점 직전까지
-          const text = range.startContainer.textContent || '';
-          const pos = range.startOffset;
-          const isWordChar = (ch) => ch && /[\w가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch);
-          let start = pos;
-          let end = pos;
-          while (start > 0 && isWordChar(text[start - 1])) start--;
-          while (end < text.length && isWordChar(text[end])) end++;
-          if (end > start) {
-            const wordRange = document.createRange();
-            wordRange.setStart(range.startContainer, start);
-            wordRange.setEnd(range.startContainer, end);
-            sel.removeAllRanges();
-            sel.addRange(wordRange);
-            return;
-          }
-        }
-      } catch (_) { /* fall through to full selection */ }
-      // 단어 선택 실패 시 fallback — 전체 선택
-      const fallback = document.createRange();
-      fallback.selectNodeContents(ref.current);
-      sel.removeAllRanges();
-      sel.addRange(fallback);
+      if (ref.current) {
+        ref.current.focus();
+        const range = document.createRange();
+        range.selectNodeContents(ref.current);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
     }, 0);
   };
 
@@ -406,16 +369,10 @@ export default function EditableText({
         const next = Math.max(8, currentSize + action.delta);
         applySpanStyle(sel, { fontSize: next + 'px' });
       } else if (action.type === 'reset') {
-        // 🆕 (2026-05-08) execCommand('removeFormat') 는 정렬/폰트까지 모두 제거하여
-        //   글씨가 검정/왼쪽정렬로 돌아가는 문제가 있음. 선택 영역의 인라인 텍스트 서식
-        //   (color / fontWeight / fontSize) 만 정확하게 제거하도록 직접 처리.
+        // 선택 부분의 인라인 서식 제거 — execCommand 도 try/catch 로 보호
         try {
-          clearInlineTextFormat(sel, ref.current);
-        } catch (err) {
-          if (typeof console !== 'undefined' && console.warn) {
-            console.warn('[EditableText] reset failed:', err);
-          }
-        }
+          document.execCommand('removeFormat', false, null);
+        } catch (_) { /* ignore */ }
       }
     } catch (err) {
       // 어떤 경우에도 throw 가 부모 컴포넌트로 올라가지 않도록 보호
@@ -595,76 +552,6 @@ function readSelectionFontSize(sel) {
   return Number.isFinite(px) ? px : null;
 }
 
-// 🆕 (2026-05-08) 선택 영역의 인라인 텍스트 서식만 제거 (정렬/폰트/줄바꿈 보존).
-//   execCommand('removeFormat') 는 정렬/폰트 등 너무 많은 걸 건드려서 글씨가
-//   검정/왼쪽정렬로 돌아가는 문제가 있음. 이 함수는 선택 영역에 걸친 텍스트 노드의
-//   부모 span 들에서 color / fontWeight / fontSize 만 정확하게 비운다.
-//   - span 의 다른 인라인 스타일 (background, textDecoration 등) 은 유지
-//   - span 의 style 이 완전히 비면 unwrap 해서 깔끔하게 정리
-//   - 텍스트 자체는 그대로 보존
-function clearInlineTextFormat(sel, rootEl) {
-  if (!sel || sel.rangeCount === 0 || !rootEl) return;
-  const range = sel.getRangeAt(0);
-  if (range.collapsed) return;
-
-  // 선택 범위 내 모든 텍스트 노드 수집
-  const textNodes = [];
-  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => {
-      // 텍스트 노드가 선택 range 와 교차하는지 확인
-      const nodeRange = document.createRange();
-      try {
-        nodeRange.selectNodeContents(node);
-      } catch (_) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      // range 의 끝이 nodeRange 의 시작보다 뒤이고, range 의 시작이 nodeRange 의 끝보다 앞이면 교차
-      if (
-        range.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0 &&
-        range.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0
-      ) {
-        return NodeFilter.FILTER_ACCEPT;
-      }
-      return NodeFilter.FILTER_REJECT;
-    },
-  });
-
-  let node;
-  // eslint-disable-next-line no-cond-assign
-  while ((node = walker.nextNode())) {
-    textNodes.push(node);
-  }
-
-  // 각 텍스트 노드의 조상 span 들에서 인라인 텍스트 서식 제거
-  const TARGET_PROPS = ['color', 'fontWeight', 'fontSize'];
-  // 처리한 span 중복 제거용
-  const processed = new Set();
-
-  textNodes.forEach((tn) => {
-    let cur = tn.parentNode;
-    while (cur && cur !== rootEl && cur.nodeType === Node.ELEMENT_NODE) {
-      if (cur.tagName === 'SPAN' && !processed.has(cur)) {
-        processed.add(cur);
-        // 타깃 속성만 제거
-        TARGET_PROPS.forEach((p) => {
-          try { cur.style[p] = ''; } catch (_) { /* ignore */ }
-        });
-        // 만약 style 이 모두 비었으면 span 을 unwrap (자식들을 부모로 빼냄)
-        if (!cur.getAttribute('style') || cur.getAttribute('style').trim() === '') {
-          const parent = cur.parentNode;
-          if (parent) {
-            while (cur.firstChild) {
-              parent.insertBefore(cur.firstChild, cur);
-            }
-            parent.removeChild(cur);
-          }
-        }
-      }
-      cur = cur.parentNode;
-    }
-  });
-}
-
 // ─────────── 셀 전체 툴바 (기존) ───────────
 function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
@@ -797,9 +684,28 @@ function InlineToolbar({ pos, onApply }) {
   //   외부 mousedown 핸들러에 안 걸려서 옵션바가 꺼지지 않음.
   const [showPalette, setShowPalette] = useState(false);
 
-  // 🆕 (2026-05-08) ::selection 파란 박스 숨김 처리 제거 — 사용자 요청으로
-  //   색상표를 눌러도 파란 박스를 그대로 두는 단계로 되돌림.
-  //   드래그 선택 시각화가 항상 살아있어야 어느 부분을 작업 중인지 명확함.
+  // 🆕 (2026-05-08) 색상표 열린 동안 contentEditable 의 ::selection 파란 박스를 투명하게.
+  //   사용자가 색상을 고를 때 실제 적용된 색이 파란 selection 박스에 가려져 안 보이는 문제 해결.
+  //   selection 자체는 살아있고 (range 유지) 단지 시각적 강조만 제거됨 → 색상 적용은 정상 동작.
+  useEffect(() => {
+    if (!showPalette) return;
+    const styleEl = document.createElement('style');
+    styleEl.setAttribute('data-palette-selection-style', 'true');
+    styleEl.textContent = `
+      [data-editable="true"] ::selection {
+        background-color: transparent !important;
+        color: inherit !important;
+      }
+      [data-editable="true"] ::-moz-selection {
+        background-color: transparent !important;
+        color: inherit !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+    return () => {
+      try { document.head.removeChild(styleEl); } catch (_) { /* ignore */ }
+    };
+  }, [showPalette]);
 
   return (
     <div
