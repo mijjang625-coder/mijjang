@@ -714,33 +714,63 @@ function InlineToolbar({ pos, onApply }) {
         A+
       </button>
 
-      {/* 색상 */}
-      <label
-        style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '0 2px' }}
-        title="선택 부분 글자 색"
-        onMouseDown={(e) => e.preventDefault()}
+      {/* 🆕 (2026-05-06) 색상 팔레트 — input[type=color] 제거하고 빠른 색상 버튼만 사용
+           이전: <input type="color"> 가 검은 큰 사각형으로 보여 클릭 시 네이티브 피커가
+                 selection/포커스를 빼앗으며 편집창이 꺼지는 문제가 있었음
+           수정: 라벨/input 제거하고 자주 쓰는 색상 버튼들로 대체 — 모두 onMouseDown
+                 단계에서 preventDefault 처리되어 selection 유지됨 */}
+      <span style={{ fontSize: 11, padding: '0 2px', color: '#fbbf24' }} title="글자 색">🎨</span>
+
+      {/* 빠른 색상 — 검정 */}
+      <button
+        style={{ ...inlineBtnStyle, backgroundColor: '#111827', border: '1px solid #fff' }}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#111827' }); }}
+        title="검정"
       >
-        <span style={{ fontSize: 11, marginRight: 2 }}>🎨</span>
-        <input
-          type="color"
-          onChange={(e) => onApply({ type: 'color', value: e.target.value })}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            width: 22,
-            height: 22,
-            border: 'none',
-            padding: 0,
-            background: 'transparent',
-            cursor: 'pointer',
-          }}
-        />
-      </label>
+        ●
+      </button>
+
+      {/* 빠른 색상 — 흰색 */}
+      <button
+        style={{ ...inlineBtnStyle, backgroundColor: '#ffffff', color: '#111', border: '1px solid #94a3b8' }}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#ffffff' }); }}
+        title="흰색"
+      >
+        ●
+      </button>
 
       {/* 빠른 색상 — 빨강 */}
       <button
         style={{ ...inlineBtnStyle, backgroundColor: '#dc2626' }}
         onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#dc2626' }); }}
-        title="빨간색"
+        title="빨강"
+      >
+        ●
+      </button>
+
+      {/* 빠른 색상 — 파랑 */}
+      <button
+        style={{ ...inlineBtnStyle, backgroundColor: '#2563eb' }}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#2563eb' }); }}
+        title="파랑"
+      >
+        ●
+      </button>
+
+      {/* 빠른 색상 — 초록 */}
+      <button
+        style={{ ...inlineBtnStyle, backgroundColor: '#16a34a' }}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#16a34a' }); }}
+        title="초록"
+      >
+        ●
+      </button>
+
+      {/* 빠른 색상 — 주황 */}
+      <button
+        style={{ ...inlineBtnStyle, backgroundColor: '#f59e0b' }}
+        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#f59e0b' }); }}
+        title="주황"
       >
         ●
       </button>
