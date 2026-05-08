@@ -20,25 +20,45 @@ export default function Section({
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const isCollapsible = collapsible;
   return (
-    <div className="bg-white rounded-xl p-4 border" style={{ borderColor: '#e2ddd4' }}>
+    <div
+      className="bg-white rounded-lg border"
+      style={{ borderColor: '#e2ddd4', padding: '8px 10px' }}
+    >
       <div
-        className={`flex items-center gap-2 pb-2 ${collapsed ? '' : 'mb-3 border-b'}`}
+        className={`flex items-center gap-1.5 ${collapsed ? '' : 'pb-1.5 mb-2 border-b'}`}
         style={{ borderColor: '#f0ebe4', cursor: isCollapsible ? 'pointer' : 'default' }}
         onClick={isCollapsible ? () => setCollapsed((v) => !v) : undefined}
       >
-        <span>{emoji}</span>
-        <h3 className="text-sm font-bold flex-1" style={{ color: '#2F2A26' }}>{title}</h3>
+        <span style={{ fontSize: '15px', lineHeight: 1 }}>{emoji}</span>
+        <h3
+          className="font-bold flex-1"
+          style={{ color: '#2F2A26', fontSize: '15px', lineHeight: 1.25, margin: 0 }}
+        >
+          {title}
+        </h3>
         {badge && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+          <span
+            className="rounded font-bold"
+            style={{
+              backgroundColor: '#fef3c7',
+              color: '#92400e',
+              fontSize: '11px',
+              lineHeight: 1,
+              padding: '2px 5px',
+            }}
+          >
             {badge}
           </span>
         )}
         {isCollapsible && (
           <span
-            className="text-xs px-1.5 py-0.5 rounded transition-transform"
+            className="rounded transition-transform"
             style={{
               backgroundColor: '#F7F3EE',
               color: '#6b635c',
+              fontSize: '11px',
+              lineHeight: 1,
+              padding: '2px 5px',
               transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
             }}
           >
