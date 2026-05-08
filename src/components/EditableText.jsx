@@ -760,13 +760,15 @@ function InlineToolbar({ pos, onApply }) {
   //   외부 mousedown 핸들러에 안 걸려서 옵션바가 꺼지지 않음.
   const [showPalette, setShowPalette] = useState(false);
 
-  // 🆕 (2026-05-08) InlineToolbar 가 떠있는 **동안 내내** contentEditable 의 ::selection
-  //   파란 박스를 투명하게 처리. 색상 적용 후에도 selection 은 살아있는데 파란 박스가
-  //   다시 보여서 적용된 색이 안 보이는 문제 해결.
+  // 🆕 (2026-05-08) 색상표 열린 동안만 contentEditable 의 ::selection 파란 박스를 투명하게.
+  //   사용자가 색을 고를 때 적용된 색이 파란 박스에 가려지지 않게 함.
+  //   ⚠️ 이전 시도: InlineToolbar 떠있는 동안 내내 숨김 → 글씨 드래그 선택 자체가 보이지 않아
+  //     사용성이 떨어지는 문제 발생. 그래서 "색상표 팝업 열린 동안만" 으로 되돌림.
   //   selection range 자체는 그대로 유지 → 색상/굵기/크기 적용은 정상 동작.
   useEffect(() => {
+    if (!showPalette) return;
     const styleEl = document.createElement('style');
-    styleEl.setAttribute('data-inline-toolbar-selection-style', 'true');
+    styleEl.setAttribute('data-palette-selection-style', 'true');
     styleEl.textContent = `
       [data-editable="true"] ::selection {
         background-color: transparent !important;
@@ -781,7 +783,7 @@ function InlineToolbar({ pos, onApply }) {
     return () => {
       try { document.head.removeChild(styleEl); } catch (_) { /* ignore */ }
     };
-  }, []);
+  }, [showPalette]);
 
   return (
     <div
