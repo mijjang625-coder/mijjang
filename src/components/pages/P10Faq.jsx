@@ -279,18 +279,36 @@ export default function P10Faq({
       {/* ─────────── 4. 상품 필수표기사항 (전자상거래법) ─────────── */}
       <div style={{ padding: '30px 40px 20px' }}>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
-          <SectionTitle size={32}>상품 필수표기사항</SectionTitle>
-          <div
-            style={{
+          <EditableText
+            {...editPropsFor('P10.compliance.title')}
+            as="h2"
+            defaultStyle={{
+              fontSize: 32,
+              fontWeight: 900,
+              color: BRAND.colors.main,
+              textAlign: 'center',
+              lineHeight: 1.2,
+              letterSpacing: '-0.035em',
+              margin: 0,
+              wordBreak: 'keep-all',
+            }}
+          >
+            상품 필수표기사항
+          </EditableText>
+          <EditableText
+            {...editPropsFor('P10.compliance.subTitle')}
+            as="div"
+            defaultStyle={{
               marginTop: 8,
               color: BRAND.colors.neutralText,
               fontSize: 16,
               fontWeight: 500,
               letterSpacing: '-0.02em',
+              textAlign: 'center',
             }}
           >
             전자상거래 등에서의 상품정보제공 고시 기준
-          </div>
+          </EditableText>
         </div>
 
         <div
