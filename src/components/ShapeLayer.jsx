@@ -183,18 +183,19 @@ export default function ShapeLayer({
             onClick={() => setShowPicker((s) => !s)}
             style={{
               backgroundColor: showPicker ? '#7c3aed' : '#a855f7', color: '#fff',
-              border: '2px solid #fff', padding: '8px 12px', borderRadius: 999,
-              fontSize: 12, fontWeight: 800, cursor: 'pointer',
+              border: '2px solid #fff', padding: '8px 14px', borderRadius: 12,
+              fontSize: 20, fontWeight: 800, lineHeight: 1.2, cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(168,85,247,0.45)',
               display: 'flex', alignItems: 'center', gap: 6,
+              width: 140, justifyContent: 'flex-start',
             }}
             title="페이지에 도형(사각형, 원, 화살표 등)을 그립니다 (스크롤해도 따라다님)"
           >
-            🟦 도형 추가
+            <span>도형 추가</span>
             {shapes.length > 0 && (
               <span style={{
                 backgroundColor: '#fbbf24', color: '#1e293b', borderRadius: 999,
-                padding: '1px 6px', fontSize: 10, fontWeight: 900,
+                padding: '1px 6px', fontSize: 12, fontWeight: 900, marginLeft: 'auto',
               }}>{shapes.length}</span>
             )}
           </button>

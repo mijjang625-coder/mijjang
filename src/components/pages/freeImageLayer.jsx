@@ -297,18 +297,19 @@ export function useFreeImageLayer({
           style={{
             position: 'fixed', right: 24, top: 168, zIndex: 100000,
             backgroundColor: '#3b82f6', color: '#fff', border: '2px solid #fff',
-            padding: '10px 14px', borderRadius: 999, fontSize: 13, fontWeight: 800,
-            cursor: 'pointer', boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
+            padding: '8px 14px', borderRadius: 12, fontSize: 20, fontWeight: 800,
+            lineHeight: 1.2, cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
             display: 'flex', alignItems: 'center', gap: 6,
+            width: 140, justifyContent: 'flex-start',
           }}
           title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
         >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>＋</span>
           <span>사진 추가</span>
           {(freeImages || []).length > 0 && (
             <span style={{
               backgroundColor: '#fff', color: '#3b82f6', borderRadius: 999,
-              padding: '1px 7px', fontSize: 10, fontWeight: 900, marginLeft: 4,
+              padding: '1px 7px', fontSize: 12, fontWeight: 900, marginLeft: 'auto',
             }}>{freeImages.length}</span>
           )}
         </button>
@@ -319,17 +320,19 @@ export function useFreeImageLayer({
           style={{
             position: 'fixed', right: 24, top: 272, zIndex: 100000,
             backgroundColor: '#f59e0b', color: '#fff', border: '2px solid #fff',
-            padding: '8px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800,
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
+            padding: '8px 14px', borderRadius: 12, fontSize: 20, fontWeight: 800,
+            lineHeight: 1.2, cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
             display: 'flex', alignItems: 'center', gap: 6,
+            width: 140, justifyContent: 'flex-start',
           }}
           title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
         >
-          📝 글박스 추가
+          <span>글박스 추가</span>
           {(freeTexts || []).length > 0 && (
             <span style={{
               backgroundColor: '#fff', color: '#f59e0b', borderRadius: 999,
-              padding: '1px 6px', fontSize: 10, fontWeight: 900,
+              padding: '1px 6px', fontSize: 12, fontWeight: 900, marginLeft: 'auto',
             }}>{freeTexts.length}</span>
           )}
         </button>
@@ -341,16 +344,19 @@ export function useFreeImageLayer({
             position: 'fixed', right: 24, top: 324,
             zIndex: 100000,
             backgroundColor: showLayers ? '#1e293b' : '#475569', color: '#fff',
-            border: '2px solid #fff', padding: '8px 12px', borderRadius: 999,
-            fontSize: 12, fontWeight: 800, cursor: 'pointer',
+            border: '2px solid #fff', padding: '8px 14px', borderRadius: 12,
+            fontSize: 20, fontWeight: 800, lineHeight: 1.2, cursor: 'pointer',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             display: 'flex', alignItems: 'center', gap: 6,
+            width: 140, justifyContent: 'flex-start',
           }}
           title="모든 레이어 목록 (스크롤해도 따라다님)"
         >
-          📋 레이어 <span style={{
+          <span>레이어</span>
+          <span style={{
             backgroundColor: '#fbbf24', color: '#1e293b',
-            borderRadius: 999, padding: '1px 6px', fontSize: 10, fontWeight: 900,
+            borderRadius: 999, padding: '1px 6px', fontSize: 12, fontWeight: 900,
+            marginLeft: 'auto',
           }}>{allLayers.length}</span>
         </button>
 

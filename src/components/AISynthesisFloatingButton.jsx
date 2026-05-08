@@ -55,25 +55,20 @@ export default function AISynthesisFloatingButton({
           backgroundColor: open ? '#C2410C' : '#E87A2B',
           color: '#fff',
           border: '2px solid #fff',
-          padding: '8px 12px',
-          borderRadius: 999,
-          fontSize: 12, fontWeight: 800,
+          padding: '8px 14px',
+          borderRadius: 12,
+          fontSize: 20, fontWeight: 800,
+          lineHeight: 1.2,
           cursor: 'pointer',
           boxShadow: '0 4px 12px rgba(232,122,43,0.45)',
           display: 'flex',
           alignItems: 'center',
           gap: 6,
+          width: 140,
+          justifyContent: 'flex-start',
         }}
       >
-        🎨 AI 수정
-        <span style={{
-          backgroundColor: '#fef3c7',
-          color: '#92400e',
-          borderRadius: 999,
-          padding: '1px 6px',
-          fontSize: 9,
-          fontWeight: 900,
-        }}>NEW</span>
+        <span>AI 이미지</span>
       </button>
 
       {/* 🪟 모달 */}

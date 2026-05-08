@@ -2508,10 +2508,9 @@ export default function App() {
               marginLeft: 'auto',
               display: 'flex',
             }}
-            title={feedbackExpanded ? 'AI 수정 패널 닫기' : 'AI에게 자연어로 수정 지시하기'}
+            title={feedbackExpanded ? 'AI 채팅 패널 닫기' : 'AI에게 자연어로 수정 지시하기'}
           >
-            <span>🪄</span>
-            <span>AI 수정</span>
+            <span>AI 채팅</span>
             {revisionHistory[currentPage]?.length > 0 && !feedbackExpanded && (
               <span
                 className="rounded-full font-bold"
