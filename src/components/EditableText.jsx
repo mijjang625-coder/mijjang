@@ -684,6 +684,29 @@ function InlineToolbar({ pos, onApply }) {
   //   외부 mousedown 핸들러에 안 걸려서 옵션바가 꺼지지 않음.
   const [showPalette, setShowPalette] = useState(false);
 
+  // 🆕 (2026-05-08) 색상표 열린 동안 contentEditable 의 ::selection 파란 박스를 투명하게.
+  //   사용자가 색상을 고를 때 실제 적용된 색이 파란 selection 박스에 가려져 안 보이는 문제 해결.
+  //   selection 자체는 살아있고 (range 유지) 단지 시각적 강조만 제거됨 → 색상 적용은 정상 동작.
+  useEffect(() => {
+    if (!showPalette) return;
+    const styleEl = document.createElement('style');
+    styleEl.setAttribute('data-palette-selection-style', 'true');
+    styleEl.textContent = `
+      [data-editable="true"] ::selection {
+        background-color: transparent !important;
+        color: inherit !important;
+      }
+      [data-editable="true"] ::-moz-selection {
+        background-color: transparent !important;
+        color: inherit !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+    return () => {
+      try { document.head.removeChild(styleEl); } catch (_) { /* ignore */ }
+    };
+  }, [showPalette]);
+
   return (
     <div
       data-inline-toolbar
@@ -824,23 +847,29 @@ function InlineToolbar({ pos, onApply }) {
   );
 }
 
-// 🆕 (2026-05-08) 커스텀 색상 그리드 팝업 — native <input type=color> 대체.
-//   무지개 12색 × 6단계 (밝기/채도) 그리드 + 흑백 그레이스케일.
+// 🆕 (2026-05-08) 커스텀 색상 그리드 팝업 — 풍부한 색상 선택용.
+//   20 hue × 8단계 명도/채도 = 160색 + 흑백 12단계 + HEX 직접 입력.
 //   클릭 시 onPick(color) 호출 → 즉시 적용 + 팝업 닫힘.
-//   data-inline-toolbar 외부 div 안에 렌더되므로 외부 mousedown 핸들러에 안 걸린다.
+//   data-inline-toolbar 내부에 렌더되므로 외부 mousedown 핸들러에 안 걸림.
 function ColorPalettePopup({ onPick, onClose }) {
-  // 무지개 hue 12개 + 흑백 1열
-  const HUES = [0, 15, 30, 45, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
-  // 채도/명도 단계 (밝음 → 진함)
+  // 🆕 무지개 hue 20개 (18° 간격) — 더 부드러운 색상 변화
+  const HUES = [0, 18, 30, 45, 60, 75, 90, 110, 130, 150, 170, 190, 210, 230, 250, 270, 290, 310, 330, 345];
+  // 🆕 채도/명도 단계 8개 — 파스텔부터 매우 진함까지
   const SHADES = [
-    { s: 60, l: 85 },  // 파스텔
-    { s: 80, l: 70 },  // 밝음
-    { s: 90, l: 55 },  // 표준
-    { s: 95, l: 42 },  // 진함
-    { s: 100, l: 28 }, // 매우 진함
+    { s: 40, l: 92 },  // 매우 옅은 파스텔
+    { s: 55, l: 82 },  // 파스텔
+    { s: 70, l: 72 },  // 밝음
+    { s: 85, l: 60 },  // 약간 밝음
+    { s: 95, l: 50 },  // 표준
+    { s: 95, l: 40 },  // 진함
+    { s: 100, l: 30 }, // 매우 진함
+    { s: 100, l: 20 }, // 가장 진함
   ];
-  // 흑백 5단계
-  const GRAYS = ['#ffffff', '#cbd5e1', '#94a3b8', '#475569', '#111827'];
+  // 🆕 흑백 12단계 — 흰색 → 검정 그라데이션
+  const GRAYS = [
+    '#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db', '#9ca3af', '#6b7280',
+    '#4b5563', '#374151', '#1f2937', '#111827', '#030712', '#000000',
+  ];
 
   const hslToHex = (h, s, l) => {
     s /= 100; l /= 100;
@@ -851,6 +880,18 @@ function ColorPalettePopup({ onPick, onClose }) {
       return Math.round(255 * c).toString(16).padStart(2, '0');
     };
     return `#${f(0)}${f(8)}${f(4)}`;
+  };
+
+  // 🆕 HEX 입력 처리
+  const [hexInput, setHexInput] = useState('');
+  const handleHexSubmit = () => {
+    let v = hexInput.trim();
+    if (!v) return;
+    if (!v.startsWith('#')) v = '#' + v;
+    // #RGB 또는 #RRGGBB 형식 검증
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
+      onPick(v);
+    }
   };
 
   return (
@@ -865,13 +906,13 @@ function ColorPalettePopup({ onPick, onClose }) {
         backgroundColor: '#0f172a',
         border: '1px solid #f59e0b',
         borderRadius: 6,
-        padding: 6,
+        padding: 8,
         boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
         zIndex: 100003,
       }}
     >
-      {/* 무지개 그리드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${HUES.length}, 16px)`, gap: 2 }}>
+      {/* 🆕 무지개 그리드 — 20 hue × 8 단계 = 160색 */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${HUES.length}, 14px)`, gap: 2 }}>
         {SHADES.map((shade, rowIdx) =>
           HUES.map((h) => {
             const hex = hslToHex(h, shade.s, shade.l);
@@ -886,9 +927,9 @@ function ColorPalettePopup({ onPick, onClose }) {
                 }}
                 title={hex}
                 style={{
-                  width: 16, height: 16,
+                  width: 14, height: 14,
                   background: hex,
-                  border: '1px solid rgba(255,255,255,0.15)',
+                  border: '1px solid rgba(255,255,255,0.12)',
                   borderRadius: 2,
                   cursor: 'pointer',
                   padding: 0,
@@ -898,8 +939,9 @@ function ColorPalettePopup({ onPick, onClose }) {
           })
         )}
       </div>
-      {/* 흑백 줄 */}
-      <div style={{ display: 'flex', gap: 2, marginTop: 4, justifyContent: 'center' }}>
+
+      {/* 🆕 흑백 12단계 */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${GRAYS.length}, 14px)`, gap: 2, marginTop: 5 }}>
         {GRAYS.map((g) => (
           <button
             key={g}
@@ -911,30 +953,74 @@ function ColorPalettePopup({ onPick, onClose }) {
             }}
             title={g}
             style={{
-              width: 24, height: 16,
+              width: 14, height: 14,
               background: g,
-              border: '1px solid rgba(255,255,255,0.3)',
+              border: '1px solid rgba(255,255,255,0.25)',
               borderRadius: 2,
               cursor: 'pointer',
               padding: 0,
             }}
           />
         ))}
-        {/* 닫기 */}
+      </div>
+
+      {/* 🆕 HEX 직접 입력 + 닫기 */}
+      <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>
+        <span style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700 }}>HEX</span>
+        <input
+          type="text"
+          value={hexInput}
+          onChange={(e) => setHexInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleHexSubmit();
+            }
+            e.stopPropagation();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          placeholder="#ff6b6b"
+          style={{
+            flex: 1,
+            background: '#1e293b',
+            color: '#fff',
+            border: '1px solid #334155',
+            borderRadius: 3,
+            padding: '2px 5px',
+            fontSize: 10,
+            width: 80,
+            outline: 'none',
+          }}
+        />
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleHexSubmit(); }}
+          title="HEX 적용"
+          style={{
+            background: '#f59e0b',
+            color: '#0f172a',
+            border: 'none',
+            borderRadius: 3,
+            padding: '2px 6px',
+            fontSize: 10,
+            fontWeight: 800,
+            cursor: 'pointer',
+          }}
+        >
+          ✓
+        </button>
         <button
           type="button"
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
           title="닫기"
           style={{
-            width: 24, height: 16,
             background: '#334155',
             color: '#fff',
             border: '1px solid #475569',
-            borderRadius: 2,
-            cursor: 'pointer',
+            borderRadius: 3,
+            padding: '2px 6px',
             fontSize: 10,
-            lineHeight: 1,
-            padding: 0,
+            cursor: 'pointer',
           }}
         >
           ✕
