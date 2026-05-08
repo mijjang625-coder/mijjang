@@ -1627,26 +1627,83 @@ export default function App() {
             </div>
           </div>
         </div>
-        {/* 페이지 탭 */}
-        <div className="max-w-[1700px] mx-auto px-6 pb-2 flex gap-1 overflow-x-auto">
-          {PAGE_LIST.map((p) => {
-            const done = pages[p] && !pages[p].needsMoreInfo;
-            const active = currentPage === p;
-            return (
-              <button
-                key={p}
-                onClick={() => setCurrentPage(p)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border"
-                style={{
-                  backgroundColor: active ? '#C8B6A6' : done ? '#F7F3EE' : '#fff',
-                  color: active ? '#fff' : '#2F2A26',
-                  borderColor: active ? '#C8B6A6' : '#e2ddd4',
-                }}
-              >
-                {done && !active ? '✓ ' : ''}{p}
-              </button>
-            );
-          })}
+        {/* 페이지 탭 + 현재 페이지 액션 (한 줄) */}
+        <div className="max-w-[1700px] mx-auto px-6 pb-2 flex items-center gap-2 flex-wrap">
+          {/* 좌측: P1~P10 페이지 탭 */}
+          <div className="flex gap-1 items-center flex-wrap">
+            {PAGE_LIST.map((p) => {
+              const done = pages[p] && !pages[p].needsMoreInfo;
+              const active = currentPage === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className="px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap border shadow-sm"
+                  style={{
+                    backgroundColor: active ? '#C8B6A6' : done ? '#F7F3EE' : '#fff',
+                    color: active ? '#fff' : '#2F2A26',
+                    borderColor: active ? '#C8B6A6' : '#e2ddd4',
+                  }}
+                >
+                  {done && !active ? '✓ ' : ''}{p}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 우측: 현재 페이지 액션 (PNG / HTML / 다시 생성 / 다음) — 이전 PNG 버튼 크기와 동일 */}
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            {/* PNG / HTML — 결과가 있을 때만 표시 */}
+            {currentResult?.copy && !currentResult.needsMoreInfo && (
+              <>
+                <button
+                  onClick={() => handleDownloadImage(currentPage)}
+                  className="px-3 py-2 rounded-lg text-white text-xs font-bold shadow"
+                  style={{ backgroundColor: '#2F2A26' }}
+                  title={`${currentPage} 페이지를 PNG 이미지로 다운로드`}
+                >
+                  📥 PNG
+                </button>
+                <button
+                  onClick={() => handleDownloadHtml(currentPage)}
+                  className="px-3 py-2 rounded-lg text-xs font-bold border"
+                  style={{ borderColor: '#2F2A26', color: '#2F2A26', backgroundColor: '#fff' }}
+                  title={`${currentPage} 페이지를 HTML 파일로 다운로드`}
+                >
+                  📄 HTML
+                </button>
+              </>
+            )}
+
+            {/* 다시 생성 / 생성 — 항상 표시 */}
+            <button
+              data-tour="generate-button"
+              onClick={() => handleGenerate(currentPage)}
+              disabled={isLoading}
+              className="px-4 py-2 rounded-lg text-white font-bold text-xs shadow"
+              style={{ backgroundColor: isLoading ? '#a89b8f' : '#C8B6A6' }}
+            >
+              {isLoading ? '생성 중...' : currentResult ? `🔁 ${currentPage} 다시 생성` : `${currentPage} 생성`}
+            </button>
+
+            {/* 다음 페이지 — 결과가 있을 때만 */}
+            {currentResult?.copy && !currentResult.needsMoreInfo && (() => {
+              const nextIdx = PAGE_LIST.indexOf(currentPage) + 1;
+              if (nextIdx >= PAGE_LIST.length) return null;
+              const nextP = PAGE_LIST[nextIdx];
+              return (
+                <button
+                  onClick={() => { setCurrentPage(nextP); handleGenerate(nextP); }}
+                  disabled={isLoading}
+                  className="px-4 py-2 rounded-lg text-white text-xs font-bold shadow"
+                  style={{ backgroundColor: '#E87A2B' }}
+                  title={`${nextP} 페이지로 자동 이동 + 생성`}
+                >
+                  다음 ({nextP}) →
+                </button>
+              );
+            })()}
+          </div>
         </div>
       </header>
 
@@ -1732,63 +1789,13 @@ export default function App() {
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap items-center justify-end">
+                {/* P5 버전 선택만 유지 — PNG/HTML/다시생성/다음 버튼은 상단 헤더로 이동됨 */}
                 {currentPage === 'P5' && currentResult?.copy && (
                   <select value={p5Version} onChange={(e) => setP5Version(e.target.value)} className="input" style={{ width: 'auto', padding: '8px 10px' }}>
                     <option value="text">글 버전</option>
                     <option value="photo">사진 버전</option>
                   </select>
                 )}
-
-                {/* ⬇️ 다운로드 버튼들 — 결과가 있을 때만 표시 */}
-                {currentResult?.copy && !currentResult.needsMoreInfo && (
-                  <>
-                    <button
-                      onClick={() => handleDownloadImage(currentPage)}
-                      className="px-3 py-2 rounded-lg text-white text-xs font-bold shadow"
-                      style={{ backgroundColor: '#2F2A26' }}
-                      title={`${currentPage} 페이지를 PNG 이미지로 다운로드`}
-                    >
-                      📥 PNG
-                    </button>
-                    <button
-                      onClick={() => handleDownloadHtml(currentPage)}
-                      className="px-3 py-2 rounded-lg text-xs font-bold border"
-                      style={{ borderColor: '#2F2A26', color: '#2F2A26' }}
-                      title={`${currentPage} 페이지를 HTML 파일로 다운로드`}
-                    >
-                      📄 HTML
-                    </button>
-                  </>
-                )}
-
-                {/* 다시 생성 / 생성 */}
-                <button
-                  data-tour="generate-button"
-                  onClick={() => handleGenerate(currentPage)}
-                  disabled={isLoading}
-                  className="px-4 py-2 rounded-lg text-white font-bold text-xs shadow"
-                  style={{ backgroundColor: isLoading ? '#a89b8f' : '#C8B6A6' }}
-                >
-                  {isLoading ? '생성 중...' : currentResult ? `🔁 ${currentPage} 다시 생성` : `${currentPage} 생성`}
-                </button>
-
-                {/* ➡️ 다음 페이지 만들기 — 결과가 있을 때만 */}
-                {currentResult?.copy && !currentResult.needsMoreInfo && (() => {
-                  const nextIdx = PAGE_LIST.indexOf(currentPage) + 1;
-                  if (nextIdx >= PAGE_LIST.length) return null;
-                  const nextP = PAGE_LIST[nextIdx];
-                  return (
-                    <button
-                      onClick={() => { setCurrentPage(nextP); handleGenerate(nextP); }}
-                      disabled={isLoading}
-                      className="px-4 py-2 rounded-lg text-white text-xs font-bold shadow"
-                      style={{ backgroundColor: '#E87A2B' }}
-                      title={`${nextP} 페이지로 자동 이동 + 생성`}
-                    >
-                      다음 ({nextP}) →
-                    </button>
-                  );
-                })()}
               </div>
             </div>
 
