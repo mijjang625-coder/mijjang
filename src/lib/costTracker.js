@@ -1,13 +1,22 @@
 /**
- * costTracker.js — OpenAI 비용 추적 유틸리티
+ * costTracker.js — 멀티 AI(OpenAI/Anthropic/Google) 비용 추적 유틸리티
  *
  * 토큰 사용량을 원화 비용으로 변환하고, localStorage에 누적 기록.
  *
- * 가격 정책 (2024.10 기준, USD/1M tokens):
- *   gpt-4o-mini    : input $0.15 / output $0.60
- *   gpt-4o         : input $2.50 / output $10.00
- *   gpt-4.1-mini   : input $0.40 / output $1.60
- *   gpt-4.1        : input $2.00 / output $8.00
+ * 가격 정책 (2024.10 ~ 2025.05 기준, USD/1M tokens):
+ *   [OpenAI]
+ *   gpt-4o-mini                  : input $0.15  / output $0.60
+ *   gpt-4o                       : input $2.50  / output $10.00
+ *   gpt-4.1-mini                 : input $0.40  / output $1.60
+ *   gpt-4.1                      : input $2.00  / output $8.00
+ *   [Anthropic Claude]
+ *   claude-3-5-haiku-20241022    : input $0.80  / output $4.00
+ *   claude-3-5-sonnet-20241022   : input $3.00  / output $15.00
+ *   claude-3-7-sonnet-20250219   : input $3.00  / output $15.00
+ *   [Google Gemini]
+ *   gemini-2.0-flash-exp         : input $0.10  / output $0.40
+ *   gemini-1.5-flash             : input $0.075 / output $0.30
+ *   gemini-1.5-pro               : input $1.25  / output $5.00
  *
  * 환율은 1 USD = 1,400 KRW (보수적으로 반올림)
  */
@@ -15,10 +24,19 @@
 const USD_TO_KRW = 1400;
 
 const MODEL_PRICING = {
-  'gpt-4o-mini':  { input: 0.15,  output: 0.60 },
-  'gpt-4o':       { input: 2.50,  output: 10.00 },
-  'gpt-4.1-mini': { input: 0.40,  output: 1.60 },
-  'gpt-4.1':      { input: 2.00,  output: 8.00 },
+  // OpenAI
+  'gpt-4o-mini':                { input: 0.15,  output: 0.60 },
+  'gpt-4o':                     { input: 2.50,  output: 10.00 },
+  'gpt-4.1-mini':               { input: 0.40,  output: 1.60 },
+  'gpt-4.1':                    { input: 2.00,  output: 8.00 },
+  // Anthropic Claude
+  'claude-3-5-haiku-20241022':  { input: 0.80,  output: 4.00 },
+  'claude-3-5-sonnet-20241022': { input: 3.00,  output: 15.00 },
+  'claude-3-7-sonnet-20250219': { input: 3.00,  output: 15.00 },
+  // Google Gemini
+  'gemini-2.0-flash-exp':       { input: 0.10,  output: 0.40 },
+  'gemini-1.5-flash':           { input: 0.075, output: 0.30 },
+  'gemini-1.5-pro':             { input: 1.25,  output: 5.00 },
 };
 
 /**
@@ -36,17 +54,19 @@ export function calculateCost(model, inputTokens = 0, outputTokens = 0) {
 }
 
 /**
- * OpenAI 응답의 usage 객체 → 비용 객체
+ * AI 응답의 usage 객체 → 비용 객체
+ * OpenAI: { prompt_tokens, completion_tokens, total_tokens }
+ * Anthropic/Google (aiClient.js): { input, output }
+ * 두 형식 모두 호환.
+ *
  * @param {string} model
- * @param {{prompt_tokens: number, completion_tokens: number, total_tokens: number}} usage
+ * @param {{prompt_tokens?: number, completion_tokens?: number, input?: number, output?: number}} usage
  */
 export function costFromUsage(model, usage) {
   if (!usage) return null;
-  return calculateCost(
-    model,
-    usage.prompt_tokens || 0,
-    usage.completion_tokens || 0,
-  );
+  const inputTokens = usage.prompt_tokens ?? usage.input ?? 0;
+  const outputTokens = usage.completion_tokens ?? usage.output ?? 0;
+  return calculateCost(model, inputTokens, outputTokens);
 }
 
 // ───────────────────── localStorage 영속화 ─────────────────────

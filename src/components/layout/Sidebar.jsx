@@ -5,6 +5,12 @@ import InfoCard from '../ui/InfoCard.jsx';
 import { CheckIcon as CheckIconPreview } from '../pages/Shared.jsx';
 import { THEME_PRESETS, FONT_PRESETS } from '../../lib/theme.js';
 import { DEFAULT_BRIEF, PRODUCT_TYPES } from '../../lib/briefDefaults.js';
+import {
+  AI_MODELS,
+  PROVIDER_LABELS,
+  PROVIDER_KEY_PLACEHOLDERS,
+  PROVIDER_KEY_DOCS,
+} from '../../lib/aiClient.js';
 
 // 🚀 분석 도구는 lazy load — 사이드바 섹션 펼쳐졌을 때만 로드 (xlsx + 분석 로직 포함)
 const ReviewAnalyzer = lazy(() => import('../ReviewAnalyzer.jsx'));
@@ -36,9 +42,14 @@ function AnalyzerFallback({ icon = '🔍', label = '도구 로딩 중...' }) {
  * 10~16. 리뷰/비교/활용/사용순서/FAQ
  */
 export default function Sidebar({
-  // OpenAI 설정
-  apiKey, setApiKey,
+  // 🆕 멀티 AI 설정
+  provider = 'openai', setProvider,
+  apiKey, setApiKey,                    // OpenAI 키 (provider='openai' 일 때 사용 + 경쟁사 Vision)
+  claudeApiKey = '', setClaudeApiKey,
+  geminiApiKey = '', setGeminiApiKey,
+  // 사진 합성
   falApiKey, setFalApiKey,
+  // 모델
   model, setModel,
   // 브리프
   brief, setBrief,
@@ -69,25 +80,121 @@ export default function Sidebar({
   // 🆕 경쟁사 분석기 → 추천 페이지에 헤드라인 직접 적용
   applyHeadlineToPage = null,
 }) {
+  // 현재 provider 의 키 / 키 setter
+  const currentApiKey =
+    provider === 'anthropic' ? claudeApiKey :
+    provider === 'google' ? geminiApiKey :
+    apiKey;
+  const setCurrentApiKey =
+    provider === 'anthropic' ? setClaudeApiKey :
+    provider === 'google' ? setGeminiApiKey :
+    setApiKey;
+  const currentModelList = AI_MODELS[provider] || AI_MODELS.openai;
   return (
         <aside
           className="xl:sticky xl:overflow-y-auto xl:pr-1"
           style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
         >
           <div data-tour="api-key">
-          <Section title="OpenAI 설정" emoji="🔑" collapsible defaultCollapsed={!!apiKey}>
-            <Field label="OpenAI API Key" required>
-              <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className="input" />
-              <div className="text-[10px] text-slate-500 mt-1">텍스트 생성/수정용 (필수)</div>
+          <Section title="AI 모델 설정" emoji="🔑" collapsible defaultCollapsed={!!currentApiKey}>
+            {/* AI 제공자 선택 (라디오) */}
+            <Field label="AI 제공자">
+              <div className="grid grid-cols-3 gap-1">
+                {Object.entries(PROVIDER_LABELS).map(([id, label]) => {
+                  const active = provider === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setProvider?.(id);
+                        // provider 변경 시 모델도 해당 provider 의 첫 번째로 자동 전환
+                        const list = AI_MODELS[id] || [];
+                        if (list.length > 0 && !list.find((m) => m.id === model)) {
+                          setModel?.(list[0].id);
+                        }
+                      }}
+                      className="text-[11px] py-1.5 px-1 rounded border transition"
+                      style={{
+                        backgroundColor: active ? '#3b82f6' : '#fff',
+                        color: active ? '#fff' : '#374151',
+                        borderColor: active ? '#3b82f6' : '#d1d5db',
+                        fontWeight: active ? 'bold' : 'normal',
+                      }}
+                    >
+                      {id === 'openai' && '🤖 GPT'}
+                      {id === 'anthropic' && '🧠 Claude'}
+                      {id === 'google' && '✨ Gemini'}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">
+                {PROVIDER_LABELS[provider]} — 페이지 생성/수정/리뷰 분석에 사용됩니다.
+              </div>
             </Field>
+
+            {/* 현재 provider 의 API 키 입력 */}
+            <Field label={`${PROVIDER_LABELS[provider]} API Key`} required>
+              <input
+                type="password"
+                value={currentApiKey || ''}
+                onChange={(e) => setCurrentApiKey?.(e.target.value)}
+                placeholder={PROVIDER_KEY_PLACEHOLDERS[provider]}
+                className="input"
+              />
+              <div className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                키 발급 →{' '}
+                <a
+                  href={PROVIDER_KEY_DOCS[provider]}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 underline"
+                >
+                  {PROVIDER_KEY_DOCS[provider].replace(/^https?:\/\//, '')}
+                </a>
+              </div>
+            </Field>
+
+            {/* 현재 provider 의 모델 선택 */}
             <Field label="모델">
               <select value={model} onChange={(e) => setModel(e.target.value)} className="input">
-                <option value="gpt-4o-mini">gpt-4o-mini (빠르고 저렴)</option>
-                <option value="gpt-4o">gpt-4o (고품질)</option>
-                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                <option value="gpt-4.1">gpt-4.1</option>
+                {currentModelList.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
               </select>
+              <div className="text-[10px] text-slate-500 mt-1">
+                💰 입력 ${currentModelList.find((m) => m.id === model)?.input ?? '?'} / 출력 ${currentModelList.find((m) => m.id === model)?.output ?? '?'} (per 1M tokens)
+              </div>
             </Field>
+
+            {/* OpenAI 가 아닐 때: 경쟁사 Vision 분석은 OpenAI 필요 안내 */}
+            {provider !== 'openai' && (
+              <div
+                className="text-[10px] mt-2 p-2 rounded leading-relaxed"
+                style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fbbf24' }}
+              >
+                ℹ️ 경쟁사 상세페이지 <b>이미지 분석(Vision)</b>은 OpenAI(GPT-4o) 전용입니다.
+                해당 기능을 쓰려면 아래 OpenAI API 키도 추가로 입력하세요.
+              </div>
+            )}
+
+            {/* provider != 'openai' 일 때만 별도로 OpenAI Vision 키 입력란 노출 */}
+            {provider !== 'openai' && (
+              <Field label="OpenAI API Key (Vision 전용)">
+                <input
+                  type="password"
+                  value={apiKey || ''}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk-... (선택사항)"
+                  className="input"
+                />
+                <div className="text-[10px] text-slate-500 mt-1">
+                  경쟁사 이미지 분석에만 사용 (없으면 텍스트 분석만 동작)
+                </div>
+              </Field>
+            )}
+
             <Field label="fal.ai API Key">
               <input type="password" value={falApiKey} onChange={(e) => setFalApiKey(e.target.value)} placeholder="fal_..." className="input" />
               <div className="text-[10px] text-slate-500 mt-1 leading-relaxed">
@@ -353,7 +460,8 @@ export default function Sidebar({
           <Section title="리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed flat>
             <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
             <ReviewAnalyzer
-              apiKey={apiKey}
+              provider={provider}
+              apiKey={currentApiKey}
               model={model}
               productName={brief.productName}
               productType={brief.productType}
@@ -407,6 +515,7 @@ export default function Sidebar({
             <CompetitorAnalyzer
               apiKey={apiKey}
               model={model}
+              provider={provider}
               productName={brief.productName}
               productType={brief.productType}
               toneNote={brief.brandTone || ''}

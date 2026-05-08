@@ -26,6 +26,7 @@ async function getXLSX() {
  */
 export default function ReviewAnalyzer({
   apiKey,
+  provider = 'openai',
   model = 'gpt-4o-mini',
   productName = '',
   productType = '',
@@ -186,7 +187,7 @@ export default function ReviewAnalyzer({
   const runAnalysis = async () => {
     setError('');
     if (!apiKey) {
-      setError('먼저 사이드바 "1. OpenAI 설정"에서 API 키를 입력해주세요.');
+      setError('먼저 사이드바 "AI 모델 설정"에서 API 키를 입력해주세요.');
       return;
     }
     const texts = getReviewTexts();
@@ -198,7 +199,7 @@ export default function ReviewAnalyzer({
     setAnalyzing(true);
     try {
       const res = await analyzeReviews({
-        apiKey, model,
+        provider, apiKey, model,
         reviews: texts,
         productName,
         productType,

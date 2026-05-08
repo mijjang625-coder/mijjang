@@ -59,9 +59,19 @@ const PAGE_TITLES = {
 
 export default function App() {
   // API 설정
-  const [apiKey, setApiKey] = useState('');
+  // 🆕 멀티 AI 지원: provider 별 키 분리 보관
+  const [provider, setProvider] = useState('openai'); // 'openai' | 'anthropic' | 'google'
+  const [apiKey, setApiKey] = useState('');           // OpenAI 키 (Vision 분석에도 사용)
+  const [claudeApiKey, setClaudeApiKey] = useState(''); // Anthropic Claude 키
+  const [geminiApiKey, setGeminiApiKey] = useState(''); // Google Gemini 키
   const [falApiKey, setFalApiKey] = useState(''); // fal.ai (nano-banana-2/pro 합성용)
   const [model, setModel] = useState('gpt-4o-mini');
+
+  // 현재 provider 의 활성 키 (페이지 생성/리뷰 분석 등에 전달)
+  const activeApiKey =
+    provider === 'anthropic' ? claudeApiKey :
+    provider === 'google' ? geminiApiKey :
+    apiKey;
 
   // 🆕 리뷰 분석 결과 (CompetitorAnalyzer 갭 매칭용)
   const [reviewInsights, setReviewInsights] = useState(null);
@@ -808,18 +818,29 @@ export default function App() {
     P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
   };
 
-  // API 키 저장/로딩
+  // API 키 저장/로딩 — provider 별로 키 분리
   useEffect(() => {
     const saved = localStorage.getItem('openai_api_key');
     if (saved) setApiKey(saved);
+    const savedClaude = localStorage.getItem('claude_api_key');
+    if (savedClaude) setClaudeApiKey(savedClaude);
+    const savedGemini = localStorage.getItem('gemini_api_key');
+    if (savedGemini) setGeminiApiKey(savedGemini);
     const savedFal = localStorage.getItem('fal_api_key');
     if (savedFal) setFalApiKey(savedFal);
     const savedModel = localStorage.getItem('openai_model');
     if (savedModel) setModel(savedModel);
+    const savedProvider = localStorage.getItem('ai_provider');
+    if (savedProvider && ['openai', 'anthropic', 'google'].includes(savedProvider)) {
+      setProvider(savedProvider);
+    }
   }, []);
   useEffect(() => { if (apiKey) localStorage.setItem('openai_api_key', apiKey); }, [apiKey]);
+  useEffect(() => { if (claudeApiKey) localStorage.setItem('claude_api_key', claudeApiKey); }, [claudeApiKey]);
+  useEffect(() => { if (geminiApiKey) localStorage.setItem('gemini_api_key', geminiApiKey); }, [geminiApiKey]);
   useEffect(() => { if (falApiKey) localStorage.setItem('fal_api_key', falApiKey); }, [falApiKey]);
   useEffect(() => { if (model) localStorage.setItem('openai_model', model); }, [model]);
+  useEffect(() => { if (provider) localStorage.setItem('ai_provider', provider); }, [provider]);
 
   // ─── 프로젝트 자동 저장/복원 ─────────────────────────
   const [hydrated, setHydrated] = useState(false);     // 첫 로드 완료 여부
@@ -1002,8 +1023,14 @@ export default function App() {
     setError('');
     setExtractResult(null);
     setShowPasteHint(false);
-    if (!apiKey.trim()) {
-      setError('OpenAI API 키를 먼저 입력해주세요.');
+    // 이미지 OCR 모드면 OpenAI 키 필수, 그 외는 현재 provider 키 사용
+    const needsOpenAIVision = extractMode === 'paste' && ocrImages.length > 0;
+    const keyForCall = needsOpenAIVision ? apiKey : activeApiKey;
+    const providerForCall = needsOpenAIVision ? 'openai' : provider;
+    if (!keyForCall || !keyForCall.trim()) {
+      setError(needsOpenAIVision
+        ? 'OCR 이미지 분석은 OpenAI 키가 필요합니다. 사이드바의 OpenAI API Key 란에 sk-... 키를 입력하세요.'
+        : 'AI API 키를 먼저 입력해주세요.');
       return;
     }
     if (extractMode === 'url' && !referenceUrl.trim()) {
@@ -1021,13 +1048,15 @@ export default function App() {
         let url = referenceUrl.trim();
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
         info = await extractProductInfoFromUrl({
-          apiKey: apiKey.trim(),
+          provider: providerForCall,
+          apiKey: keyForCall.trim(),
           model,
           url,
         });
       } else {
         info = await extractProductInfoFromText({
-          apiKey: apiKey.trim(),
+          provider: providerForCall,
+          apiKey: keyForCall.trim(),
           model,
           pastedText,
           userNotes,
@@ -1155,8 +1184,13 @@ export default function App() {
   // 추천 검색어 20개 추출
   const handleExtractKeywords = async () => {
     setError('');
-    if (!apiKey.trim()) {
-      setError('OpenAI API 키를 먼저 입력해주세요.');
+    // 이미지 있으면 OpenAI 필요, 없으면 현재 provider 키
+    const earlyNeedsOpenAI = ocrImages.length > 0;
+    const earlyKey = earlyNeedsOpenAI ? apiKey : activeApiKey;
+    if (!earlyKey || !earlyKey.trim()) {
+      setError(earlyNeedsOpenAI
+        ? 'OCR 이미지 분석은 OpenAI 키가 필요합니다. 사이드바에서 sk-... 키를 입력하세요.'
+        : 'AI API 키를 먼저 입력해주세요.');
       return;
     }
     if (!brief.productName?.trim() && pastedText.trim().length < 50 && userNotes.trim().length < 10 && ocrImages.length === 0) {
@@ -1165,8 +1199,18 @@ export default function App() {
     }
     try {
       setIsExtractingKeywords(true);
+      // 이미지가 있으면 OpenAI Vision 필수, 아니면 현재 provider
+      const needsOpenAIVision = ocrImages.length > 0;
+      const keyForCall = needsOpenAIVision ? apiKey : activeApiKey;
+      const providerForCall = needsOpenAIVision ? 'openai' : provider;
+      if (!keyForCall || !keyForCall.trim()) {
+        throw new Error(needsOpenAIVision
+          ? 'OCR 이미지 분석은 OpenAI 키가 필요합니다.'
+          : 'AI API 키가 필요합니다.');
+      }
       const { keywords: kws } = await extractRecommendedKeywords({
-        apiKey: apiKey.trim(),
+        provider: providerForCall,
+        apiKey: keyForCall.trim(),
         model,
         pastedText,
         userNotes,
@@ -1203,7 +1247,7 @@ export default function App() {
   const handleAutoFillEmpty = async () => {
     setError('');
     setAutoFillMessage('');
-    if (!apiKey) { setError('OpenAI API 키를 입력해 주세요.'); return; }
+    if (!activeApiKey) { setError('AI API 키를 입력해 주세요.'); return; }
     if (!brief.productName?.trim()) {
       setError('제품명은 직접 입력해 주세요. 나머지는 AI가 채웁니다.');
       return;
@@ -1211,7 +1255,8 @@ export default function App() {
     setIsAutoFilling(true);
     try {
       const filled = await autoFillBrief({
-        apiKey,
+        provider,
+        apiKey: activeApiKey,
         model,
         brief,
         imageCount: images.length,
@@ -1233,16 +1278,17 @@ export default function App() {
 
     // 🔍 디버그: 생성 시작 로그 (문제 파악용)
     console.log(`[handleGenerate] ${pageNumber} 시작`, {
-      hasApiKey: !!apiKey.trim(),
+      provider,
+      hasApiKey: !!(activeApiKey && activeApiKey.trim()),
       imageCount: images.length,
       productName: brief.productName,
       revisionRequest: revisionRequest || '(없음)',
     });
 
     // API 키 먼저 체크 (빠른 실패)
-    if (!apiKey.trim()) {
-      setError('⚠️ 섹션 1에서 OpenAI API 키를 입력해주세요.');
-      console.warn('[handleGenerate] API 키 없음');
+    if (!activeApiKey || !activeApiKey.trim()) {
+      setError(`⚠️ 사이드바 'AI 모델 설정'에서 ${provider === 'anthropic' ? 'Claude' : provider === 'google' ? 'Gemini' : 'OpenAI'} API 키를 입력해주세요.`);
+      console.warn('[handleGenerate] API 키 없음', { provider });
       return;
     }
 
@@ -1273,9 +1319,10 @@ export default function App() {
         .map((p) => `${p}: ${pages[p]?.pagePurpose || ''}`)
         .join('\n');
 
-      console.log(`[handleGenerate] ${pageNumber} API 호출 시작 (model=${model})`);
+      console.log(`[handleGenerate] ${pageNumber} API 호출 시작 (provider=${provider}, model=${model})`);
       const result = await generateCoupangPage({
-        apiKey: apiKey.trim(),
+        provider,
+        apiKey: activeApiKey.trim(),
         model,
         pageNumber,
         brief,
@@ -1713,7 +1760,10 @@ export default function App() {
       <main className="max-w-[1700px] mx-auto px-6 py-5 grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5 items-start">
         {/* 좌측: 입력 + 페이지 컨트롤 (Sidebar 컴포넌트로 분리됨) */}
         <Sidebar
+          provider={provider} setProvider={setProvider}
           apiKey={apiKey} setApiKey={setApiKey}
+          claudeApiKey={claudeApiKey} setClaudeApiKey={setClaudeApiKey}
+          geminiApiKey={geminiApiKey} setGeminiApiKey={setGeminiApiKey}
           falApiKey={falApiKey} setFalApiKey={setFalApiKey}
           model={model} setModel={setModel}
           brief={brief} setBrief={setBrief}
