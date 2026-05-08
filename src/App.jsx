@@ -1794,14 +1794,13 @@ export default function App() {
               </div>
 
               {/* 🤖 우측: AI가 채울 항목 안내 박스 — 아래 미리보기 카드의 "실행취소" 버튼과 좌측 라인 정렬
-                  ml-auto 로 우측 정렬 + 폭을 제한하여 좌측 시작점을 "실행취소" 버튼 X 좌표와 맞춤 */}
+                  레이아웃: [상단 전체폭 제목] / [좌측 항목 목록 | 중앙 세로선 | 우측 💡 안내]
+                  3줄 높이로 컴팩트하게 유지 */}
               {(() => {
                 const common = validateCommonBrief(brief, images);
                 const specific = validatePageRequirements(currentPage, brief);
                 const allWarnings = [...(common.warnings || []), ...(specific.warnings || [])];
                 if (allWarnings.length === 0 || !common.ok) return null;
-                // 항목이 4개 이상이면 세로 2단으로 분할 (자리 효율 ↑)
-                const useTwoColumns = allWarnings.length >= 4;
                 return (
                   <div
                     className="ml-auto p-3 rounded-lg border text-xs flex flex-col justify-center overflow-hidden"
@@ -1809,23 +1808,28 @@ export default function App() {
                       backgroundColor: '#FFF8F0',
                       borderColor: '#FDBA74',
                       color: '#9A3412',
-                      // 미리보기 카드의 우측 컨트롤 그룹(실행취소~다음)과 동일한 폭
-                      // → 좌측 모서리가 "실행취소" 버튼과 같은 세로 라인에서 시작
-                      width: '540px',
-                      maxWidth: '60%',
+                      // 미리보기 카드의 "⏪ 실행취소" 버튼과 좌측 X 좌표 일치
+                      // 박스를 왼쪽으로 ~240px 확장 (510px → 750px)
+                      width: '750px',
+                      maxWidth: '78%',
                     }}
                   >
-                    <div className="font-bold mb-1">🤖 빈 칸이 있습니다 — 페이지 생성 시 AI가 자동으로 채웁니다</div>
-                    <ul
-                      className="list-disc list-inside"
-                      style={useTwoColumns ? { columnCount: 2, columnGap: '16px' } : undefined}
-                    >
-                      {allWarnings.map((w, i) => (
-                        <li key={i} style={useTwoColumns ? { breakInside: 'avoid' } : undefined}>{w}</li>
-                      ))}
-                    </ul>
-                    <div className="mt-1 text-[11px]">
-                      💡 더 좋은 결과를 위해 위 섹션의 <b>🪄 빈 칸 채우기</b> 버튼을 먼저 눌러주세요.
+                    {/* 1행: 제목 — 전체폭, 세로 구분선 없음 */}
+                    <div className="font-bold mb-1.5">🤖 빈 칸이 있습니다 — 페이지 생성 시 AI가 자동으로 채웁니다</div>
+                    {/* 2~3행: 좌(항목 목록) | 중앙 세로선 | 우(💡 안내) */}
+                    <div className="flex items-stretch gap-2">
+                      {/* 좌측 50% — 항목 목록 (최대 2개까지만 표시 → 3줄 높이 유지) */}
+                      <ul className="list-disc list-inside flex-1 min-w-0" style={{ width: '50%' }}>
+                        {allWarnings.slice(0, 2).map((w, i) => (
+                          <li key={i} className="truncate">{w}</li>
+                        ))}
+                      </ul>
+                      {/* 중앙 세로 구분선 */}
+                      <div style={{ width: '1px', backgroundColor: '#FDBA74', flexShrink: 0 }} />
+                      {/* 우측 50% — 💡 안내 */}
+                      <div className="flex-1 min-w-0 text-[11px]" style={{ width: '50%' }}>
+                        💡 더 좋은 결과를 위해 위 섹션의 <b>🪄 빈 칸 채우기</b> 버튼을 먼저 눌러주세요.
+                      </div>
                     </div>
                   </div>
                 );
