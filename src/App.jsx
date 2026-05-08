@@ -1771,8 +1771,8 @@ export default function App() {
         {/* 우측: 현재 페이지 제작 + 미리보기 */}
         <section className="space-y-4">
           {/* 현재 페이지 제작 카드 */}
-          <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: '#e2ddd4' }}>
-            <div className="flex items-stretch gap-4 mb-4">
+          <div className="bg-white rounded-2xl border" style={{ borderColor: '#e2ddd4', padding: '12px 20px' }}>
+            <div className="flex items-stretch gap-4">
               {/* 좌측: 제목 영역 */}
               <div className="flex flex-col justify-center">
                 <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-2">
