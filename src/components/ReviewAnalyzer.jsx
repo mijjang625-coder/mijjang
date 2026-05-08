@@ -79,11 +79,20 @@ export default function ReviewAnalyzer({
     } catch (_) {}
   }, [result, adopted, pastedText, inputMode]);
 
-  // 채택된 문구가 바뀔 때 외부 알림
+  // 채택된 문구가 바뀔 때 외부 알림 + 🆕 "내 메모"에 자동 동기화
   useEffect(() => {
     if (!result?.headlines) return;
     const list = result.headlines.filter((h) => adopted[h.id]);
     onAdoptedHeadlinesChange(list);
+
+    // 🆕 (2026-05-08) 채택 상태가 바뀌는 즉시 "내 메모"에 자동 반영
+    //   - 이전: "✅ 채택된 문구 적용" 버튼을 직접 눌러야만 메모에 들어감 → 잊어버리기 쉬움
+    //   - 이제: 채택 토글하면 즉시 메모 섹션이 갱신됨 (체크 해제하면 그 항목이 빠짐)
+    if (typeof onApplyAdoptedToNotes === 'function') {
+      const text = list.map((h, i) => `${i + 1}. ${h.headline}\n   → ${h.body}`).join('\n\n');
+      // 빈 문자열도 그대로 전달 → 부모 쪽에서 섹션 비움/제거 처리
+      onApplyAdoptedToNotes(text, list);
+    }
   }, [adopted, result]);
 
   // 🆕 분석 결과 전체를 부모에 전달 (경쟁사 분석기 등에서 활용)

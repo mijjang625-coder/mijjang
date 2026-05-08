@@ -22,6 +22,10 @@ export default function CompetitorAnalyzer({
   toneNote = '',
   reviewInsights = null,
   onApplyToBrief = null,
+  // 🆕 (2026-05-08) 헤드라인 한 줄을 특정 페이지의 메인 텍스트로 즉시 덮어쓰기
+  //   사용처: Sidebar에서 App의 updateTextOverride(pageNum, textId, { html, text }) 를 래핑해 전달
+  //   onApplyHeadlineToPage(pageNum: 'P1'|...|'P10', text: string) => void
+  onApplyHeadlineToPage = null,
 }) {
   const [competitorUrl, setCompetitorUrl] = useState('');
   const [screenshots, setScreenshots] = useState([]); // dataURL[]
@@ -486,8 +490,23 @@ export default function CompetitorAnalyzer({
                     </div>
                     {/* 우리 변형 */}
                     <div className="p-2.5 bg-violet-50 border-t border-violet-200 text-[11px]">
-                      <div className="text-[9px] font-bold text-violet-600 mb-0.5 tracking-wide">
-                        ⚡ 우리 (US) — 우리 톤 변형
+                      <div className="flex items-start justify-between gap-2 mb-0.5">
+                        <div className="text-[9px] font-bold text-violet-600 tracking-wide">
+                          ⚡ 우리 (US) — 우리 톤 변형
+                        </div>
+                        {/* 🆕 추천 페이지에 직접 적용 버튼 */}
+                        {h.targetPage && onApplyHeadlineToPage && h.ourVersion && (
+                          <button
+                            onClick={() => {
+                              onApplyHeadlineToPage(h.targetPage, h.ourVersion);
+                            }}
+                            title={`${h.targetPage} 메인 헤드라인을 이 문구로 교체합니다.`}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded text-white shrink-0"
+                            style={{ backgroundColor: '#7C3AED' }}
+                          >
+                            📥 {h.targetPage}에 적용
+                          </button>
+                        )}
                       </div>
                       <div className="font-bold text-violet-900">
                         ✨ {h.ourVersion}

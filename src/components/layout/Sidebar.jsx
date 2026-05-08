@@ -66,6 +66,8 @@ export default function Sidebar({
   handleAutoFillFromUrl,
   handleAutoFillEmpty,
   handleExtractKeywords,
+  // 🆕 경쟁사 분석기 → 추천 페이지에 헤드라인 직접 적용
+  applyHeadlineToPage = null,
 }) {
   return (
         <aside
@@ -149,12 +151,18 @@ export default function Sidebar({
               onAnalyzed={setReviewInsights}
               onApplyAdoptedToNotes={(text) => {
                 // 🆕 (2026-04-28) 채택 문구를 "내 메모"에 자동 추가
-                // 기존 메모가 있으면 보존하고 아래에 섹션 구분선과 함께 추가
-                const header = '\n\n--- 📌 리뷰 분석 채택 문구 ---\n';
+                // 🆕 (2026-05-08) 채택 토글마다 자동 호출 — text 가 비면 섹션 제거
+                const SECTION_TAG = '--- 📌 리뷰 분석 채택 문구 ---';
+                const header = `\n\n${SECTION_TAG}\n`;
                 setUserNotes((prev) => {
                   const cur = prev || '';
+                  const idx = cur.indexOf(SECTION_TAG);
+                  // 채택 0개 → 섹션 자체를 제거
+                  if (!text || !text.trim()) {
+                    if (idx < 0) return cur;
+                    return cur.slice(0, idx).replace(/\n+$/, '');
+                  }
                   // 이미 같은 섹션이 있으면 그 부분만 갱신
-                  const idx = cur.indexOf('--- 📌 리뷰 분석 채택 문구 ---');
                   if (idx >= 0) {
                     return cur.slice(0, idx).replace(/\n+$/, '') + header + text;
                   }
@@ -194,6 +202,7 @@ export default function Sidebar({
               productType={brief.productType}
               toneNote={brief.brandTone || ''}
               reviewInsights={reviewInsights}
+              onApplyHeadlineToPage={applyHeadlineToPage}
               onApplyToBrief={(updates) => {
                 const lines = [];
                 if (updates.uspHints?.length) {

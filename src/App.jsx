@@ -1679,6 +1679,33 @@ export default function App() {
           handleAutoFillFromUrl={handleAutoFillFromUrl}
           handleAutoFillEmpty={handleAutoFillEmpty}
           handleExtractKeywords={handleExtractKeywords}
+          // 🆕 (2026-05-08) 경쟁사 분석기에서 추천 헤드라인을 추천 페이지의 메인 텍스트로 즉시 덮어쓰기
+          applyHeadlineToPage={(pageNum, text) => {
+            // 페이지별 메인 헤드라인 텍스트 ID 매핑
+            const PAGE_MAIN_TEXT_ID = {
+              P1: 'P1.mainHeadline',
+              P2: 'P2.headline',
+              P3: 'P3.mainTitle',
+              P4: 'P4.sectionTitle',
+              P5: 'P5.headline',
+              P6: 'P6.material.title',
+              P7: 'P7.title',
+              P8: 'P8.headline',
+              P9: 'P9.title',
+              P10: 'P10.ctaTitle',
+            };
+            const textId = PAGE_MAIN_TEXT_ID[pageNum];
+            if (!textId) {
+              alert(`${pageNum} 페이지는 자동 적용을 지원하지 않습니다.`);
+              return;
+            }
+            const safe = String(text || '').trim();
+            if (!safe) return;
+            const escaped = safe
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            updateTextOverride(pageNum, textId, { html: escaped, text: safe });
+            alert(`✅ ${pageNum} 페이지 메인 헤드라인을 다음 문구로 교체했습니다.\n\n"${safe}"\n\n💡 ${pageNum} 페이지를 열어 확인하세요.`);
+          }}
         />
 
         {/* 우측: 현재 페이지 제작 + 미리보기 */}
