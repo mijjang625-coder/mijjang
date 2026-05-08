@@ -8,6 +8,7 @@ import { useState } from 'react';
  * @param {boolean} collapsible 접기 가능 여부
  * @param {boolean} defaultCollapsed 초기 접힘 상태
  * @param {string|null} badge 우측 상단 작은 뱃지 (예: '5장')
+ * @param {boolean} flat 그룹 내부에서 사용 시 개별 테두리/배경 제거 (그룹이 통합 카드 역할)
  */
 export default function Section({
   title,
@@ -16,12 +17,13 @@ export default function Section({
   collapsible = false,
   defaultCollapsed = false,
   badge = null,
+  flat = false,
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const isCollapsible = collapsible;
   return (
     <div
-      className="bg-white rounded-lg border"
+      className={flat ? '' : 'bg-white rounded-lg border'}
       style={{ borderColor: '#e2ddd4', padding: '8px 10px' }}
     >
       <div

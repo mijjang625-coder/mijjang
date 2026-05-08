@@ -100,8 +100,8 @@ export default function Sidebar({
           </div>
 
           {/* ─────────── 그룹 1: 디자인 설정 (톤앤매너 / 폰트 / P1 강점 카드) ─────────── */}
-          <div className="pt-2 space-y-0">
-          <Section title="톤앤매너 (색상 테마)" emoji="🎨" collapsible defaultCollapsed>
+          <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          <Section title="톤앤매너 (색상 테마)" emoji="🎨" collapsible defaultCollapsed flat>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               상품 분위기에 맞는 컬러 팔레트를 선택하세요.
               <br />모든 P1~P10 페이지에 즉시 적용됩니다.
@@ -143,7 +143,7 @@ export default function Sidebar({
           </Section>
 
           {/* ─────────── 폰트 선택 (전체 페이지 일괄 적용) ─────────── */}
-          <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤" collapsible defaultCollapsed>
+          <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤" collapsible defaultCollapsed flat>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               선택한 폰트가 P1~P10 모든 페이지에 즉시 적용됩니다.
               <br />5종 무료 상업용 한글 폰트 제공.
@@ -183,7 +183,7 @@ export default function Sidebar({
           </Section>
 
           {/* ─────────── P1 강점 카드 디자인 (체크아이콘 모양 + 박스 크기) ─────────── */}
-          <Section title="P1 강점 카드 디자인" emoji="✨" collapsible defaultCollapsed>
+          <Section title="P1 강점 카드 디자인" emoji="✨" collapsible defaultCollapsed flat>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               P1 페이지의 3개 강점 카드(체크 아이콘 + 박스)를 직접 조정합니다.
             </div>
@@ -349,8 +349,8 @@ export default function Sidebar({
           {/* ─────────── 그룹 1 끝 ─────────── */}
 
           {/* ─────────── 그룹 2: AI 분석 도구 (리뷰 분석 / 경쟁사 분석 / 참조 자료) ─────────── */}
-          <div className="pt-2 space-y-0">
-          <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
+          <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed flat>
             <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
             <ReviewAnalyzer
               apiKey={apiKey}
@@ -402,7 +402,7 @@ export default function Sidebar({
             </Suspense>
           </Section>
 
-          <Section title="🕵️ 경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed>
+          <Section title="🕵️ 경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed flat>
             <Suspense fallback={<AnalyzerFallback icon="🕵️" label="경쟁사 분석 도구 로딩 중..." />}>
             <CompetitorAnalyzer
               apiKey={apiKey}
@@ -444,7 +444,7 @@ export default function Sidebar({
             </Suspense>
           </Section>
 
-          <Section title="2. 참조 자료로 자동 채우기" emoji="🔗" collapsible>
+          <Section title="2. 참조 자료로 자동 채우기" emoji="🔗" collapsible flat>
             {/* 모드 탭 */}
             <div className="flex gap-1 mb-2 p-1 rounded-lg" style={{ backgroundColor: '#F7F3EE' }}>
               <button
@@ -954,8 +954,8 @@ Q5. / A5.
           {/* ─────────── 그룹 2 끝 ─────────── */}
 
           {/* ─────────── 그룹 3: 콘텐츠 입력 (제품 정보 ~ FAQ) ─────────── */}
-          <div data-tour="product-info" className="pt-2 space-y-0">
-          <Section title="3. 제품 기본 정보" emoji="🛍️" collapsible>
+          <div data-tour="product-info" className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          <Section title="3. 제품 기본 정보" emoji="🛍️" collapsible flat>
             <Field label="제품명" required>
               <input value={brief.productName} onChange={(e) => updateBrief({ productName: e.target.value })} className="input" placeholder="예) 욕실용 실리콘 미끄럼방지 매트" />
             </Field>
@@ -1103,7 +1103,7 @@ Q5. / A5.
           </div>
 
           <div data-tour="image-upload">
-          <Section title="4. 제품 사진 업로드" emoji="📸" collapsible defaultCollapsed={images.length > 0} badge={images.length > 0 ? `${images.length}장` : null}>
+          <Section title="4. 제품 사진 업로드" emoji="📸" collapsible defaultCollapsed={images.length > 0} badge={images.length > 0 ? `${images.length}장` : null} flat>
             {/* 사진 개수 가이드 */}
             <div className="mb-2 p-2 rounded-lg text-[11px]" style={{
               backgroundColor: images.length >= 23 ? '#ECFDF5' : images.length >= 10 ? '#FFF8F0' : '#FEF2F2',
@@ -1178,7 +1178,7 @@ Q5. / A5.
           </Section>
           </div>
 
-          <Section title="5. 리뷰 4개 (P4 필수)" emoji="⭐" collapsible>
+          <Section title="5. 리뷰 4개 (P4 필수)" emoji="⭐" collapsible flat>
             {brief.reviews.map((r, i) => (
               <div key={i} className="space-y-1.5 mb-3 pb-3 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <div className="text-[11px] font-bold text-slate-500">리뷰 {i + 1}</div>
@@ -1191,7 +1191,7 @@ Q5. / A5.
             ))}
           </Section>
 
-          <Section title="6. P5 2지선다 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible>
+          <Section title="6. P5 2지선다 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible flat>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               각 행에 <b>내 제품의 차별점</b>과 <b>일반 제품의 모습</b>을 함께 입력하세요.
               <br />비워두면 AI가 "일반적인 모습"을 추측해서 채웁니다.
@@ -1237,19 +1237,19 @@ Q5. / A5.
             </label>
           </Section>
 
-          <Section title="7. 활용법 4가지 (P8 필수)" emoji="💡" collapsible>
+          <Section title="7. 활용법 4가지 (P8 필수)" emoji="💡" collapsible flat>
             {brief.usages.map((u, i) => (
               <input key={i} value={u} onChange={(e) => updateArrayItem('usages', i, e.target.value)} placeholder={`활용법 ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="8. 사용 순서 3단계 (P9 필수)" emoji="🔢" collapsible>
+          <Section title="8. 사용 순서 3단계 (P9 필수)" emoji="🔢" collapsible flat>
             {brief.usageSteps.map((s, i) => (
               <input key={i} value={s} onChange={(e) => updateArrayItem('usageSteps', i, e.target.value)} placeholder={`STEP ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="9. FAQ 5개 (P10 필수)" emoji="❓" collapsible>
+          <Section title="9. FAQ 5개 (P10 필수)" emoji="❓" collapsible flat>
             {brief.faqs.map((f, i) => (
               <div key={i} className="space-y-1.5 mb-2 pb-2 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <input placeholder={`Q${i + 1}`} value={f.q} onChange={(e) => updateObjectArrayItem('faqs', i, 'q', e.target.value)} className="input" />
