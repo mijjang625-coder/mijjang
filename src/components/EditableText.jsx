@@ -100,24 +100,61 @@ export default function EditableText({
   const startEditing = (e) => {
     e.stopPropagation();
     // 🆕 (2026-05-08) 이미 편집 중이면 — innerHTML 재주입 / selection 강제 변경 안 함.
-    //   이렇게 안 하면 "이미 서식 적용된 글씨 (span 으로 감싸진 부분)" 위에서 더블클릭할 때
-    //   브라우저가 자동으로 잡아준 word selection 이 우리 setTimeout 의
-    //   selectNodeContents 로 덮어써져서 선택이 풀려버림.
+    //   브라우저가 자동으로 잡아준 word selection 을 그대로 보존.
     if (isEditing) {
       return;
     }
+    // 🆕 (2026-05-08) 더블클릭 좌표 백업 — setTimeout 내부에서 caretRangeFromPoint 로
+    //   해당 위치의 단어를 정확히 선택하기 위함.
+    const clickX = e.clientX;
+    const clickY = e.clientY;
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
     setTimeout(() => {
-      if (ref.current) {
-        ref.current.focus();
-        const range = document.createRange();
-        range.selectNodeContents(ref.current);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
+      if (!ref.current) return;
+      ref.current.focus();
+      const sel = window.getSelection();
+      // 🆕 (2026-05-08) 더블클릭 위치의 단어를 잡아주기 — caretRangeFromPoint 로
+      //   클릭 좌표의 텍스트 노드를 찾고, 양쪽으로 단어 경계까지 확장.
+      //   이전엔 selectNodeContents 로 전체를 잡아버려서 이미 서식 적용된 글씨 위에서
+      //   더블클릭해도 단어가 아닌 글씨 전체가 선택되는 현상이 있었음.
+      try {
+        let range = null;
+        if (typeof document.caretRangeFromPoint === 'function') {
+          range = document.caretRangeFromPoint(clickX, clickY);
+        } else if (typeof document.caretPositionFromPoint === 'function') {
+          const pos = document.caretPositionFromPoint(clickX, clickY);
+          if (pos) {
+            range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+          }
+        }
+        if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
+          // 단어 경계 확장 — 공백/줄바꿈/구두점 직전까지
+          const text = range.startContainer.textContent || '';
+          const pos = range.startOffset;
+          const isWordChar = (ch) => ch && /[\w가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch);
+          let start = pos;
+          let end = pos;
+          while (start > 0 && isWordChar(text[start - 1])) start--;
+          while (end < text.length && isWordChar(text[end])) end++;
+          if (end > start) {
+            const wordRange = document.createRange();
+            wordRange.setStart(range.startContainer, start);
+            wordRange.setEnd(range.startContainer, end);
+            sel.removeAllRanges();
+            sel.addRange(wordRange);
+            return;
+          }
+        }
+      } catch (_) { /* fall through to full selection */ }
+      // 단어 선택 실패 시 fallback — 전체 선택
+      const fallback = document.createRange();
+      fallback.selectNodeContents(ref.current);
+      sel.removeAllRanges();
+      sel.addRange(fallback);
     }, 0);
   };
 
