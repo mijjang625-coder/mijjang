@@ -2460,9 +2460,27 @@ export default function App() {
                   value={feedbackInput}
                   onChange={(e) => setFeedbackInput(e.target.value)}
                   onKeyDown={(e) => {
+                    // Ctrl/⌘ + Enter → 수정 전송
                     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                       e.preventDefault();
                       handleRevise();
+                      return;
+                    }
+                    // Ctrl/⌘ + Z → 되돌리기 (전역 undo 호출)
+                    // Ctrl/⌘ + Shift + Z 또는 Ctrl/⌘ + Y → 다시실행
+                    if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
+                      e.preventDefault();
+                      if (e.shiftKey) {
+                        if (undoHistory.canRedo) undoHistory.redo();
+                      } else {
+                        if (undoHistory.canUndo) undoHistory.undo();
+                      }
+                      return;
+                    }
+                    if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || e.key === 'Y')) {
+                      e.preventDefault();
+                      if (undoHistory.canRedo) undoHistory.redo();
+                      return;
                     }
                   }}
                   placeholder="예) 메인 헤드라인 더 짧게 / 강점 2번 타이틀을 '안심 소재'로 / 트러스트 라인 지워줘"
@@ -2481,10 +2499,56 @@ export default function App() {
                   {isRevising ? '수정 중...' : '✨ 수정 반영'}
                 </button>
 
+                {/* ↩ 되돌리기 / ↪ 다시실행 버튼 — 전역 undoHistory 와 동일 동작 (Ctrl+Z / Ctrl+Y) */}
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={undoHistory.undo}
+                    disabled={!undoHistory.canUndo || isRevising}
+                    className="flex-1 px-3 py-1.5 rounded-lg border font-bold disabled:opacity-50"
+                    style={{
+                      backgroundColor: undoHistory.canUndo ? '#fff' : '#f5f1ec',
+                      borderColor: undoHistory.canUndo ? '#C8B6A6' : '#e2ddd4',
+                      color: undoHistory.canUndo ? '#2F2A26' : '#bcb5ad',
+                      fontSize: '13px',
+                      lineHeight: 1.2,
+                      cursor: undoHistory.canUndo ? 'pointer' : 'not-allowed',
+                    }}
+                    title={
+                      undoHistory.canUndo
+                        ? `되돌리기 (Ctrl+Z)\n마지막: ${undoHistory.lastLabel || ''}`
+                        : '되돌릴 작업이 없습니다'
+                    }
+                  >
+                    ↩ 되돌리기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={undoHistory.redo}
+                    disabled={!undoHistory.canRedo || isRevising}
+                    className="flex-1 px-3 py-1.5 rounded-lg border font-bold disabled:opacity-50"
+                    style={{
+                      backgroundColor: undoHistory.canRedo ? '#fff' : '#f5f1ec',
+                      borderColor: undoHistory.canRedo ? '#C8B6A6' : '#e2ddd4',
+                      color: undoHistory.canRedo ? '#2F2A26' : '#bcb5ad',
+                      fontSize: '13px',
+                      lineHeight: 1.2,
+                      cursor: undoHistory.canRedo ? 'pointer' : 'not-allowed',
+                    }}
+                    title={
+                      undoHistory.canRedo
+                        ? `다시실행 (Ctrl+Y)\n다음: ${undoHistory.nextLabel || ''}`
+                        : '다시실행할 작업이 없습니다'
+                    }
+                  >
+                    ↪ 다시실행
+                  </button>
+                </div>
+
                 <div className="text-slate-500 mt-2 leading-relaxed" style={{ fontSize: '11px' }}>
                   💡 <b>텍스트 수정</b>: 지워달라 / 바꿔달라 / 더 짧게 등 (이전 수정도 누적 반영)<br />
                   📷 <b>사진 교체</b>는 편집 모드에서 사진 클릭 후 우측 <b>↔ 사진 변경</b> 버튼 사용<br />
-                  ⌨️ Ctrl/⌘ + Enter로 바로 전송
+                  ⌨️ Ctrl/⌘ + Enter 전송 · Ctrl/⌘ + Z 되돌리기
                 </div>
               </div>
             </div>
