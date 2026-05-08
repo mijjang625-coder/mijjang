@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
 /**
  * EditableImage v3 — 박스/이미지 완전 분리
@@ -503,6 +504,15 @@ export default function EditableImage({
     }
   }, [isActive]);
 
+  // 🆕 다른 요소가 활성화되면 자기 조정/교체 패널 + hover 상태 닫기
+  const closeOnOtherSelect = useCallback(() => {
+    setShowAdjust(false);
+    setShowSwapPanel(false);
+    setHovering(false);
+    setMode('idle');
+  }, []);
+  useEditorSelectionListener(`edit-image:${id}`, closeOnOtherSelect);
+
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
   if (!editMode) {
     const hasFrame = !!frame;
@@ -602,6 +612,8 @@ export default function EditableImage({
             const currentSrc = override?.src || src || null;
             onActivate(currentSrc);
           }
+          // 🆕 다른 요소 옵션바 닫기
+          if (editMode) announceEditorSelection(`edit-image:${id}`);
           handleFrameDragStart(e);
         }}
         onDoubleClick={handleDoubleClick}

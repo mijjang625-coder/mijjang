@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
 /**
  * ShapeLayer — 페이지 위에 자유롭게 그릴 수 있는 도형 레이어
@@ -450,9 +451,17 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    // 🆕 다른 요소 옵션바 닫기
+    announceEditorSelection(`shape:${id}`);
     onActivate();
     setDraggingPos({ startX: e.clientX, startY: e.clientY, sx: x, sy: y });
   };
+
+  // 🆕 다른 요소가 활성화되면 자기 스타일 패널 닫기
+  const closeOnOtherSelect = useCallback(() => {
+    setShowStyle(false);
+  }, []);
+  useEditorSelectionListener(`shape:${id}`, closeOnOtherSelect);
 
   useEffect(() => {
     if (!draggingPos) return;

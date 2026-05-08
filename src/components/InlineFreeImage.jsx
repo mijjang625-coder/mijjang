@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
 /**
  * InlineFreeImage — 본문 흐름 안에서 자리를 차지하는 자유사진
@@ -58,6 +59,14 @@ export default function InlineFreeImage({
   // 🔍 크롭 모드 (더블클릭 진입)
   const [mode, setMode] = useState('idle'); // 'idle' | 'cropping'
   const [draggingCrop, setDraggingCrop] = useState(null);
+
+  // 🆕 다른 요소가 활성화되면 자기 조정/교체 패널 + 크롭모드 닫기
+  const closeOnOtherSelect = useCallback(() => {
+    setShowAdjust(false);
+    setShowReplace(false);
+    setMode('idle');
+  }, []);
+  useEditorSelectionListener(`inline-image:${item.id}`, closeOnOtherSelect);
   const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });
 
   const { id, src, w = 700, h = 460, adjust, align = 'center', crop } = item;
@@ -332,13 +341,19 @@ export default function InlineFreeImage({
       <div
         onClick={(e) => {
           e.stopPropagation();
-          if (editMode) onActivate();
+          if (editMode) {
+            // 🆕 다른 요소 옵션바 닫기
+            announceEditorSelection(`inline-image:${item.id}`);
+            onActivate();
+          }
         }}
         onDoubleClick={(e) => {
           // 🔍 더블클릭 → 크롭 모드 진입
           if (!editMode) return;
           e.stopPropagation();
           e.preventDefault();
+          // 🆕 다른 요소 옵션바 닫기
+          announceEditorSelection(`inline-image:${item.id}`);
           onActivate();
           setMode('cropping');
         }}

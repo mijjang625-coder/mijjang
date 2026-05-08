@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
 /**
  * FreeImage — 자유 배치 이미지 (페이지 캠버스 위에서 절대 위치)
@@ -121,12 +122,23 @@ export default function FreeImage({
     if (e.button !== 0) return;
     e.stopPropagation();
     // preventDefault 제거 — dblclick 발화 보장
+    // 🆕 다른 요소 옵션바 닫기
+    announceEditorSelection(`free-image:${id}`);
     setSelected(true);
+    if (typeof onActivate === 'function') onActivate();
     setDraggingPos({
       startX: e.clientX, startY: e.clientY, sx: x, sy: y,
       active: false,  // 임계값 넘기 전: 아직 실제 드래그 아님
     });
   };
+
+  // 🆕 다른 요소가 활성화되면 자기 선택/조정 패널 닫기
+  const closeOnOtherSelect = useCallback(() => {
+    setSelected(false);
+    setShowAdjust(false);
+    setMode('idle');
+  }, []);
+  useEditorSelectionListener(`free-image:${id}`, closeOnOtherSelect);
 
   useEffect(() => {
     if (!draggingPos) return;

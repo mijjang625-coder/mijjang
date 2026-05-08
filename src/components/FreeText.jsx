@@ -1,5 +1,6 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { FONT_PRESETS } from '../lib/theme.js';
+import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
 /**
  * FreeText — 자유 배치 글박스 (페이지 캠버스 위에서 절대 위치)
@@ -83,6 +84,8 @@ export default function FreeText({
   const startEditing = (e) => {
     e.stopPropagation();
     if (!editMode) return;
+    // 🆕 다른 요소 옵션바 닫기
+    announceEditorSelection(`free-text:${item.id}`);
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
@@ -117,9 +120,26 @@ export default function FreeText({
       return;
     }
     e.stopPropagation();
+    // 🆕 다른 요소 옵션바 닫기
+    announceEditorSelection(`free-text:${item.id}`);
     setShowToolbar(true);
     updateToolbarPos();
   };
+
+  // 🆕 다른 요소가 활성화되면 자기 툴바를 닫음
+  const closeOnOtherSelect = useCallback(() => {
+    if (isEditing) {
+      if (editableRef.current) {
+        const newHtml = editableRef.current.innerHTML;
+        const newText = editableRef.current.innerText;
+        if (newHtml !== html) onUpdate({ html: newHtml, text: newText });
+      }
+      setIsEditing(false);
+    }
+    setShowToolbar(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, html]);
+  useEditorSelectionListener(`free-text:${item.id}`, closeOnOtherSelect);
 
   // 툴바 위치 계산 (viewport 기준)
   const updateToolbarPos = () => {

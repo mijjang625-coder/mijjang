@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { FONT_PRESETS } from '../lib/theme.js';
+import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
 /**
  * EditableText — 더블클릭 시 인라인 편집 + 툴바 + 드래그 이동 지원 래퍼
@@ -106,6 +107,8 @@ export default function EditableText({
     if (isEditing) {
       return;
     }
+    // 🆕 다른 요소 옵션바 닫기 — 자기 자신이 활성화 됐음을 broadcast
+    announceEditorSelection(`text:${id}`);
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
@@ -144,9 +147,29 @@ export default function EditableText({
       return;
     }
     e.stopPropagation();
+    // 🆕 다른 요소 옵션바 닫기 — 자기 자신이 활성화 됐음을 broadcast
+    announceEditorSelection(`text:${id}`);
     setShowToolbar(true);
     updateToolbarPos();
   };
+
+  // 🆕 다른 요소가 활성화되면 자기 툴바를 닫음 (편집 중이면 저장 후 종료)
+  const closeOnOtherSelect = useCallback(() => {
+    if (isEditing) {
+      if (ref.current) {
+        const newHtml = ref.current.innerHTML;
+        const newText = ref.current.innerText;
+        if (newHtml !== mergedHtml) {
+          onChange({ html: newHtml, text: newText });
+        }
+      }
+      setIsEditing(false);
+    }
+    setShowToolbar(false);
+    setInlineToolbar({ show: false, top: 0, left: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, mergedHtml]);
+  useEditorSelectionListener(`text:${id}`, closeOnOtherSelect);
 
   // 스크롤/리사이즈 시 툴바 위치 재계산
   useEffect(() => {
