@@ -1772,8 +1772,9 @@ export default function App() {
         <section className="space-y-4">
           {/* 현재 페이지 제작 카드 */}
           <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: '#e2ddd4' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
+            <div className="flex items-stretch gap-4 mb-4">
+              {/* 좌측: 제목 영역 */}
+              <div className="flex flex-col justify-center">
                 <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-2">
                   <span>현재 작업 중</span>
                   {/* 💰 이 페이지 마지막 생성 비용 */}
@@ -1787,19 +1788,49 @@ export default function App() {
                     </span>
                   )}
                 </div>
-                <div className="text-xl font-extrabold" style={{ color: '#2F2A26' }}>
+                <div className="text-xl font-extrabold whitespace-nowrap" style={{ color: '#2F2A26' }}>
                   {PAGE_TITLES[currentPage]}
                 </div>
               </div>
-              <div className="flex gap-2 flex-wrap items-center justify-end">
-                {/* P5 버전 선택만 유지 — PNG/HTML/다시생성/다음 버튼은 상단 헤더로 이동됨 */}
-                {currentPage === 'P5' && currentResult?.copy && (
+
+              {/* 🤖 우측: AI가 채울 항목 안내 박스 — 제목 영역과 동일한 높이, 내용 많아지면 세로 2단 */}
+              {(() => {
+                const common = validateCommonBrief(brief, images);
+                const specific = validatePageRequirements(currentPage, brief);
+                const allWarnings = [...(common.warnings || []), ...(specific.warnings || [])];
+                if (allWarnings.length === 0 || !common.ok) return null;
+                // 항목이 4개 이상이면 세로 2단으로 분할 (자리 효율 ↑)
+                const useTwoColumns = allWarnings.length >= 4;
+                return (
+                  <div
+                    className="flex-1 p-3 rounded-lg border text-xs flex flex-col justify-center overflow-hidden"
+                    style={{ backgroundColor: '#FFF8F0', borderColor: '#FDBA74', color: '#9A3412' }}
+                  >
+                    <div className="font-bold mb-1">🤖 빈 칸이 있습니다 — 페이지 생성 시 AI가 자동으로 채웁니다</div>
+                    <ul
+                      className="list-disc list-inside"
+                      style={useTwoColumns ? { columnCount: 2, columnGap: '16px' } : undefined}
+                    >
+                      {allWarnings.map((w, i) => (
+                        <li key={i} style={useTwoColumns ? { breakInside: 'avoid' } : undefined}>{w}</li>
+                      ))}
+                    </ul>
+                    <div className="mt-1 text-[11px]">
+                      💡 더 좋은 결과를 위해 위 섹션의 <b>🪄 빈 칸 채우기</b> 버튼을 먼저 눌러주세요.
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* P5 버전 선택만 유지 — PNG/HTML/다시생성/다음 버튼은 상단 헤더로 이동됨 */}
+              {currentPage === 'P5' && currentResult?.copy && (
+                <div className="flex items-center">
                   <select value={p5Version} onChange={(e) => setP5Version(e.target.value)} className="input" style={{ width: 'auto', padding: '8px 10px' }}>
                     <option value="text">글 버전</option>
                     <option value="photo">사진 버전</option>
                   </select>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {error && (
@@ -1816,25 +1847,6 @@ export default function App() {
                 {error}
               </div>
             )}
-
-            {/* AI가 채울 항목 미리 보여주기 — 경고만, 차단하지 않음 */}
-            {(() => {
-              const common = validateCommonBrief(brief, images);
-              const specific = validatePageRequirements(currentPage, brief);
-              const allWarnings = [...(common.warnings || []), ...(specific.warnings || [])];
-              if (allWarnings.length === 0 || !common.ok) return null;
-              return (
-                <div className="p-3 rounded-lg border mb-3 text-xs" style={{ backgroundColor: '#FFF8F0', borderColor: '#FDBA74', color: '#9A3412' }}>
-                  <div className="font-bold mb-1">🤖 빈 칸이 있습니다 — 페이지 생성 시 AI가 자동으로 채웁니다</div>
-                  <ul className="list-disc list-inside">
-                    {allWarnings.map((w, i) => <li key={i}>{w}</li>)}
-                  </ul>
-                  <div className="mt-1 text-[11px]">
-                    💡 더 좋은 결과를 위해 위 섹션의 <b>🪄 빈 칸 채우기</b> 버튼을 먼저 눌러주세요.
-                  </div>
-                </div>
-              );
-            })()}
 
             {currentResult?.needsMoreInfo && (
               <div className="p-3 rounded-lg border text-sm mb-3" style={{ backgroundColor: '#fff7ed', borderColor: '#fdba74', color: '#9a3412' }}>
