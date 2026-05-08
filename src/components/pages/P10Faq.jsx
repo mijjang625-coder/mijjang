@@ -54,15 +54,16 @@ export default function P10Faq({
     // (필수표기사항과 중복 — 2025-04 사용자 요청으로 제거)
   } = copy;
 
-  // 필수표기사항 항목 정의 (표시 순서 + 라벨)
+  // 필수표기사항 항목 정의 (표시 순서 + 라벨 + override 식별 key)
+  // key 는 EditableText id 에 사용 — 'P10.compliance.label.{key}' / 'P10.compliance.value.{key}'
   const complianceRows = [
-    { label: '품명 및 모델명',      value: compliance.modelName },
-    { label: '크기 / 무게',          value: compliance.sizeWeight },
-    { label: '색상',                  value: compliance.color },
-    { label: '재질',                  value: compliance.material },
-    { label: '제조자 / 수입자',      value: compliance.manufacturer },
-    { label: '제조국',                value: compliance.origin },
-    { label: 'A/S 책임자 및 연락처', value: compliance.asContact },
+    { key: 'modelName',     label: '품명 및 모델명',      value: compliance.modelName },
+    { key: 'sizeWeight',    label: '크기 / 무게',          value: compliance.sizeWeight },
+    { key: 'color',         label: '색상',                  value: compliance.color },
+    { key: 'material',      label: '재질',                  value: compliance.material },
+    { key: 'manufacturer',  label: '제조자 / 수입자',      value: compliance.manufacturer },
+    { key: 'origin',        label: '제조국',                value: compliance.origin },
+    { key: 'asContact',     label: 'A/S 책임자 및 연락처', value: compliance.asContact },
   ].map((r) => ({
     ...r,
     // 빈 값은 '상세페이지 참조'로 대체 (안전한 기본값)
@@ -305,7 +306,7 @@ export default function P10Faq({
             const isLast = i === complianceRows.length - 1;
             return (
             <div
-              key={i}
+              key={row.key}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '200px 1fr',
@@ -318,39 +319,53 @@ export default function P10Faq({
                 style={{
                   padding: '14px 16px',
                   backgroundColor: BRAND.colors.sub,
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: BRAND.colors.text,
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1.4,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  textAlign: 'center',
                   // 좌상/좌하 모서리 둥글게 — 외곽 컨테이너의 borderRadius:12 와 동일
                   // (편집모드에서 overflow:visible 일 때도 회색이 직각으로 튀어나오지 않게)
                   borderTopLeftRadius: isFirst ? 12 : 0,
                   borderBottomLeftRadius: isLast ? 12 : 0,
                 }}
               >
-                {row.label}
+                <EditableText
+                  {...editPropsFor(`P10.compliance.label.${row.key}`)}
+                  as="span"
+                  defaultStyle={{
+                    fontSize: 16,
+                    fontWeight: 800,
+                    color: BRAND.colors.text,
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.4,
+                    textAlign: 'center',
+                  }}
+                >
+                  {row.label}
+                </EditableText>
               </div>
               <div
                 style={{
                   padding: '14px 18px',
-                  fontSize: 16,
-                  fontWeight: 500,
-                  color: BRAND.colors.text,
-                  lineHeight: 1.4,
-                  letterSpacing: '-0.02em',
-                  wordBreak: 'keep-all',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  textAlign: 'center',
                 }}
               >
-                {row.value}
+                <EditableText
+                  {...editPropsFor(`P10.compliance.value.${row.key}`)}
+                  as="span"
+                  defaultStyle={{
+                    fontSize: 16,
+                    fontWeight: 500,
+                    color: BRAND.colors.text,
+                    lineHeight: 1.4,
+                    letterSpacing: '-0.02em',
+                    wordBreak: 'keep-all',
+                    textAlign: 'center',
+                  }}
+                >
+                  {row.value}
+                </EditableText>
               </div>
             </div>
             );
@@ -385,18 +400,22 @@ export default function P10Faq({
         >
           지금 장바구니에 담아보세요
         </EditableText>
-        <div
-          style={{
+        <EditableText
+          {...editPropsFor('P10.ctaSubText')}
+          as="div"
+          defaultStyle={{
             fontSize: 18,
             fontWeight: 500,
             opacity: 0.95,
             letterSpacing: '-0.02em',
             lineHeight: 1.5,
             wordBreak: 'keep-all',
+            color: '#fff',
+            textAlign: 'center',
           }}
         >
           문의 사항이 있으시면 구매 페이지의 문의하기로 편하게 남겨주세요.
-        </div>
+        </EditableText>
       </div>
       </div>
     </div>
