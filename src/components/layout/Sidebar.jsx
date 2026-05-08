@@ -350,7 +350,7 @@ export default function Sidebar({
 
           {/* ─────────── 그룹 2: AI 분석 도구 (리뷰 분석 / 경쟁사 분석 / 참조 자료) ─────────── */}
           <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
-          <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed flat>
+          <Section title="리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed flat>
             <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
             <ReviewAnalyzer
               apiKey={apiKey}
@@ -402,7 +402,7 @@ export default function Sidebar({
             </Suspense>
           </Section>
 
-          <Section title="🕵️ 경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed flat>
+          <Section title="경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed flat>
             <Suspense fallback={<AnalyzerFallback icon="🕵️" label="경쟁사 분석 도구 로딩 중..." />}>
             <CompetitorAnalyzer
               apiKey={apiKey}
@@ -1192,7 +1192,7 @@ Q5. / A5.
             ))}
           </Section>
 
-          <Section title="6. P5 2지선다 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible flat>
+          <Section title="6. P5 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible flat>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               각 행에 <b>내 제품의 차별점</b>과 <b>일반 제품의 모습</b>을 함께 입력하세요.
               <br />비워두면 AI가 "일반적인 모습"을 추측해서 채웁니다.
