@@ -205,6 +205,12 @@ export default function EditableText({
       if (e.target.closest && e.target.closest('[data-toolbar]')) return;
       // 🆕 인라인 툴바 안쪽이면 무시
       if (e.target.closest && e.target.closest('[data-inline-toolbar]')) return;
+      // 🆕 (2026-05-08) OS 컬러 피커 열려있는 동안엔 편집 종료 무시
+      //   native color dialog 가 열리면 페이지에 mousedown 이 한 번 더 발생하는데
+      //   그게 인라인 툴바 영역 밖이면 편집창이 꺼져버리는 문제가 있어 가드 추가.
+      if (typeof window !== 'undefined' && window.__editableColorPickerOpen) return;
+      // 🆕 (2026-05-08) 인라인 작업 직후 잠깐(가드 ON)도 외부 mousedown 으로 닫지 않음
+      if (inlineApplyingRef.current) return;
 
       // 편집 중이었다면 → 변경사항 저장 후 종료
       if (isEditing) {
@@ -381,22 +387,15 @@ export default function EditableText({
       }
     }
 
-    // 🆕 (2026-05-06) 적용 직후 selection 을 끝점으로 collapse 시켜 사용자가
-    //   새로 드래그 선택할 수 있도록 깨끗이 정리. 이렇게 안 하면 selection 이
-    //   새 span 전체에 걸쳐 있어 다음 드래그 때 충돌이나 재선택 불가 발생.
-    try {
-      const sel2 = window.getSelection();
-      if (sel2 && sel2.rangeCount > 0) {
-        const r = sel2.getRangeAt(0);
-        r.collapse(false); // 끝점으로 collapse
-        sel2.removeAllRanges();
-        sel2.addRange(r);
-      }
-    } catch (_) { /* ignore */ }
+    // 🆕 (2026-05-08) selection 을 강제 collapse 하지 않음 — collapse 하면
+    //   "이미 서식이 적용된 글씨" 위에서 다시 드래그할 때 selection 이 꼬여
+    //   재선택이 안 되는 현상이 발생함. applySpanStyle 안에서 새 span 전체를
+    //   selection 으로 잡아두므로, 사용자는 그대로 다른 텍스트를 드래그하면 됨.
+    //   (selection 은 사용자 mousedown 시 자동으로 새로 시작됨)
 
-    // 🆕 (2026-05-06) 가드 OFF — 짧게 50ms 만 보호하여 사용자가 곧바로 새 드래그
-    //   선택을 시작해도 인라인 툴바가 정상 표시되도록 함.
-    setTimeout(() => { inlineApplyingRef.current = false; }, 50);
+    // 🆕 (2026-05-08) 가드 OFF — 200ms 로 늘려 OS 색상 다이얼로그가 닫히면서
+    //   발생하는 selectionchange / mousedown 으로 툴바가 자동 닫히지 않도록 함.
+    setTimeout(() => { inlineApplyingRef.current = false; }, 200);
   };
 
   // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
@@ -698,8 +697,11 @@ function InlineToolbar({ pos, onApply }) {
   return (
     <div
       data-inline-toolbar
-      // mousedown 시 selection 유지를 위해 preventDefault
-      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      // 🆕 (2026-05-08) 루트에는 preventDefault 를 걸지 않음.
+      //   루트에서 preventDefault 하면 자식 <input type="color"> 의 native click 이
+      //   무력화되어 OS 컬러 피커가 절대 안 열리는 문제가 발생.
+      //   각 버튼이 개별적으로 preventDefault 를 책임진다 (color input 만 예외).
+      onMouseDown={(e) => { e.stopPropagation(); }}
       onClick={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
@@ -751,10 +753,13 @@ function InlineToolbar({ pos, onApply }) {
         A+
       </button>
 
-      {/* 🆕 (2026-05-06) 컬러 피커 — 무지개 native picker 부활
-           selection 을 ref 에 백업해두고, picker 에서 색을 선택하면 onChange 시
-           selection 을 복원하여 정상 적용. 라벨/input 모두 mousedown preventDefault 로
-           contentEditable 의 포커스를 빼앗기지 않도록 처리. */}
+      {/* 🆕 (2026-05-08) 컬러 피커 — native OS picker 를 실제로 열기.
+           ⚠️ 핵심: <label>/<input type=color> 의 mousedown 에 preventDefault 를 걸면
+           브라우저가 native color dialog 를 열지 않는다. 그래서 preventDefault 는
+           **절대 사용하지 않고**, selection 백업만 한다.
+           contentEditable 포커스가 잠깐 빠져도 선택 영역은 savedRangeRef 에 보관 →
+           onChange 시 복원 → 색상 적용. window.__editableColorPickerOpen 플래그로
+           외부 mousedown 핸들러가 편집을 끝내지 않도록 가드. */}
       <label
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -764,17 +769,51 @@ function InlineToolbar({ pos, onApply }) {
           border: '1px solid #fff',
         }}
         title="컬러 피커 — 무지개에서 색 선택"
-        onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
+        // ⚠️ preventDefault 절대 금지 — native picker 가 열리지 않음
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          saveSelection();
+        }}
       >
         <span style={{ fontSize: 11, color: '#fff', fontWeight: 900, textShadow: '0 0 2px rgba(0,0,0,0.6)', pointerEvents: 'none' }}>🎨</span>
         <input
           type="color"
-          onMouseDown={(e) => { saveSelection(); e.stopPropagation(); }}
+          // ⚠️ preventDefault 절대 금지 — 이게 있으면 OS 컬러창이 안 열린다.
+          //   mousedown / click 에서 selection 만 백업하고, 바로 native picker 가 열리도록 둠.
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            saveSelection();
+            // 🆕 OS 컬러 다이얼로그 열림 표시 — 외부 mousedown 핸들러가 편집을 끝내지 못하게 가드
+            if (typeof window !== 'undefined') {
+              window.__editableColorPickerOpen = true;
+            }
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            saveSelection();
+            if (typeof window !== 'undefined') {
+              window.__editableColorPickerOpen = true;
+            }
+          }}
           onChange={(e) => {
             const value = e.target.value;
             // selection 복원 후 색상 적용
             restoreSelection();
             onApply({ type: 'color', value });
+            // 다이얼로그 닫힘 — 다음 mousedown 부터 정상 동작하도록 약간 늦게 해제
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                window.__editableColorPickerOpen = false;
+              }
+            }, 300);
+          }}
+          onBlur={() => {
+            // 사용자가 색을 안 고르고 다이얼로그 닫은 경우에도 플래그 해제
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                window.__editableColorPickerOpen = false;
+              }
+            }, 300);
           }}
           // 시각적으로는 라벨이 보이고, 실제 input 은 라벨을 덮도록 투명하게 배치
           style={{
