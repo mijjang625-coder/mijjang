@@ -369,10 +369,16 @@ export default function EditableText({
         const next = Math.max(8, currentSize + action.delta);
         applySpanStyle(sel, { fontSize: next + 'px' });
       } else if (action.type === 'reset') {
-        // 선택 부분의 인라인 서식 제거 — execCommand 도 try/catch 로 보호
+        // 🆕 (2026-05-08) execCommand('removeFormat') 는 정렬/폰트까지 모두 제거하여
+        //   글씨가 검정/왼쪽정렬로 돌아가는 문제가 있음. 선택 영역의 인라인 텍스트 서식
+        //   (color / fontWeight / fontSize) 만 정확하게 제거하도록 직접 처리.
         try {
-          document.execCommand('removeFormat', false, null);
-        } catch (_) { /* ignore */ }
+          clearInlineTextFormat(sel, ref.current);
+        } catch (err) {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('[EditableText] reset failed:', err);
+          }
+        }
       }
     } catch (err) {
       // 어떤 경우에도 throw 가 부모 컴포넌트로 올라가지 않도록 보호
@@ -552,6 +558,76 @@ function readSelectionFontSize(sel) {
   return Number.isFinite(px) ? px : null;
 }
 
+// 🆕 (2026-05-08) 선택 영역의 인라인 텍스트 서식만 제거 (정렬/폰트/줄바꿈 보존).
+//   execCommand('removeFormat') 는 정렬/폰트 등 너무 많은 걸 건드려서 글씨가
+//   검정/왼쪽정렬로 돌아가는 문제가 있음. 이 함수는 선택 영역에 걸친 텍스트 노드의
+//   부모 span 들에서 color / fontWeight / fontSize 만 정확하게 비운다.
+//   - span 의 다른 인라인 스타일 (background, textDecoration 등) 은 유지
+//   - span 의 style 이 완전히 비면 unwrap 해서 깔끔하게 정리
+//   - 텍스트 자체는 그대로 보존
+function clearInlineTextFormat(sel, rootEl) {
+  if (!sel || sel.rangeCount === 0 || !rootEl) return;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return;
+
+  // 선택 범위 내 모든 텍스트 노드 수집
+  const textNodes = [];
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      // 텍스트 노드가 선택 range 와 교차하는지 확인
+      const nodeRange = document.createRange();
+      try {
+        nodeRange.selectNodeContents(node);
+      } catch (_) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      // range 의 끝이 nodeRange 의 시작보다 뒤이고, range 의 시작이 nodeRange 의 끝보다 앞이면 교차
+      if (
+        range.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0 &&
+        range.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0
+      ) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+      return NodeFilter.FILTER_REJECT;
+    },
+  });
+
+  let node;
+  // eslint-disable-next-line no-cond-assign
+  while ((node = walker.nextNode())) {
+    textNodes.push(node);
+  }
+
+  // 각 텍스트 노드의 조상 span 들에서 인라인 텍스트 서식 제거
+  const TARGET_PROPS = ['color', 'fontWeight', 'fontSize'];
+  // 처리한 span 중복 제거용
+  const processed = new Set();
+
+  textNodes.forEach((tn) => {
+    let cur = tn.parentNode;
+    while (cur && cur !== rootEl && cur.nodeType === Node.ELEMENT_NODE) {
+      if (cur.tagName === 'SPAN' && !processed.has(cur)) {
+        processed.add(cur);
+        // 타깃 속성만 제거
+        TARGET_PROPS.forEach((p) => {
+          try { cur.style[p] = ''; } catch (_) { /* ignore */ }
+        });
+        // 만약 style 이 모두 비었으면 span 을 unwrap (자식들을 부모로 빼냄)
+        if (!cur.getAttribute('style') || cur.getAttribute('style').trim() === '') {
+          const parent = cur.parentNode;
+          if (parent) {
+            while (cur.firstChild) {
+              parent.insertBefore(cur.firstChild, cur);
+            }
+            parent.removeChild(cur);
+          }
+        }
+      }
+      cur = cur.parentNode;
+    }
+  });
+}
+
 // ─────────── 셀 전체 툴바 (기존) ───────────
 function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
@@ -684,13 +760,13 @@ function InlineToolbar({ pos, onApply }) {
   //   외부 mousedown 핸들러에 안 걸려서 옵션바가 꺼지지 않음.
   const [showPalette, setShowPalette] = useState(false);
 
-  // 🆕 (2026-05-08) 색상표 열린 동안 contentEditable 의 ::selection 파란 박스를 투명하게.
-  //   사용자가 색상을 고를 때 실제 적용된 색이 파란 selection 박스에 가려져 안 보이는 문제 해결.
-  //   selection 자체는 살아있고 (range 유지) 단지 시각적 강조만 제거됨 → 색상 적용은 정상 동작.
+  // 🆕 (2026-05-08) InlineToolbar 가 떠있는 **동안 내내** contentEditable 의 ::selection
+  //   파란 박스를 투명하게 처리. 색상 적용 후에도 selection 은 살아있는데 파란 박스가
+  //   다시 보여서 적용된 색이 안 보이는 문제 해결.
+  //   selection range 자체는 그대로 유지 → 색상/굵기/크기 적용은 정상 동작.
   useEffect(() => {
-    if (!showPalette) return;
     const styleEl = document.createElement('style');
-    styleEl.setAttribute('data-palette-selection-style', 'true');
+    styleEl.setAttribute('data-inline-toolbar-selection-style', 'true');
     styleEl.textContent = `
       [data-editable="true"] ::selection {
         background-color: transparent !important;
@@ -705,7 +781,7 @@ function InlineToolbar({ pos, onApply }) {
     return () => {
       try { document.head.removeChild(styleEl); } catch (_) { /* ignore */ }
     };
-  }, [showPalette]);
+  }, []);
 
   return (
     <div
