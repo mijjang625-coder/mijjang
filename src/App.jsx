@@ -2494,7 +2494,7 @@ export default function App() {
             </div>
           )}
 
-          {/* 플로팅 버튼 — 컴팩트 캡슐, 사이드바와 같은 15px 글씨 */}
+          {/* 플로팅 버튼 — 우측 사이드 캡슐들과 동일 폭(110px)/글씨(15px) */}
           <button
             type="button"
             onClick={() => setFeedbackExpanded((v) => !v)}
@@ -2507,6 +2507,8 @@ export default function App() {
               padding: '8px 14px',
               marginLeft: 'auto',
               display: 'flex',
+              width: 110,
+              justifyContent: 'flex-start',
             }}
             title={feedbackExpanded ? 'AI 채팅 패널 닫기' : 'AI에게 자연어로 수정 지시하기'}
           >
@@ -2520,6 +2522,7 @@ export default function App() {
                   fontSize: '11px',
                   lineHeight: 1,
                   padding: '2px 6px',
+                  marginLeft: 'auto',
                 }}
               >
                 {revisionHistory[currentPage].length}

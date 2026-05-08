@@ -503,7 +503,7 @@ export default function P1Hero({
               border: '2px solid #fff',
               padding: '8px 14px',
               borderRadius: 12,
-              fontSize: 20,
+              fontSize: 15,
               fontWeight: 800,
               lineHeight: 1.2,
               cursor: 'pointer',
@@ -511,7 +511,7 @@ export default function P1Hero({
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              width: 140,
+              width: 110,
               justifyContent: 'flex-start',
             }}
             title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
@@ -523,10 +523,11 @@ export default function P1Hero({
                   backgroundColor: '#fff',
                   color: '#3b82f6',
                   borderRadius: 999,
-                  padding: '1px 7px',
-                  fontSize: 12,
+                  padding: '1px 6px',
+                  fontSize: 11,
                   fontWeight: 900,
                   marginLeft: 'auto',
+                  lineHeight: 1,
                 }}
               >
                 {freeImages.length}
@@ -534,20 +535,20 @@ export default function P1Hero({
             )}
           </button>
 
-          {/* 📝 글박스 추가 — top:272 (도형 추가 바로 아래) */}
+          {/* 📝 글박스 추가 — top:268 */}
           <button
             onClick={() => onAddFreeText()}
             style={{
               position: 'fixed',
               right: 24,
-              top: 272,
+              top: 268,
               zIndex: 100000,
               backgroundColor: '#f59e0b',
               color: '#fff',
               border: '2px solid #fff',
               padding: '8px 14px',
               borderRadius: 12,
-              fontSize: 20,
+              fontSize: 15,
               fontWeight: 800,
               lineHeight: 1.2,
               cursor: 'pointer',
@@ -555,7 +556,7 @@ export default function P1Hero({
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              width: 140,
+              width: 110,
               justifyContent: 'flex-start',
             }}
             title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
@@ -568,9 +569,10 @@ export default function P1Hero({
                   color: '#f59e0b',
                   borderRadius: 999,
                   padding: '1px 6px',
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: 900,
                   marginLeft: 'auto',
+                  lineHeight: 1,
                 }}
               >
                 {freeTexts.length}
@@ -578,20 +580,20 @@ export default function P1Hero({
             )}
           </button>
 
-          {/* 레이어 패널 토글 버튼 — fixed: top:324 (글박스 추가 바로 밑) */}
+          {/* 레이어 패널 토글 버튼 — top:318 */}
           <button
             onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
             style={{
               position: 'fixed',
               right: 24,
-              top: 324,
+              top: 318,
               zIndex: 100000,
               backgroundColor: showLayers ? '#1e293b' : '#475569',
               color: '#fff',
               border: '2px solid #fff',
               padding: '8px 14px',
               borderRadius: 12,
-              fontSize: 20,
+              fontSize: 15,
               fontWeight: 800,
               lineHeight: 1.2,
               cursor: 'pointer',
@@ -599,7 +601,7 @@ export default function P1Hero({
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              width: 140,
+              width: 110,
               justifyContent: 'flex-start',
             }}
             title="모든 레이어 목록 (스크롤해도 따라다님)"
@@ -608,7 +610,8 @@ export default function P1Hero({
             <span style={{
               backgroundColor: '#fbbf24', color: '#1e293b',
               borderRadius: 999, padding: '1px 6px',
-              fontSize: 12, fontWeight: 900, marginLeft: 'auto',
+              fontSize: 11, fontWeight: 900, marginLeft: 'auto',
+              lineHeight: 1,
             }}>{allLayers.length}</span>
           </button>
 
