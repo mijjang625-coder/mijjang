@@ -99,6 +99,13 @@ export default function EditableText({
   // ─────────── 더블클릭 → 편집 시작 ───────────
   const startEditing = (e) => {
     e.stopPropagation();
+    // 🆕 (2026-05-08) 이미 편집 중이면 — innerHTML 재주입 / selection 강제 변경 안 함.
+    //   이렇게 안 하면 "이미 서식 적용된 글씨 (span 으로 감싸진 부분)" 위에서 더블클릭할 때
+    //   브라우저가 자동으로 잡아준 word selection 이 우리 setTimeout 의
+    //   selectNodeContents 로 덮어써져서 선택이 풀려버림.
+    if (isEditing) {
+      return;
+    }
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
@@ -671,37 +678,17 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
 // 🆕 인라인 툴바 — 선택한 부분만 서식 적용
 // 🆕 (2026-05-06) 컬러 피커(input[type=color]) 부활 — selection 백업/복원 방식으로 안전 처리
 function InlineToolbar({ pos, onApply }) {
-  // 컬러 피커 클릭 직전 selection 을 백업 — native picker 가 열리며 포커스 빼앗아도
-  // 색상 선택 후 selection 을 복원해서 정상 적용되도록 함.
-  const savedRangeRef = useRef(null);
-
-  const saveSelection = () => {
-    try {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        savedRangeRef.current = sel.getRangeAt(0).cloneRange();
-      }
-    } catch (_) { /* ignore */ }
-  };
-
-  const restoreSelection = () => {
-    try {
-      if (savedRangeRef.current) {
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(savedRangeRef.current);
-      }
-    } catch (_) { /* ignore */ }
-  };
+  // 🆕 (2026-05-08) native <input type=color> 포기 — CSP / preventDefault / 외부 mousedown
+  //   문제로 OS 다이얼로그가 안정적으로 열리지 않음. 사용자 요청대로 커스텀 색상 그리드
+  //   팝업으로 변경. 팝업이 InlineToolbar 내부 (data-inline-toolbar) 에 렌더되므로
+  //   외부 mousedown 핸들러에 안 걸려서 옵션바가 꺼지지 않음.
+  const [showPalette, setShowPalette] = useState(false);
 
   return (
     <div
       data-inline-toolbar
-      // 🆕 (2026-05-08) 루트에는 preventDefault 를 걸지 않음.
-      //   루트에서 preventDefault 하면 자식 <input type="color"> 의 native click 이
-      //   무력화되어 OS 컬러 피커가 절대 안 열리는 문제가 발생.
-      //   각 버튼이 개별적으로 preventDefault 를 책임진다 (color input 만 예외).
-      onMouseDown={(e) => { e.stopPropagation(); }}
+      // 루트는 preventDefault 로 contentEditable 의 selection 유지 + stopPropagation
+      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onClick={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
@@ -753,77 +740,41 @@ function InlineToolbar({ pos, onApply }) {
         A+
       </button>
 
-      {/* 🆕 (2026-05-08) 컬러 피커 — native OS picker 를 실제로 열기.
-           ⚠️ 핵심: <label>/<input type=color> 의 mousedown 에 preventDefault 를 걸면
-           브라우저가 native color dialog 를 열지 않는다. 그래서 preventDefault 는
-           **절대 사용하지 않고**, selection 백업만 한다.
-           contentEditable 포커스가 잠깐 빠져도 선택 영역은 savedRangeRef 에 보관 →
-           onChange 시 복원 → 색상 적용. window.__editableColorPickerOpen 플래그로
-           외부 mousedown 핸들러가 편집을 끝내지 않도록 가드. */}
-      <label
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          position: 'relative', cursor: 'pointer',
-          width: 28, height: 22, borderRadius: 4,
-          background: 'linear-gradient(45deg, #ef4444 0%, #f59e0b 25%, #eab308 50%, #22c55e 70%, #3b82f6 90%, #a855f7 100%)',
-          border: '1px solid #fff',
-        }}
-        title="컬러 피커 — 무지개에서 색 선택"
-        // ⚠️ preventDefault 절대 금지 — native picker 가 열리지 않음
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          saveSelection();
-        }}
-      >
-        <span style={{ fontSize: 11, color: '#fff', fontWeight: 900, textShadow: '0 0 2px rgba(0,0,0,0.6)', pointerEvents: 'none' }}>🎨</span>
-        <input
-          type="color"
-          // ⚠️ preventDefault 절대 금지 — 이게 있으면 OS 컬러창이 안 열린다.
-          //   mousedown / click 에서 selection 만 백업하고, 바로 native picker 가 열리도록 둠.
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            saveSelection();
-            // 🆕 OS 컬러 다이얼로그 열림 표시 — 외부 mousedown 핸들러가 편집을 끝내지 못하게 가드
-            if (typeof window !== 'undefined') {
-              window.__editableColorPickerOpen = true;
-            }
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            saveSelection();
-            if (typeof window !== 'undefined') {
-              window.__editableColorPickerOpen = true;
-            }
-          }}
-          onChange={(e) => {
-            const value = e.target.value;
-            // selection 복원 후 색상 적용
-            restoreSelection();
-            onApply({ type: 'color', value });
-            // 다이얼로그 닫힘 — 다음 mousedown 부터 정상 동작하도록 약간 늦게 해제
-            setTimeout(() => {
-              if (typeof window !== 'undefined') {
-                window.__editableColorPickerOpen = false;
-              }
-            }, 300);
-          }}
-          onBlur={() => {
-            // 사용자가 색을 안 고르고 다이얼로그 닫은 경우에도 플래그 해제
-            setTimeout(() => {
-              if (typeof window !== 'undefined') {
-                window.__editableColorPickerOpen = false;
-              }
-            }, 300);
-          }}
-          // 시각적으로는 라벨이 보이고, 실제 input 은 라벨을 덮도록 투명하게 배치
+      {/* 🆕 (2026-05-08) 커스텀 색상 그리드 팝업 — native picker 대체
+           작은 무지개 팔레트 버튼 클릭 → 팝업 그리드 표시 → 색 클릭 시 적용 + 팝업 닫힘.
+           팝업이 옵션바 내부에 렌더되므로 외부 mousedown 핸들러에 안 걸리고,
+           contentEditable 포커스도 mousedown preventDefault 로 유지됨. */}
+      <div style={{ position: 'relative', display: 'inline-flex' }}>
+        <button
+          type="button"
           style={{
-            position: 'absolute', inset: 0,
-            width: '100%', height: '100%',
-            opacity: 0, cursor: 'pointer',
-            border: 'none', padding: 0, background: 'transparent',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            width: 28, height: 22, borderRadius: 4,
+            background: 'linear-gradient(45deg, #ef4444 0%, #f59e0b 25%, #eab308 50%, #22c55e 70%, #3b82f6 90%, #a855f7 100%)',
+            border: '1px solid #fff',
+            padding: 0,
           }}
-        />
-      </label>
+          title="컬러 피커 — 클릭해서 색 선택"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowPalette((s) => !s);
+          }}
+        >
+          <span style={{ fontSize: 11, color: '#fff', fontWeight: 900, textShadow: '0 0 2px rgba(0,0,0,0.6)', pointerEvents: 'none' }}>🎨</span>
+        </button>
+
+        {showPalette && (
+          <ColorPalettePopup
+            onPick={(value) => {
+              onApply({ type: 'color', value });
+              setShowPalette(false);
+            }}
+            onClose={() => setShowPalette(false)}
+          />
+        )}
+      </div>
 
       {/* 빠른 색상 — 검정 */}
       <button
@@ -869,6 +820,126 @@ function InlineToolbar({ pos, onApply }) {
       >
         ↺
       </button>
+    </div>
+  );
+}
+
+// 🆕 (2026-05-08) 커스텀 색상 그리드 팝업 — native <input type=color> 대체.
+//   무지개 12색 × 6단계 (밝기/채도) 그리드 + 흑백 그레이스케일.
+//   클릭 시 onPick(color) 호출 → 즉시 적용 + 팝업 닫힘.
+//   data-inline-toolbar 외부 div 안에 렌더되므로 외부 mousedown 핸들러에 안 걸린다.
+function ColorPalettePopup({ onPick, onClose }) {
+  // 무지개 hue 12개 + 흑백 1열
+  const HUES = [0, 15, 30, 45, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+  // 채도/명도 단계 (밝음 → 진함)
+  const SHADES = [
+    { s: 60, l: 85 },  // 파스텔
+    { s: 80, l: 70 },  // 밝음
+    { s: 90, l: 55 },  // 표준
+    { s: 95, l: 42 },  // 진함
+    { s: 100, l: 28 }, // 매우 진함
+  ];
+  // 흑백 5단계
+  const GRAYS = ['#ffffff', '#cbd5e1', '#94a3b8', '#475569', '#111827'];
+
+  const hslToHex = (h, s, l) => {
+    s /= 100; l /= 100;
+    const k = (n) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => {
+      const c = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return Math.round(255 * c).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  };
+
+  return (
+    <div
+      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'absolute',
+        top: 'calc(100% + 6px)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: '#0f172a',
+        border: '1px solid #f59e0b',
+        borderRadius: 6,
+        padding: 6,
+        boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+        zIndex: 100003,
+      }}
+    >
+      {/* 무지개 그리드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${HUES.length}, 16px)`, gap: 2 }}>
+        {SHADES.map((shade, rowIdx) =>
+          HUES.map((h) => {
+            const hex = hslToHex(h, shade.s, shade.l);
+            return (
+              <button
+                key={`${rowIdx}-${h}`}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onPick(hex);
+                }}
+                title={hex}
+                style={{
+                  width: 16, height: 16,
+                  background: hex,
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              />
+            );
+          })
+        )}
+      </div>
+      {/* 흑백 줄 */}
+      <div style={{ display: 'flex', gap: 2, marginTop: 4, justifyContent: 'center' }}>
+        {GRAYS.map((g) => (
+          <button
+            key={g}
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onPick(g);
+            }}
+            title={g}
+            style={{
+              width: 24, height: 16,
+              background: g,
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 2,
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          />
+        ))}
+        {/* 닫기 */}
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
+          title="닫기"
+          style={{
+            width: 24, height: 16,
+            background: '#334155',
+            color: '#fff',
+            border: '1px solid #475569',
+            borderRadius: 2,
+            cursor: 'pointer',
+            fontSize: 10,
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }
