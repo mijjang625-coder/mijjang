@@ -2469,17 +2469,17 @@ export default function App() {
             </div>
           )}
 
-          {/* 플로팅 버튼 — 알약 모양, 사이드바와 같은 15px 글씨 */}
+          {/* 플로팅 버튼 — 컴팩트 캡슐, 사이드바와 같은 15px 글씨 */}
           <button
             type="button"
             onClick={() => setFeedbackExpanded((v) => !v)}
-            className="rounded-full shadow-2xl font-bold flex items-center gap-2 hover:opacity-90 transition-all"
+            className="rounded-xl shadow-2xl font-bold flex items-center gap-1.5 hover:opacity-90 transition-all"
             style={{
               backgroundColor: '#E87A2B',
               color: '#fff',
               fontSize: '15px',
               lineHeight: 1.2,
-              padding: '10px 18px',
+              padding: '8px 14px',
               marginLeft: 'auto',
               display: 'flex',
             }}
