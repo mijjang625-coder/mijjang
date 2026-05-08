@@ -140,101 +140,6 @@ export default function Sidebar({
             </div>
           </Section>
 
-          {/* ─────────── 🆕 분석 도구 (위로 이동) ─────────── */}
-          <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
-            <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
-            <ReviewAnalyzer
-              apiKey={apiKey}
-              model={model}
-              productName={brief.productName}
-              productType={brief.productType}
-              onAnalyzed={setReviewInsights}
-              onApplyAdoptedToNotes={(text) => {
-                // 🆕 (2026-04-28) 채택 문구를 "내 메모"에 자동 추가
-                // 🆕 (2026-05-08) 채택 토글마다 자동 호출 — text 가 비면 섹션 제거
-                const SECTION_TAG = '--- 📌 리뷰 분석 채택 문구 ---';
-                const header = `\n\n${SECTION_TAG}\n`;
-                setUserNotes((prev) => {
-                  const cur = prev || '';
-                  const idx = cur.indexOf(SECTION_TAG);
-                  // 채택 0개 → 섹션 자체를 제거
-                  if (!text || !text.trim()) {
-                    if (idx < 0) return cur;
-                    return cur.slice(0, idx).replace(/\n+$/, '');
-                  }
-                  // 이미 같은 섹션이 있으면 그 부분만 갱신
-                  if (idx >= 0) {
-                    return cur.slice(0, idx).replace(/\n+$/, '') + header + text;
-                  }
-                  return (cur ? cur.trimEnd() : '') + header + text;
-                });
-              }}
-              onAddKeywordsToSearch={(reviewKeywords) => {
-                if (!Array.isArray(reviewKeywords) || !reviewKeywords.length) return;
-                const exists = new Set((keywords || []).map((k) => String(k.keyword).trim().toLowerCase()));
-                const mapped = reviewKeywords
-                  .map((k) => ({
-                    keyword: String(k.keyword || '').trim(),
-                    type: k.category || '리뷰',
-                  }))
-                  .filter((k) => k.keyword && !exists.has(k.keyword.toLowerCase()));
-                if (!mapped.length) {
-                  alert('이미 추가된 키워드입니다.');
-                  return;
-                }
-                const merged = [...(keywords || []), ...mapped].map((k, idx) => ({
-                  ...k,
-                  rank: idx + 1,
-                }));
-                setKeywords(merged);
-                alert(`✅ 리뷰 키워드 ${mapped.length}개를 검색어 목록에 추가했습니다.`);
-              }}
-            />
-            </Suspense>
-          </Section>
-
-          <Section title="🕵️ 경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed>
-            <Suspense fallback={<AnalyzerFallback icon="🕵️" label="경쟁사 분석 도구 로딩 중..." />}>
-            <CompetitorAnalyzer
-              apiKey={apiKey}
-              model={model}
-              productName={brief.productName}
-              productType={brief.productType}
-              toneNote={brief.brandTone || ''}
-              reviewInsights={reviewInsights}
-              onApplyHeadlineToPage={applyHeadlineToPage}
-              onApplyToBrief={(updates) => {
-                const lines = [];
-                if (updates.uspHints?.length) {
-                  lines.push('━━ 경쟁사 USP (벤치마크) ━━');
-                  updates.uspHints.forEach((u, i) => lines.push(`${i + 1}. ${u}`));
-                }
-                if (updates.gapHints?.length) {
-                  lines.push('\n━━ 우리가 보완할 부분 (Gap) ━━');
-                  updates.gapHints.forEach((g, i) => lines.push(`${i + 1}. ${g}`));
-                }
-                if (updates.headlineHints?.length) {
-                  lines.push('\n━━ 추천 헤드라인 (변형) ━━');
-                  updates.headlineHints.forEach((h, i) => lines.push(`${i + 1}. ${h}`));
-                }
-                if (updates.structureHint) {
-                  lines.push(`\n━━ 추천 구조 ━━\n${updates.structureHint}`);
-                }
-                const block = lines.join('\n');
-                if (!block) return;
-                setBrief((prev) => {
-                  const prevNote = prev.extraNotes || '';
-                  const newNote = prevNote
-                    ? `${prevNote}\n\n${block}`
-                    : block;
-                  return { ...prev, extraNotes: newNote };
-                });
-                alert('✅ 경쟁사 분석 결과가 브리프(추가 메모)에 반영되었습니다. P1~P10 생성 시 자동 참고됩니다.');
-              }}
-            />
-            </Suspense>
-          </Section>
-
           {/* ─────────── 폰트 선택 (전체 페이지 일괄 적용) ─────────── */}
           <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤" collapsible defaultCollapsed>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
@@ -437,6 +342,101 @@ export default function Sidebar({
                 </div>
               );
             })()}
+          </Section>
+
+          {/* ─────────── 🆕 분석 도구 (P1 강점 카드 다음) ─────────── */}
+          <Section title="🔍 리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed>
+            <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
+            <ReviewAnalyzer
+              apiKey={apiKey}
+              model={model}
+              productName={brief.productName}
+              productType={brief.productType}
+              onAnalyzed={setReviewInsights}
+              onApplyAdoptedToNotes={(text) => {
+                // 🆕 (2026-04-28) 채택 문구를 "내 메모"에 자동 추가
+                // 🆕 (2026-05-08) 채택 토글마다 자동 호출 — text 가 비면 섹션 제거
+                const SECTION_TAG = '--- 📌 리뷰 분석 채택 문구 ---';
+                const header = `\n\n${SECTION_TAG}\n`;
+                setUserNotes((prev) => {
+                  const cur = prev || '';
+                  const idx = cur.indexOf(SECTION_TAG);
+                  // 채택 0개 → 섹션 자체를 제거
+                  if (!text || !text.trim()) {
+                    if (idx < 0) return cur;
+                    return cur.slice(0, idx).replace(/\n+$/, '');
+                  }
+                  // 이미 같은 섹션이 있으면 그 부분만 갱신
+                  if (idx >= 0) {
+                    return cur.slice(0, idx).replace(/\n+$/, '') + header + text;
+                  }
+                  return (cur ? cur.trimEnd() : '') + header + text;
+                });
+              }}
+              onAddKeywordsToSearch={(reviewKeywords) => {
+                if (!Array.isArray(reviewKeywords) || !reviewKeywords.length) return;
+                const exists = new Set((keywords || []).map((k) => String(k.keyword).trim().toLowerCase()));
+                const mapped = reviewKeywords
+                  .map((k) => ({
+                    keyword: String(k.keyword || '').trim(),
+                    type: k.category || '리뷰',
+                  }))
+                  .filter((k) => k.keyword && !exists.has(k.keyword.toLowerCase()));
+                if (!mapped.length) {
+                  alert('이미 추가된 키워드입니다.');
+                  return;
+                }
+                const merged = [...(keywords || []), ...mapped].map((k, idx) => ({
+                  ...k,
+                  rank: idx + 1,
+                }));
+                setKeywords(merged);
+                alert(`✅ 리뷰 키워드 ${mapped.length}개를 검색어 목록에 추가했습니다.`);
+              }}
+            />
+            </Suspense>
+          </Section>
+
+          <Section title="🕵️ 경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed>
+            <Suspense fallback={<AnalyzerFallback icon="🕵️" label="경쟁사 분석 도구 로딩 중..." />}>
+            <CompetitorAnalyzer
+              apiKey={apiKey}
+              model={model}
+              productName={brief.productName}
+              productType={brief.productType}
+              toneNote={brief.brandTone || ''}
+              reviewInsights={reviewInsights}
+              onApplyHeadlineToPage={applyHeadlineToPage}
+              onApplyToBrief={(updates) => {
+                const lines = [];
+                if (updates.uspHints?.length) {
+                  lines.push('━━ 경쟁사 USP (벤치마크) ━━');
+                  updates.uspHints.forEach((u, i) => lines.push(`${i + 1}. ${u}`));
+                }
+                if (updates.gapHints?.length) {
+                  lines.push('\n━━ 우리가 보완할 부분 (Gap) ━━');
+                  updates.gapHints.forEach((g, i) => lines.push(`${i + 1}. ${g}`));
+                }
+                if (updates.headlineHints?.length) {
+                  lines.push('\n━━ 추천 헤드라인 (변형) ━━');
+                  updates.headlineHints.forEach((h, i) => lines.push(`${i + 1}. ${h}`));
+                }
+                if (updates.structureHint) {
+                  lines.push(`\n━━ 추천 구조 ━━\n${updates.structureHint}`);
+                }
+                const block = lines.join('\n');
+                if (!block) return;
+                setBrief((prev) => {
+                  const prevNote = prev.extraNotes || '';
+                  const newNote = prevNote
+                    ? `${prevNote}\n\n${block}`
+                    : block;
+                  return { ...prev, extraNotes: newNote };
+                });
+                alert('✅ 경쟁사 분석 결과가 브리프(추가 메모)에 반영되었습니다. P1~P10 생성 시 자동 참고됩니다.');
+              }}
+            />
+            </Suspense>
           </Section>
 
           <Section title="2. 참조 자료로 자동 채우기" emoji="🔗" collapsible>
