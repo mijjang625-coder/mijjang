@@ -501,7 +501,7 @@ export default function P1Hero({
               backgroundColor: '#3b82f6',
               color: '#fff',
               border: '2px solid #fff',
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: 12,
               fontSize: 15,
               fontWeight: 800,
@@ -510,9 +510,9 @@ export default function P1Hero({
               boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              width: 110,
-              justifyContent: 'flex-start',
+              gap: 4,
+              width: 90,
+              justifyContent: 'center',
             }}
             title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
           >
@@ -523,10 +523,9 @@ export default function P1Hero({
                   backgroundColor: '#fff',
                   color: '#3b82f6',
                   borderRadius: 999,
-                  padding: '1px 6px',
+                  padding: '1px 5px',
                   fontSize: 11,
                   fontWeight: 900,
-                  marginLeft: 'auto',
                   lineHeight: 1,
                 }}
               >
@@ -546,7 +545,7 @@ export default function P1Hero({
               backgroundColor: '#f59e0b',
               color: '#fff',
               border: '2px solid #fff',
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: 12,
               fontSize: 15,
               fontWeight: 800,
@@ -555,9 +554,9 @@ export default function P1Hero({
               boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              width: 110,
-              justifyContent: 'flex-start',
+              gap: 4,
+              width: 90,
+              justifyContent: 'center',
             }}
             title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
           >
@@ -568,10 +567,9 @@ export default function P1Hero({
                   backgroundColor: '#fff',
                   color: '#f59e0b',
                   borderRadius: 999,
-                  padding: '1px 6px',
+                  padding: '1px 5px',
                   fontSize: 11,
                   fontWeight: 900,
-                  marginLeft: 'auto',
                   lineHeight: 1,
                 }}
               >
@@ -591,7 +589,7 @@ export default function P1Hero({
               backgroundColor: showLayers ? '#1e293b' : '#475569',
               color: '#fff',
               border: '2px solid #fff',
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: 12,
               fontSize: 15,
               fontWeight: 800,
@@ -600,17 +598,17 @@ export default function P1Hero({
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              width: 110,
-              justifyContent: 'flex-start',
+              gap: 4,
+              width: 90,
+              justifyContent: 'center',
             }}
             title="모든 레이어 목록 (스크롤해도 따라다님)"
           >
             <span>레이어</span>
             <span style={{
               backgroundColor: '#fbbf24', color: '#1e293b',
-              borderRadius: 999, padding: '1px 6px',
-              fontSize: 11, fontWeight: 900, marginLeft: 'auto',
+              borderRadius: 999, padding: '1px 5px',
+              fontSize: 11, fontWeight: 900,
               lineHeight: 1,
             }}>{allLayers.length}</span>
           </button>

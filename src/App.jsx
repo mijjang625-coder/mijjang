@@ -2494,21 +2494,26 @@ export default function App() {
             </div>
           )}
 
-          {/* 플로팅 버튼 — 우측 사이드 캡슐들과 동일 폭(110px)/글씨(15px) */}
+          {/* 플로팅 버튼 — 우측 사이드 캡슐들과 동일 폭(90px)/글씨(15px)/흰 테두리 */}
           <button
             type="button"
             onClick={() => setFeedbackExpanded((v) => !v)}
-            className="rounded-xl shadow-2xl font-bold flex items-center gap-1.5 hover:opacity-90 transition-all"
+            className="rounded-xl shadow-2xl font-bold flex items-center hover:opacity-90 transition-all"
             style={{
               backgroundColor: '#E87A2B',
               color: '#fff',
+              border: '2px solid #fff',
               fontSize: '15px',
+              fontWeight: 800,
               lineHeight: 1.2,
-              padding: '8px 14px',
+              padding: '8px 12px',
               marginLeft: 'auto',
               display: 'flex',
-              width: 110,
-              justifyContent: 'flex-start',
+              alignItems: 'center',
+              gap: 4,
+              width: 90,
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(232,122,43,0.45)',
             }}
             title={feedbackExpanded ? 'AI 채팅 패널 닫기' : 'AI에게 자연어로 수정 지시하기'}
           >
@@ -2521,8 +2526,7 @@ export default function App() {
                   color: '#E87A2B',
                   fontSize: '11px',
                   lineHeight: 1,
-                  padding: '2px 6px',
-                  marginLeft: 'auto',
+                  padding: '1px 5px',
                 }}
               >
                 {revisionHistory[currentPage].length}

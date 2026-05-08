@@ -55,7 +55,7 @@ export default function AISynthesisFloatingButton({
           backgroundColor: open ? '#C2410C' : '#E87A2B',
           color: '#fff',
           border: '2px solid #fff',
-          padding: '8px 14px',
+          padding: '8px 12px',
           borderRadius: 12,
           fontSize: 15, fontWeight: 800,
           lineHeight: 1.2,
@@ -63,9 +63,9 @@ export default function AISynthesisFloatingButton({
           boxShadow: '0 4px 12px rgba(232,122,43,0.45)',
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
-          width: 110,
-          justifyContent: 'flex-start',
+          gap: 4,
+          width: 90,
+          justifyContent: 'center',
         }}
       >
         <span>AI 이미지</span>
