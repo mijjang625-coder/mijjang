@@ -24,7 +24,7 @@ export default function Section({
   return (
     <div
       className={flat ? '' : 'bg-white rounded-lg border'}
-      style={{ borderColor: '#e2ddd4', padding: '8px 10px' }}
+      style={{ borderColor: '#e2ddd4', padding: '12px 10px' }}
     >
       <div
         className={`flex items-center gap-1.5 ${collapsed ? '' : 'pb-1.5 mb-2 border-b'}`}
