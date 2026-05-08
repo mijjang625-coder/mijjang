@@ -1903,102 +1903,7 @@ export default function App() {
               );
             })()}
 
-            {/* 수정 요청 채팅창 — 접기/펼치기 (기본: 접힘) */}
-            {currentResult?.copy && (
-              <div
-                className="mt-4 rounded-xl border-2"
-                style={{ borderColor: '#C8B6A6', backgroundColor: '#F7F3EE' }}
-              >
-                {/* 헤더 — 클릭하면 토글 */}
-                <button
-                  type="button"
-                  onClick={() => setFeedbackExpanded((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 text-left"
-                  style={{ cursor: 'pointer' }}
-                  title={feedbackExpanded ? '채팅창 접기' : '채팅창 펼치기'}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold" style={{ color: '#2F2A26' }}>
-                      💬 {currentPage} 수정 요청 — AI에게 자연어로 지시
-                    </span>
-                    {revisionHistory[currentPage]?.length > 0 && (
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
-                        style={{ backgroundColor: '#E87A2B', color: '#fff' }}
-                      >
-                        {revisionHistory[currentPage].length}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs" style={{ color: '#6b635c' }}>
-                    {feedbackExpanded ? '▲ 접기' : '▼ 펼치기'}
-                  </span>
-                </button>
-
-                {/* 본문 — 펼쳤을 때만 표시 */}
-                {feedbackExpanded && (
-                  <div className="px-4 pb-4">
-                    {revisionHistory[currentPage]?.length > 0 && (
-                      <div className="flex items-center justify-end mb-2">
-                        <button
-                          onClick={() => setRevisionHistory((prev) => ({ ...prev, [currentPage]: [] }))}
-                          className="text-[10px] text-slate-500 hover:text-slate-700 underline"
-                          title="수정 누적 초기화 (다음 수정부터 이전 지시가 반영되지 않음)"
-                        >
-                          🔄 히스토리 초기화
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 수정 히스토리 */}
-                    {revisionHistory[currentPage]?.length > 0 && (
-                      <div className="mb-2 space-y-1 max-h-24 overflow-auto">
-                        {revisionHistory[currentPage].map((h, i) => (
-                          <div key={i} className="text-[11px] p-1.5 rounded bg-white flex items-start gap-1" style={{ color: '#6b635c' }}>
-                            <span className="font-bold whitespace-nowrap">#{i + 1} [{h.at}]</span>
-                            <span className="flex-1">{h.feedback}</span>
-                          </div>
-                        ))}
-                        <div className="text-[10px] text-emerald-700 font-semibold">
-                          ✓ 위 {revisionHistory[currentPage].length}개 수정이 누적되어 다음 요청에도 유지됩니다.
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <textarea
-                        value={feedbackInput}
-                        onChange={(e) => setFeedbackInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                            e.preventDefault();
-                            handleRevise();
-                          }
-                        }}
-                        placeholder="예) 메인 헤드라인 더 짧게 / 강점 2번 타이틀을 '안심 소재'로 / 트러스트 라인 지워줘"
-                        rows={2}
-                        className="input flex-1 text-[12px]"
-                        style={{ resize: 'vertical', minHeight: 48 }}
-                        disabled={isRevising}
-                      />
-                      <button
-                        onClick={handleRevise}
-                        disabled={isRevising || !feedbackInput.trim()}
-                        className="px-3 py-2 rounded-lg text-white text-xs font-bold shadow disabled:opacity-50 whitespace-nowrap"
-                        style={{ backgroundColor: '#E87A2B' }}
-                      >
-                        {isRevising ? '수정 중...' : '✨ 수정 반영'}
-                      </button>
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
-                      💡 <b>텍스트 수정</b>: 지워달라 / 바꿔달라 / 더 짧게 등 (이전 수정도 누적 반영)<br />
-                      📷 <b>사진 교체</b>는 편집 모드에서 사진 클릭 후 우측 <b>↔ 사진 변경</b> 버튼 사용<br />
-                      ⌨️ Ctrl/⌘ + Enter로 바로 전송
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* 🪄 AI 수정 — 우측 하단 플로팅 버튼으로 이동됨 (페이지 하단 FloatingReviseButton 참조) */}
           </div>
 
           {/* 미리보기 */}
@@ -2446,6 +2351,159 @@ export default function App() {
           setImages((prev) => [...prev, ...urls]);
         }}
       />
+
+      {/* 🪄 AI 수정 — 우측 하단 플로팅 버튼 + 말풍선 패널 (페이지 결과가 있을 때만 노출) */}
+      {currentResult?.copy && (
+        <div
+          className="fixed z-40"
+          style={{ right: 24, bottom: exportProgress ? 140 : 24 }}
+        >
+          {/* 펼쳐진 패널 — 버튼 위쪽으로 솟아오르는 말풍선 */}
+          {feedbackExpanded && (
+            <div
+              className="mb-2 bg-white rounded-2xl border-2 shadow-2xl overflow-hidden"
+              style={{
+                borderColor: '#C8B6A6',
+                width: 380,
+                maxHeight: '70vh',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* 헤더 */}
+              <div
+                className="flex items-center justify-between px-4 py-3 border-b"
+                style={{ backgroundColor: '#F7F3EE', borderColor: '#e2ddd4' }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-bold" style={{ color: '#2F2A26', fontSize: '15px', lineHeight: 1.2 }}>
+                    🪄 {currentPage} 수정 요청
+                  </span>
+                  {revisionHistory[currentPage]?.length > 0 && (
+                    <span
+                      className="px-2 py-0.5 rounded-full font-bold"
+                      style={{ backgroundColor: '#E87A2B', color: '#fff', fontSize: '11px', lineHeight: 1 }}
+                    >
+                      {revisionHistory[currentPage].length}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFeedbackExpanded(false)}
+                  className="rounded hover:bg-slate-200 px-2"
+                  style={{ color: '#6b635c', fontSize: '15px', lineHeight: 1.2 }}
+                  title="닫기"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* 본문 */}
+              <div className="px-4 py-3 overflow-auto" style={{ backgroundColor: '#fff' }}>
+                {revisionHistory[currentPage]?.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <span style={{ color: '#6b635c', fontSize: '12px' }}>
+                        누적된 수정 {revisionHistory[currentPage].length}개
+                      </span>
+                      <button
+                        onClick={() => setRevisionHistory((prev) => ({ ...prev, [currentPage]: [] }))}
+                        className="text-slate-500 hover:text-slate-700 underline"
+                        style={{ fontSize: '11px' }}
+                        title="수정 누적 초기화 (다음 수정부터 이전 지시가 반영되지 않음)"
+                      >
+                        🔄 히스토리 초기화
+                      </button>
+                    </div>
+
+                    <div className="mb-3 space-y-1 max-h-32 overflow-auto">
+                      {revisionHistory[currentPage].map((h, i) => (
+                        <div
+                          key={i}
+                          className="p-1.5 rounded flex items-start gap-1"
+                          style={{ color: '#6b635c', backgroundColor: '#F7F3EE', fontSize: '12px' }}
+                        >
+                          <span className="font-bold whitespace-nowrap">#{i + 1} [{h.at}]</span>
+                          <span className="flex-1">{h.feedback}</span>
+                        </div>
+                      ))}
+                      <div className="text-emerald-700 font-semibold" style={{ fontSize: '11px' }}>
+                        ✓ 위 {revisionHistory[currentPage].length}개 수정이 누적되어 다음 요청에도 유지됩니다.
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <textarea
+                  value={feedbackInput}
+                  onChange={(e) => setFeedbackInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      handleRevise();
+                    }
+                  }}
+                  placeholder="예) 메인 헤드라인 더 짧게 / 강점 2번 타이틀을 '안심 소재'로 / 트러스트 라인 지워줘"
+                  rows={3}
+                  className="input w-full"
+                  style={{ resize: 'vertical', minHeight: 72, fontSize: '13px' }}
+                  disabled={isRevising}
+                />
+
+                <button
+                  onClick={handleRevise}
+                  disabled={isRevising || !feedbackInput.trim()}
+                  className="w-full mt-2 px-3 py-2 rounded-lg text-white font-bold shadow disabled:opacity-50"
+                  style={{ backgroundColor: '#E87A2B', fontSize: '15px', lineHeight: 1.2 }}
+                >
+                  {isRevising ? '수정 중...' : '✨ 수정 반영'}
+                </button>
+
+                <div className="text-slate-500 mt-2 leading-relaxed" style={{ fontSize: '11px' }}>
+                  💡 <b>텍스트 수정</b>: 지워달라 / 바꿔달라 / 더 짧게 등 (이전 수정도 누적 반영)<br />
+                  📷 <b>사진 교체</b>는 편집 모드에서 사진 클릭 후 우측 <b>↔ 사진 변경</b> 버튼 사용<br />
+                  ⌨️ Ctrl/⌘ + Enter로 바로 전송
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 플로팅 버튼 — 알약 모양, 사이드바와 같은 15px 글씨 */}
+          <button
+            type="button"
+            onClick={() => setFeedbackExpanded((v) => !v)}
+            className="rounded-full shadow-2xl font-bold flex items-center gap-2 hover:opacity-90 transition-all"
+            style={{
+              backgroundColor: '#E87A2B',
+              color: '#fff',
+              fontSize: '15px',
+              lineHeight: 1.2,
+              padding: '10px 18px',
+              marginLeft: 'auto',
+              display: 'flex',
+            }}
+            title={feedbackExpanded ? 'AI 수정 패널 닫기' : 'AI에게 자연어로 수정 지시하기'}
+          >
+            <span>🪄</span>
+            <span>AI 수정</span>
+            {revisionHistory[currentPage]?.length > 0 && !feedbackExpanded && (
+              <span
+                className="rounded-full font-bold"
+                style={{
+                  backgroundColor: '#fff',
+                  color: '#E87A2B',
+                  fontSize: '11px',
+                  lineHeight: 1,
+                  padding: '2px 6px',
+                }}
+              >
+                {revisionHistory[currentPage].length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* 전체 내보내기 진행 토스트 */}
       {exportProgress && (
