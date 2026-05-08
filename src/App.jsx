@@ -201,6 +201,20 @@ export default function App() {
     setActiveLayerId(null);
   }, [editMode, currentPage]);
 
+  // 🆕 텍스트(EditableText/FreeText) 가 활성화 됐다는 broadcast 를 받으면
+  //   이미지/도형의 activeLayerId 도 함께 해제 → 사진 옵션바 자동으로 닫힘
+  useEffect(() => {
+    const handler = (e) => {
+      const id = e?.detail?.id || '';
+      // 텍스트가 활성화된 경우에만 레이어 활성 상태 해제 (이미지끼리는 기존 시스템이 처리)
+      if (id.startsWith('text:') || id.startsWith('free-text:')) {
+        setActiveLayerId(null);
+      }
+    };
+    window.addEventListener('editor:select', handler);
+    return () => window.removeEventListener('editor:select', handler);
+  }, []);
+
   // ─── 🔄 Undo/Redo 히스토리 ───────────────────────────
   // 6개 편집 가능한 상태를 묶어서 한 번에 undo/redo
   const undoHistory = useUndoableHistory({
