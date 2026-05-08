@@ -511,7 +511,7 @@ export default function P1Hero({
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              width: 90,
+              width: 105,
               justifyContent: 'center',
             }}
             title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
@@ -555,7 +555,7 @@ export default function P1Hero({
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              width: 90,
+              width: 105,
               justifyContent: 'center',
             }}
             title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
@@ -599,7 +599,7 @@ export default function P1Hero({
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              width: 90,
+              width: 105,
               justifyContent: 'center',
             }}
             title="모든 레이어 목록 (스크롤해도 따라다님)"

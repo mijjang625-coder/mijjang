@@ -2511,7 +2511,7 @@ export default function App() {
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              width: 90,
+              width: 105,
               justifyContent: 'center',
               boxShadow: '0 4px 12px rgba(232,122,43,0.45)',
             }}

@@ -64,7 +64,7 @@ export default function AISynthesisFloatingButton({
           display: 'flex',
           alignItems: 'center',
           gap: 4,
-          width: 90,
+          width: 105,
           justifyContent: 'center',
         }}
       >

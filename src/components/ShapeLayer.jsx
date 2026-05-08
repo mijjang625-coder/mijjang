@@ -187,7 +187,7 @@ export default function ShapeLayer({
               fontSize: 15, fontWeight: 800, lineHeight: 1.2, cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(168,85,247,0.45)',
               display: 'flex', alignItems: 'center', gap: 4,
-              width: 90, justifyContent: 'center',
+              width: 105, justifyContent: 'center',
             }}
             title="페이지에 도형(사각형, 원, 화살표 등)을 그립니다 (스크롤해도 따라다님)"
           >
