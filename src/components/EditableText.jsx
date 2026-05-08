@@ -97,64 +97,42 @@ export default function EditableText({
   };
 
   // ─────────── 더블클릭 → 편집 시작 ───────────
+  // 🆕 (2026-05-08) 핵심: 브라우저가 더블클릭 시 native 로 잡아주는 word selection 을
+  //   절대 깨지 않는다. 이전엔 setTimeout 안에서 selectNodeContents 또는
+  //   caretRangeFromPoint 로 selection 을 새로 만들었는데, setIsEditing 리렌더 후
+  //   useEffect 가 innerHTML 을 재주입하면서 native word selection 이 날아가는 문제가
+  //   있었음. 이제는 contentEditable 만 켜고 selection 은 브라우저에 맡긴다.
   const startEditing = (e) => {
     e.stopPropagation();
-    // 🆕 (2026-05-08) 이미 편집 중이면 — innerHTML 재주입 / selection 강제 변경 안 함.
-    //   브라우저가 자동으로 잡아준 word selection 을 그대로 보존.
     if (isEditing) {
       return;
     }
-    // 🆕 (2026-05-08) 더블클릭 좌표 백업 — setTimeout 내부에서 caretRangeFromPoint 로
-    //   해당 위치의 단어를 정확히 선택하기 위함.
-    const clickX = e.clientX;
-    const clickY = e.clientY;
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
+    // selection 은 브라우저 native double-click 동작에 맡김 → 단어 자동 선택됨.
+    // 만약 글자가 없는 빈 EditableText 라면 브라우저가 잡아줄 게 없으므로
+    // 약간 지연 후 전체 selection 을 fallback 으로 잡아줌.
     setTimeout(() => {
       if (!ref.current) return;
-      ref.current.focus();
       const sel = window.getSelection();
-      // 🆕 (2026-05-08) 더블클릭 위치의 단어를 잡아주기 — caretRangeFromPoint 로
-      //   클릭 좌표의 텍스트 노드를 찾고, 양쪽으로 단어 경계까지 확장.
-      //   이전엔 selectNodeContents 로 전체를 잡아버려서 이미 서식 적용된 글씨 위에서
-      //   더블클릭해도 단어가 아닌 글씨 전체가 선택되는 현상이 있었음.
+      // 이미 native selection 이 살아있고 우리 영역 안에 있으면 그대로 둔다.
+      if (
+        sel && sel.rangeCount > 0 && !sel.isCollapsed &&
+        ref.current.contains(sel.getRangeAt(0).commonAncestorContainer)
+      ) {
+        try { ref.current.focus(); } catch (_) { /* ignore */ }
+        return;
+      }
+      // selection 이 비어있으면 (빈 글씨 박스 등) → 전체 선택 fallback
       try {
-        let range = null;
-        if (typeof document.caretRangeFromPoint === 'function') {
-          range = document.caretRangeFromPoint(clickX, clickY);
-        } else if (typeof document.caretPositionFromPoint === 'function') {
-          const pos = document.caretPositionFromPoint(clickX, clickY);
-          if (pos) {
-            range = document.createRange();
-            range.setStart(pos.offsetNode, pos.offset);
-            range.collapse(true);
-          }
-        }
-        if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
-          // 단어 경계 확장 — 공백/줄바꿈/구두점 직전까지
-          const text = range.startContainer.textContent || '';
-          const pos = range.startOffset;
-          const isWordChar = (ch) => ch && /[\w가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch);
-          let start = pos;
-          let end = pos;
-          while (start > 0 && isWordChar(text[start - 1])) start--;
-          while (end < text.length && isWordChar(text[end])) end++;
-          if (end > start) {
-            const wordRange = document.createRange();
-            wordRange.setStart(range.startContainer, start);
-            wordRange.setEnd(range.startContainer, end);
-            sel.removeAllRanges();
-            sel.addRange(wordRange);
-            return;
-          }
-        }
-      } catch (_) { /* fall through to full selection */ }
-      // 단어 선택 실패 시 fallback — 전체 선택
-      const fallback = document.createRange();
-      fallback.selectNodeContents(ref.current);
-      sel.removeAllRanges();
-      sel.addRange(fallback);
+        ref.current.focus();
+        const range = document.createRange();
+        range.selectNodeContents(ref.current);
+        const sel2 = window.getSelection();
+        sel2.removeAllRanges();
+        sel2.addRange(range);
+      } catch (_) { /* ignore */ }
     }, 0);
   };
 
@@ -329,15 +307,12 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🆕 편집 중 contentEditable 영역에 초기 HTML 주입
-  //    React는 contentEditable 요소의 자식을 직접 제어하면 안 되므로
-  //    isEditing 시작 시점에 한 번만 innerHTML을 설정하고, 이후엔 사용자 입력에 맡김
-  useEffect(() => {
-    if (isEditing && ref.current) {
-      ref.current.innerHTML = mergedHtml || '';
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing]);
+  // 🆕 (2026-05-08) 편집 중 innerHTML 재주입 로직 제거.
+  //   이전엔 isEditing 이 true 가 되는 순간 ref.current.innerHTML = mergedHtml 로
+  //   강제 주입했는데, 이게 더블클릭 직후 브라우저가 native 로 잡아준 word selection 을
+  //   날려버리는 부작용이 있었음. 비편집 모드의 dangerouslySetInnerHTML 로 이미 정확한
+  //   HTML 이 DOM 에 들어가 있고, contentEditable 토글 시 그대로 유지되므로 재주입 불필요.
+  //   editableProps 분기로 React 가 편집 중 자식을 건드리지 않도록 처리되어 있음.
 
   // 🆕 (2026-05-03) 가시성 토글 (포토샵 방식) — visibility:hidden (PNG 캡처에도 반영)
   const isHidden = !!override?.hidden;
