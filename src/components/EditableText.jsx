@@ -337,8 +337,8 @@ export default function EditableText({
     } catch (_) { /* ignore */ }
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
-      // 가드 해제 후 종료
-      setTimeout(() => { inlineApplyingRef.current = false; }, 250);
+      // 가드 해제 후 종료 — 짧게 50ms 만 보호 (재선택 방해 최소화)
+      setTimeout(() => { inlineApplyingRef.current = false; }, 50);
       return;
     }
 
@@ -381,9 +381,22 @@ export default function EditableText({
       }
     }
 
-    // 🆕 (2026-05-06) 가드 OFF — onChange 후 React 리렌더 + selectionchange 이벤트가
-    //   완전히 처리될 때까지 충분히 기다린 뒤 해제 (250ms 면 안전)
-    setTimeout(() => { inlineApplyingRef.current = false; }, 250);
+    // 🆕 (2026-05-06) 적용 직후 selection 을 끝점으로 collapse 시켜 사용자가
+    //   새로 드래그 선택할 수 있도록 깨끗이 정리. 이렇게 안 하면 selection 이
+    //   새 span 전체에 걸쳐 있어 다음 드래그 때 충돌이나 재선택 불가 발생.
+    try {
+      const sel2 = window.getSelection();
+      if (sel2 && sel2.rangeCount > 0) {
+        const r = sel2.getRangeAt(0);
+        r.collapse(false); // 끝점으로 collapse
+        sel2.removeAllRanges();
+        sel2.addRange(r);
+      }
+    } catch (_) { /* ignore */ }
+
+    // 🆕 (2026-05-06) 가드 OFF — 짧게 50ms 만 보호하여 사용자가 곧바로 새 드래그
+    //   선택을 시작해도 인라인 툴바가 정상 표시되도록 함.
+    setTimeout(() => { inlineApplyingRef.current = false; }, 50);
   };
 
   // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
@@ -657,7 +670,31 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
 }
 
 // 🆕 인라인 툴바 — 선택한 부분만 서식 적용
+// 🆕 (2026-05-06) 컬러 피커(input[type=color]) 부활 — selection 백업/복원 방식으로 안전 처리
 function InlineToolbar({ pos, onApply }) {
+  // 컬러 피커 클릭 직전 selection 을 백업 — native picker 가 열리며 포커스 빼앗아도
+  // 색상 선택 후 selection 을 복원해서 정상 적용되도록 함.
+  const savedRangeRef = useRef(null);
+
+  const saveSelection = () => {
+    try {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    } catch (_) { /* ignore */ }
+  };
+
+  const restoreSelection = () => {
+    try {
+      if (savedRangeRef.current) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedRangeRef.current);
+      }
+    } catch (_) { /* ignore */ }
+  };
+
   return (
     <div
       data-inline-toolbar
@@ -714,12 +751,40 @@ function InlineToolbar({ pos, onApply }) {
         A+
       </button>
 
-      {/* 🆕 (2026-05-06) 색상 팔레트 — input[type=color] 제거하고 빠른 색상 버튼만 사용
-           이전: <input type="color"> 가 검은 큰 사각형으로 보여 클릭 시 네이티브 피커가
-                 selection/포커스를 빼앗으며 편집창이 꺼지는 문제가 있었음
-           수정: 라벨/input 제거하고 자주 쓰는 색상 버튼들로 대체 — 모두 onMouseDown
-                 단계에서 preventDefault 처리되어 selection 유지됨 */}
-      <span style={{ fontSize: 11, padding: '0 2px', color: '#fbbf24' }} title="글자 색">🎨</span>
+      {/* 🆕 (2026-05-06) 컬러 피커 — 무지개 native picker 부활
+           selection 을 ref 에 백업해두고, picker 에서 색을 선택하면 onChange 시
+           selection 을 복원하여 정상 적용. 라벨/input 모두 mousedown preventDefault 로
+           contentEditable 의 포커스를 빼앗기지 않도록 처리. */}
+      <label
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          position: 'relative', cursor: 'pointer',
+          width: 28, height: 22, borderRadius: 4,
+          background: 'linear-gradient(45deg, #ef4444 0%, #f59e0b 25%, #eab308 50%, #22c55e 70%, #3b82f6 90%, #a855f7 100%)',
+          border: '1px solid #fff',
+        }}
+        title="컬러 피커 — 무지개에서 색 선택"
+        onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
+      >
+        <span style={{ fontSize: 11, color: '#fff', fontWeight: 900, textShadow: '0 0 2px rgba(0,0,0,0.6)', pointerEvents: 'none' }}>🎨</span>
+        <input
+          type="color"
+          onMouseDown={(e) => { saveSelection(); e.stopPropagation(); }}
+          onChange={(e) => {
+            const value = e.target.value;
+            // selection 복원 후 색상 적용
+            restoreSelection();
+            onApply({ type: 'color', value });
+          }}
+          // 시각적으로는 라벨이 보이고, 실제 input 은 라벨을 덮도록 투명하게 배치
+          style={{
+            position: 'absolute', inset: 0,
+            width: '100%', height: '100%',
+            opacity: 0, cursor: 'pointer',
+            border: 'none', padding: 0, background: 'transparent',
+          }}
+        />
+      </label>
 
       {/* 빠른 색상 — 검정 */}
       <button
@@ -753,24 +818,6 @@ function InlineToolbar({ pos, onApply }) {
         style={{ ...inlineBtnStyle, backgroundColor: '#2563eb' }}
         onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#2563eb' }); }}
         title="파랑"
-      >
-        ●
-      </button>
-
-      {/* 빠른 색상 — 초록 */}
-      <button
-        style={{ ...inlineBtnStyle, backgroundColor: '#16a34a' }}
-        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#16a34a' }); }}
-        title="초록"
-      >
-        ●
-      </button>
-
-      {/* 빠른 색상 — 주황 */}
-      <button
-        style={{ ...inlineBtnStyle, backgroundColor: '#f59e0b' }}
-        onMouseDown={(e) => { e.preventDefault(); onApply({ type: 'color', value: '#f59e0b' }); }}
-        title="주황"
       >
         ●
       </button>
