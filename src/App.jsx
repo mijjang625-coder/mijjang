@@ -1629,8 +1629,8 @@ export default function App() {
         </div>
         {/* 페이지 탭 + 현재 페이지 액션 (한 줄) */}
         <div className="max-w-[1700px] mx-auto px-6 pb-2 flex items-center gap-2 flex-wrap">
-          {/* 좌측: P1~P10 페이지 탭 */}
-          <div className="flex gap-1 items-center flex-wrap">
+          {/* 우측으로 이동: P1~P10 페이지 탭 */}
+          <div className="flex gap-1 items-center flex-wrap ml-auto">
             {PAGE_LIST.map((p) => {
               const done = pages[p] && !pages[p].needsMoreInfo;
               const active = currentPage === p;
@@ -1652,7 +1652,7 @@ export default function App() {
           </div>
 
           {/* 우측: 현재 페이지 액션 (PNG / HTML / 다시 생성 / 다음) — 이전 PNG 버튼 크기와 동일 */}
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* PNG / HTML — 결과가 있을 때만 표시 */}
             {currentResult?.copy && !currentResult.needsMoreInfo && (
               <>
