@@ -75,7 +75,7 @@ export default function Sidebar({
           style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
         >
           <div data-tour="api-key">
-          <Section title="1. OpenAI 설정" emoji="🔑" collapsible defaultCollapsed={!!apiKey}>
+          <Section title="OpenAI 설정" emoji="🔑" collapsible defaultCollapsed={!!apiKey}>
             <Field label="OpenAI API Key" required>
               <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className="input" />
               <div className="text-[10px] text-slate-500 mt-1">텍스트 생성/수정용 (필수)</div>
@@ -444,7 +444,7 @@ export default function Sidebar({
             </Suspense>
           </Section>
 
-          <Section title="2. 참조 자료로 자동 채우기" emoji="🔗" collapsible flat>
+          <Section title="참조 자료로 자동 채우기" emoji="🔗" collapsible flat>
             {/* 모드 탭 */}
             <div className="flex gap-1 mb-2 p-1 rounded-lg" style={{ backgroundColor: '#F7F3EE' }}>
               <button
@@ -956,7 +956,7 @@ Q5. / A5.
           {/* ─────────── 그룹 3: 콘텐츠 입력 (제품 정보 ~ FAQ) ─────────── */}
           <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
           <div data-tour="product-info">
-          <Section title="3. 제품 기본 정보" emoji="🛍️" collapsible flat>
+          <Section title="제품 기본 정보" emoji="🛍️" collapsible flat>
             <Field label="제품명" required>
               <input value={brief.productName} onChange={(e) => updateBrief({ productName: e.target.value })} className="input" placeholder="예) 욕실용 실리콘 미끄럼방지 매트" />
             </Field>
@@ -1104,7 +1104,7 @@ Q5. / A5.
           </div>
 
           <div data-tour="image-upload">
-          <Section title="4. 제품 사진 업로드" emoji="📸" collapsible defaultCollapsed={images.length > 0} badge={images.length > 0 ? `${images.length}장` : null} flat>
+          <Section title="제품 사진 업로드" emoji="📸" collapsible defaultCollapsed={images.length > 0} badge={images.length > 0 ? `${images.length}장` : null} flat>
             {/* 사진 개수 가이드 */}
             <div className="mb-2 p-2 rounded-lg text-[11px]" style={{
               backgroundColor: images.length >= 23 ? '#ECFDF5' : images.length >= 10 ? '#FFF8F0' : '#FEF2F2',
@@ -1179,7 +1179,7 @@ Q5. / A5.
           </Section>
           </div>
 
-          <Section title="5. 리뷰 4개 (P4 필수)" emoji="⭐" collapsible flat>
+          <Section title="리뷰 4개 (P4 필수)" emoji="⭐" collapsible flat>
             {brief.reviews.map((r, i) => (
               <div key={i} className="space-y-1.5 mb-3 pb-3 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <div className="text-[11px] font-bold text-slate-500">리뷰 {i + 1}</div>
@@ -1192,7 +1192,7 @@ Q5. / A5.
             ))}
           </Section>
 
-          <Section title="6. P5 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible flat>
+          <Section title="P5 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible flat>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               각 행에 <b>내 제품의 차별점</b>과 <b>일반 제품의 모습</b>을 함께 입력하세요.
               <br />비워두면 AI가 "일반적인 모습"을 추측해서 채웁니다.
@@ -1238,19 +1238,19 @@ Q5. / A5.
             </label>
           </Section>
 
-          <Section title="7. 활용법 4가지 (P8 필수)" emoji="💡" collapsible flat>
+          <Section title="활용법 4가지 (P8 필수)" emoji="💡" collapsible flat>
             {brief.usages.map((u, i) => (
               <input key={i} value={u} onChange={(e) => updateArrayItem('usages', i, e.target.value)} placeholder={`활용법 ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="8. 사용 순서 3단계 (P9 필수)" emoji="🔢" collapsible flat>
+          <Section title="사용 순서 3단계 (P9 필수)" emoji="🔢" collapsible flat>
             {brief.usageSteps.map((s, i) => (
               <input key={i} value={s} onChange={(e) => updateArrayItem('usageSteps', i, e.target.value)} placeholder={`STEP ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="9. FAQ 5개 (P10 필수)" emoji="❓" collapsible flat>
+          <Section title="FAQ 5개 (P10 필수)" emoji="❓" collapsible flat>
             {brief.faqs.map((f, i) => (
               <div key={i} className="space-y-1.5 mb-2 pb-2 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <input placeholder={`Q${i + 1}`} value={f.q} onChange={(e) => updateObjectArrayItem('faqs', i, 'q', e.target.value)} className="input" />
