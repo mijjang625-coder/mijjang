@@ -119,58 +119,102 @@ export default function P5Compare({
   const UNIFORM_PADDING = '18px 10px';
 
   // 🆕 (2026-04-28) 헤더 셀 — subLabel/label 모두 EditableText 로 변경하여 사용자 수정 가능
-  const colHeader = (labelId, subLabelId, label, subLabel, isOurs) => (
-    <div
-      style={{
-        padding: '14px 10px',
-        backgroundColor: isOurs ? BRAND.colors.main : '#c8c8c8',
-        color: isOurs ? '#fff' : '#6b6b6b',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        minHeight: 72,
-        opacity: isOurs ? 1 : 0.85,
-        // 🆕 (2026-04-28) 컬럼 사이 세로 구분선 — 우리/일반 헤더 모두 좌측에 선
-        borderLeft: `1px solid ${BRAND.colors.neutral}`,
-        pointerEvents: editMode ? 'auto' : 'inherit',
-      }}
-    >
-      {(subLabel || editMode) && (
+  // 🆕 (2026-05-09) 일반 제품 헤더는 외부 셀(흰 배경) 안에 안쪽 wrapper 박스를 두어
+  //   "빨간 사각형 안쪽에 작은 박스가 들어있는" 모습 구현 (transform 미사용 → PNG 안전)
+  const colHeader = (labelId, subLabelId, label, subLabel, isOurs) => {
+    const inner = (
+      <>
+        {(subLabel || editMode) && (
+          <EditableText
+            {...editPropsFor(subLabelId)}
+            as="div"
+            defaultStyle={{
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: '0.15em',
+              opacity: isOurs ? 0.9 : 0.7,
+              marginBottom: 3,
+              color: 'inherit',
+              textAlign: 'center',
+            }}
+            placeholder={editMode ? '(서브 라벨)' : ''}
+          >
+            {subLabel}
+          </EditableText>
+        )}
         <EditableText
-          {...editPropsFor(subLabelId)}
+          {...editPropsFor(labelId)}
           as="div"
           defaultStyle={{
-            fontSize: 13,
-            fontWeight: 700,
-            letterSpacing: '0.15em',
-            opacity: isOurs ? 0.9 : 0.7,
-            marginBottom: 3,
+            fontWeight: isOurs ? 900 : 700,
+            fontSize: isOurs ? 22 : 17,
+            letterSpacing: '-0.02em',
+            lineHeight: 1.2,
+            wordBreak: 'keep-all',
             color: 'inherit',
             textAlign: 'center',
           }}
-          placeholder={editMode ? '(서브 라벨)' : ''}
         >
-          {subLabel}
+          {label}
         </EditableText>
-      )}
-      <EditableText
-        {...editPropsFor(labelId)}
-        as="div"
-        defaultStyle={{
-          fontWeight: isOurs ? 900 : 700,
-          fontSize: isOurs ? 22 : 19,
-          letterSpacing: '-0.02em',
-          lineHeight: 1.2,
-          wordBreak: 'keep-all',
-          color: 'inherit',
+      </>
+    );
+
+    if (isOurs) {
+      return (
+        <div
+          style={{
+            padding: '14px 10px',
+            backgroundColor: BRAND.colors.main,
+            color: '#fff',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            minHeight: 72,
+            borderLeft: `1px solid ${BRAND.colors.neutral}`,
+            pointerEvents: editMode ? 'auto' : 'inherit',
+          }}
+        >
+          {inner}
+        </div>
+      );
+    }
+
+    // 일반 제품 헤더 — 외부 셀: 흰 배경 / 안쪽 wrapper: 회색 박스 (빨간 사각형 안쪽 박스)
+    return (
+      <div
+        style={{
+          padding: '10px 10px 0 10px',         // 외부 여백 (위/좌/우)
+          backgroundColor: '#fff',
           textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          minHeight: 72,
+          borderLeft: `1px solid ${BRAND.colors.neutral}`,
+          pointerEvents: editMode ? 'auto' : 'inherit',
         }}
       >
-        {label}
-      </EditableText>
-    </div>
-  );
+        {/* 안쪽 wrapper — 빨간 사각형의 시작 (위/좌/우 둥근 모서리) */}
+        <div
+          style={{
+            backgroundColor: '#c8c8c8',
+            color: '#6b6b6b',
+            padding: '14px 10px',
+            borderRadius: '12px 12px 0 0',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            opacity: 0.85,
+            minHeight: 60,
+          }}
+        >
+          {inner}
+        </div>
+      </div>
+    );
+  };
 
   // 좌측 '비교 항목' 라벨 셀 (통일된 스타일)
   // 🆕 (2026-04-28) EditableText 로 변경 — 사용자가 비교 항목 이름 수정 가능
@@ -215,28 +259,16 @@ export default function P5Compare({
   // 우리 제품 / 일반 제품 콘텐츠 셀 — 둘 다 같은 폰트 크기, 가운데 정렬
   // 일반 제품은 무채색 + opacity로만 약화 (크기는 통일)
   // 🆕 (2026-04-28) EditableText 로 변경 — 사용자가 셀 내용 수정 가능
-  const renderCell = (id, text, isOurs) => (
-    <div
-      style={{
-        padding: UNIFORM_PADDING,
-        backgroundColor: isOurs ? 'rgba(200,182,166,0.12)' : '#f5f5f5',
-        borderBottom: `1px solid ${BRAND.colors.neutral}`,
-        // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
-        borderLeft: `1px solid ${BRAND.colors.neutral}`,
-        textAlign: 'center',
-        opacity: isOurs ? 1 : 0.8,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: editMode ? 'auto' : 'inherit',
-      }}
-    >
+  // 🆕 (2026-05-09) 일반 제품 셀은 외부(흰 배경) + 안쪽 wrapper(회색 박스) 구조
+  //   → 빨간 사각형 안쪽 박스 모양. transform 미사용 → PNG 100% 안전.
+  const renderCell = (id, text, isOurs) => {
+    const editableText = (
       <EditableText
         {...editPropsFor(id)}
         as="div"
         defaultStyle={{
           color: isOurs ? BRAND.colors.text : '#9a9a9a',
-          fontSize: UNIFORM_FONT_SIZE,
+          fontSize: isOurs ? UNIFORM_FONT_SIZE : Math.round(UNIFORM_FONT_SIZE * 0.9),
           fontWeight: isOurs ? 700 : 400,
           textAlign: 'center',
           lineHeight: 1.4,
@@ -246,8 +278,59 @@ export default function P5Compare({
       >
         {text}
       </EditableText>
-    </div>
-  );
+    );
+
+    if (isOurs) {
+      return (
+        <div
+          style={{
+            padding: UNIFORM_PADDING,
+            backgroundColor: 'rgba(200,182,166,0.12)',
+            borderBottom: `1px solid ${BRAND.colors.neutral}`,
+            borderLeft: `1px solid ${BRAND.colors.neutral}`,
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: editMode ? 'auto' : 'inherit',
+          }}
+        >
+          {editableText}
+        </div>
+      );
+    }
+
+    // 일반 제품 셀 — 외부: 흰 배경, 안쪽: 회색 박스 (빨간 사각형 본체)
+    return (
+      <div
+        style={{
+          padding: '0 10px',
+          backgroundColor: '#fff',
+          borderLeft: `1px solid ${BRAND.colors.neutral}`,
+          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+          pointerEvents: editMode ? 'auto' : 'inherit',
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            backgroundColor: '#f5f5f5',
+            padding: UNIFORM_PADDING,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.8,
+            borderBottom: `1px solid #e5e5e5`,
+          }}
+        >
+          {editableText}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
@@ -380,28 +463,36 @@ export default function P5Compare({
                 </div>
               </div>
 
-              {/* 일반 제품: 전체 사각형 90% 축소 (가운데 정렬)
+              {/* 일반 제품 이미지 셀
                   🆕 (2026-04-28) EditableImage 로 교체 — 사용자가 일반 제품 사진을
                        자유롭게 업로드/교체/리사이즈/이동할 수 있게 됨.
-                       사용자 지정 시 → 무필터(원본 그대로)
-                       미지정 자동 fallback (ourImage 사용) → 강한 grayscale+blur 로 실루엣 처리 */}
+                  🆕 (2026-05-09) 외부(흰 배경) + 안쪽 wrapper(회색 박스) 구조로 변경
+                       → 빨간 사각형 안쪽 박스 모양 구현. transform 미사용 → PNG 100% 안전. */}
               <div
                 style={{
-                  padding: 10,
-                  borderTop: `1px solid ${BRAND.colors.neutral}`,
-                  // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
+                  padding: '0 10px',                  // 좌/우 안쪽으로 들어옴
                   borderLeft: `1px solid ${BRAND.colors.neutral}`,
-                  backgroundColor: '#f5f5f5',
+                  backgroundColor: '#fff',            // 외부는 흰 배경
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: 'stretch',
                   justifyContent: 'center',
                 }}
               >
+                {/* 안쪽 wrapper — 빨간 사각형 본체 (회색 배경) */}
                 <div
                   style={{
-                    // 🆕 (2026-05-09 v3) 일반 제품 컬럼 자체가 그리드에서 0.9fr 로 축소되므로
-                    //   이미지 박스는 컬럼을 100% 꽉 채우게 되돌림 (이전 scale(0.75) 제거)
-                    //   → 컬럼 폭 축소로 헤더/이미지/모든 행이 한꺼번에 자연스럽게 작아 보임
+                    flex: 1,
+                    backgroundColor: '#f5f5f5',
+                    padding: '14px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderTop: `1px solid ${BRAND.colors.neutral}`,
+                    borderBottom: `1px solid #e5e5e5`,
+                  }}
+                >
+                <div
+                  style={{
                     width: '100%',
                     aspectRatio: '1 / 1',
                     borderRadius: 12,
@@ -437,6 +528,7 @@ export default function P5Compare({
                     extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.95) contrast(0.7) blur(8px)' : ''}
                   />
                 </div>
+                </div>
               </div>
             </>
           )}
@@ -449,29 +541,35 @@ export default function P5Compare({
               {/* 우리 제품 셀 — 정상 크기 */}
               {renderCell(`P5.rows.${i}.ours`, row.ours, true)}
 
-              {/* 일반 제품 셀 — 90% 크기로 축소 (내용이 돋보이지 않게) */}
+              {/* 일반 제품 셀 — 외부(흰 배경) + 안쪽 wrapper(회색 박스) 통일 구조
+                  🆕 (2026-05-09) renderCell(isOurs=false) 와 동일한 안쪽 박스 모양으로 통일
+                  → 빨간 사각형처럼 컬럼 전체가 안쪽 박스 안에 들어 있는 모습.
+                  transform 미사용 → PNG 100% 안전 */}
               <div
                 style={{
-                  padding: '10px 8px',
-                  backgroundColor: '#f5f5f5',
-                  borderBottom: `1px solid ${BRAND.colors.neutral}`,
+                  // 마지막 행은 아래 padding 추가 → 빨간 사각형 하단 마감
+                  padding: i === rows.length - 1 ? '0 10px 10px 10px' : '0 10px',
+                  backgroundColor: '#fff',
                   borderLeft: `1px solid ${BRAND.colors.neutral}`,
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: 'stretch',
                   justifyContent: 'center',
                   pointerEvents: editMode ? 'auto' : 'inherit',
                 }}
               >
                 <div
                   style={{
-                    width: '90%',
-                    padding: '10px 6px',
-                    backgroundColor: '#ededed',
-                    borderRadius: 8,
-                    opacity: 0.8,
+                    flex: 1,
+                    backgroundColor: '#f5f5f5',
+                    padding: UNIFORM_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    opacity: 0.8,
+                    // 마지막 행은 안쪽 박스 아래 모서리 둥글게 (빨간 사각형 하단)
+                    borderBottomLeftRadius: i === rows.length - 1 ? 12 : 0,
+                    borderBottomRightRadius: i === rows.length - 1 ? 12 : 0,
+                    borderBottom: i === rows.length - 1 ? 'none' : `1px solid #e5e5e5`,
                   }}
                 >
                   <EditableText
@@ -479,7 +577,7 @@ export default function P5Compare({
                     as="div"
                     defaultStyle={{
                       color: '#9a9a9a',
-                      fontSize: UNIFORM_FONT_SIZE,
+                      fontSize: Math.round(UNIFORM_FONT_SIZE * 0.9),
                       fontWeight: 400,
                       textAlign: 'center',
                       lineHeight: 1.4,
