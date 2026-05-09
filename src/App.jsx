@@ -1918,15 +1918,7 @@ export default function App() {
                 );
               })()}
 
-              {/* P5 버전 선택만 유지 — PNG/HTML/다시생성/다음 버튼은 상단 헤더로 이동됨 */}
-              {currentPage === 'P5' && currentResult?.copy && (
-                <div className="flex items-center">
-                  <select value={p5Version} onChange={(e) => setP5Version(e.target.value)} className="input" style={{ width: 'auto', padding: '8px 10px' }}>
-                    <option value="text">글 버전</option>
-                    <option value="photo">사진 버전</option>
-                  </select>
-                </div>
-              )}
+              {/* P5 버전 선택은 미리보기 카드 헤더의 "실행취소" 옆으로 이동됨 (안내 박스 폭 확보) */}
             </div>
 
             {error && (
@@ -2015,6 +2007,24 @@ export default function App() {
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="text-sm font-bold" style={{ color: '#2F2A26' }}>{currentPage} 미리보기</div>
               <div className="flex items-center gap-2">
+                {/* P5 버전 선택 — 실행취소 버튼 좌측에 배치 (상단 안내 박스 폭 확보) */}
+                {currentPage === 'P5' && currentResult?.copy && (
+                  <select
+                    value={p5Version}
+                    onChange={(e) => setP5Version(e.target.value)}
+                    className="text-[11px] font-bold px-2 py-1 rounded border"
+                    style={{
+                      backgroundColor: '#fff',
+                      borderColor: '#C8B6A6',
+                      color: '#2F2A26',
+                      cursor: 'pointer',
+                    }}
+                    title="P5 비교표 버전 선택"
+                  >
+                    <option value="text">글 버전</option>
+                    <option value="photo">사진 버전</option>
+                  </select>
+                )}
                 {/* 🔄 Undo/Redo 버튼 — 항상 표시 */}
                 <div className="flex items-center gap-1 mr-1">
                   <button
