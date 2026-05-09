@@ -395,8 +395,13 @@ export default function P5Compare({
               >
                 <div
                   style={{
-                    width: '90%',              // 사각형 자체 90% 축소 요청사항
+                    // 🆕 (2026-05-09) 우리 제품(100%) 대비 일반 제품을 명확히 작게 표시
+                    //   width 90% + transform: scale(0.9) 로 가로/세로 모두 추가 축소
+                    //   → 우리 제품 셀 대비 시각적으로 명확하게 작아 보임
+                    width: '100%',
                     aspectRatio: '1 / 1',
+                    transform: 'scale(0.9)',
+                    transformOrigin: 'center center',
                     borderRadius: 12,
                     overflow: editMode ? 'visible' : 'hidden',
                     backgroundColor: '#fff',
