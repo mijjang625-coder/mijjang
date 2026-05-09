@@ -116,16 +116,6 @@ export default function EditableText({
     setIsEditing(true);
     setShowToolbar(true);
     updateToolbarPos();
-    setTimeout(() => {
-      if (ref.current) {
-        ref.current.focus();
-        const range = document.createRange();
-        range.selectNodeContents(ref.current);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
-    }, 0);
   };
 
   // 편집 종료 (blur or ESC)
@@ -334,6 +324,23 @@ export default function EditableText({
   useEffect(() => {
     if (isEditing && ref.current) {
       ref.current.innerHTML = mergedHtml || '';
+
+      // 더블클릭 진입 직후 포커스/선택이 브라우저 타이밍에 따라 풀리는 경우가 있어
+      // 다음 프레임에서 강제로 전체 선택을 한 번 더 보장한다.
+      requestAnimationFrame(() => {
+        if (!ref.current) return;
+        try {
+          ref.current.focus({ preventScroll: true });
+          const range = document.createRange();
+          range.selectNodeContents(ref.current);
+          const sel = window.getSelection();
+          if (!sel) return;
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch (_) {
+          // noop
+        }
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing]);
