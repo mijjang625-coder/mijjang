@@ -456,7 +456,10 @@ export default function P5Compare({
                   borderLeft: `1px solid ${BRAND.colors.neutral}`,
                   backgroundColor: '#f5f5f5',
                   display: 'flex',
-                  alignItems: 'center',
+                  // 🆕 (2026-05-09) 사용자 요청 2-A: 사진 하단을 우리 제품 사진 하단과 같은 라인에 정렬
+                  //   alignItems: 'center' → 'flex-end' 로 변경하여 사진을 셀 하단에 붙임
+                  //   결과: 90% 박스의 위쪽에 회색 여백이 더 생기고 사진 하단 라인은 우리 제품과 동일
+                  alignItems: 'flex-end',
                   justifyContent: 'center',
                 }}
               >
