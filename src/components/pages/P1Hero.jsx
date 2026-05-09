@@ -547,7 +547,7 @@ export default function P1Hero({
               border: '2px solid #fff',
               padding: '8px 12px',
               borderRadius: 12,
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: 800,
               lineHeight: 1.2,
               cursor: 'pointer',
@@ -560,7 +560,7 @@ export default function P1Hero({
             }}
             title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
           >
-            <span>글박스 추가</span>
+            <span style={{ whiteSpace: 'nowrap' }}>글박스 추가</span>
             {(freeTexts || []).length > 0 && (
               <span
                 style={{

@@ -321,7 +321,7 @@ export function useFreeImageLayer({
           style={{
             position: 'fixed', right: 24, top: 268, zIndex: 100000,
             backgroundColor: '#f59e0b', color: '#fff', border: '2px solid #fff',
-            padding: '8px 12px', borderRadius: 12, fontSize: 15, fontWeight: 800,
+            padding: '8px 12px', borderRadius: 12, fontSize: 13, fontWeight: 800,
             lineHeight: 1.2, cursor: 'pointer',
             boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
             display: 'flex', alignItems: 'center', gap: 4,
@@ -329,7 +329,7 @@ export function useFreeImageLayer({
           }}
           title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
         >
-          <span>글박스 추가</span>
+          <span style={{ whiteSpace: 'nowrap' }}>글박스 추가</span>
           {(freeTexts || []).length > 0 && (
             <span style={{
               backgroundColor: '#fff', color: '#f59e0b', borderRadius: 999,
