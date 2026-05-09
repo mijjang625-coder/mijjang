@@ -178,7 +178,7 @@ export default function P5Compare({
           padding: isCenter ? '14px 8px 12px' : '14px 10px',
           backgroundColor: isCenter ? 'transparent' : '#ffffff',
           color,
-          fontSize: isCenter ? 20 : 15,
+          fontSize: isCenter ? 30 : 23,
           fontWeight: isCenter ? 800 : 700,
           borderBottom: `${M.rowDividerWidth} solid ${isCenter ? 'rgba(255,255,255,0.3)' : M.rowDivider}`,
         }}
@@ -189,7 +189,7 @@ export default function P5Compare({
             as="div"
             defaultStyle={{
               fontWeight: 800,
-              fontSize: 20,
+              fontSize: 30,
               letterSpacing: '-0.03em',
               lineHeight: 1.15,
               wordBreak: 'keep-all',
@@ -216,7 +216,7 @@ export default function P5Compare({
                 as="div"
                 defaultStyle={{
                   fontWeight: 700,
-                  fontSize: 15,
+                  fontSize: 23,
                   letterSpacing: '-0.02em',
                   lineHeight: 1.3,
                   wordBreak: 'keep-all',
@@ -259,7 +259,7 @@ export default function P5Compare({
             as="div"
             defaultStyle={{
               color,
-              fontSize: 18,
+              fontSize: 22,
               fontWeight: 700,
               textAlign: 'center',
               lineHeight: 1.28,
@@ -270,7 +270,7 @@ export default function P5Compare({
             {text}
           </EditableText>
         ) : (
-          <div style={{ color, fontSize: 18, fontWeight: 700, lineHeight: 1.28, width: '100%' }}>{text}</div>
+          <div style={{ color, fontSize: 22, fontWeight: 700, lineHeight: 1.28, width: '100%' }}>{text}</div>
         )}
       </div>
     );
@@ -291,7 +291,7 @@ export default function P5Compare({
         as="div"
         defaultStyle={{
           color: M.cellLeftText,
-          fontSize: 18,
+          fontSize: 22,
           fontWeight: 700,
           textAlign: 'center',
           width: '100%',
@@ -405,7 +405,7 @@ export default function P5Compare({
             {...editPropsFor('P5.headline')}
             as="h2"
             defaultStyle={{
-              fontSize: 24,
+              fontSize: 38,
               fontWeight: 900,
               color: '#1f1f1f',
               margin: 0,
