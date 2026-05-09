@@ -296,7 +296,11 @@ export default function P5Compare({
             borderRadius: 16,
             overflow: editMode ? 'visible' : 'hidden',
             display: 'grid',
-            gridTemplateColumns: '0.7fr 1fr 1fr',
+            // 🆕 (2026-05-09) 일반 제품 컬럼 전체를 우리 제품 대비 90% 폭으로 축소
+            //   기존: '0.7fr 1fr 1fr' (우리 제품 = 일반 제품 동일)
+            //   변경: '0.7fr 1fr 0.9fr' (일반 제품 컬럼 전체가 90% 폭)
+            //   → 헤더(일반 청소 도구), 이미지, 모든 비교 행이 일제히 작아짐
+            gridTemplateColumns: '0.7fr 1fr 0.9fr',
           }}
         >
           {/* 헤더 행 — 동일한 EditableText 시스템으로 좌측 '비교 항목' 텍스트도 수정 가능 (2026-04-28) */}
@@ -395,14 +399,11 @@ export default function P5Compare({
               >
                 <div
                   style={{
-                    // 🆕 (2026-05-09) 우리 제품(100%) 대비 일반 제품을 명확히 작게 표시
-                    //   width 100% + transform: scale(0.75) 로 가로/세로 모두 25% 축소
-                    //   → 우리 제품 셀 대비 시각적으로 한눈에 확실히 작아 보임
-                    //   v2: scale(0.9) → scale(0.75) 강화 (사용자 요청 — 차이가 잘 안 보였음)
+                    // 🆕 (2026-05-09 v3) 일반 제품 컬럼 자체가 그리드에서 0.9fr 로 축소되므로
+                    //   이미지 박스는 컬럼을 100% 꽉 채우게 되돌림 (이전 scale(0.75) 제거)
+                    //   → 컬럼 폭 축소로 헤더/이미지/모든 행이 한꺼번에 자연스럽게 작아 보임
                     width: '100%',
                     aspectRatio: '1 / 1',
-                    transform: 'scale(0.75)',
-                    transformOrigin: 'center center',
                     borderRadius: 12,
                     overflow: editMode ? 'visible' : 'hidden',
                     backgroundColor: '#fff',
