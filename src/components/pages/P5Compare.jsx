@@ -152,12 +152,16 @@ export default function P5Compare({
             as="div"
             defaultStyle={{
               fontWeight: 900,
-              fontSize: 22,
+              // 🆕 (2026-05-09) 사용자 요청: 22 → 28px (조금 키움)
+              fontSize: 28,
               letterSpacing: '-0.02em',
               lineHeight: 1.2,
               wordBreak: 'keep-all',
               color: 'inherit',
               textAlign: 'center',
+              // 🆕 (2026-05-09) 가로 + 세로 정중앙 정렬 명확하게
+              width: '100%',
+              margin: 0,
             }}
           >
             {label}
@@ -209,12 +213,16 @@ export default function P5Compare({
             as="div"
             defaultStyle={{
               fontWeight: 700,
-              fontSize: 19,
+              // 🆕 (2026-05-09) 사용자 요청: 19 → 28px (욕실청소솔과 동일하게 키움)
+              fontSize: 28,
               letterSpacing: '-0.02em',
               lineHeight: 1.2,
               wordBreak: 'keep-all',
               color: 'inherit',
               textAlign: 'center',
+              // 🆕 (2026-05-09) 가로 + 세로 정중앙 정렬 명확하게
+              width: '100%',
+              margin: 0,
             }}
           >
             {label}
