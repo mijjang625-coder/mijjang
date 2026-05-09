@@ -5,11 +5,6 @@ import EditableImage from '../EditableImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 
-// 🆕 (2026-04-28) 일반 제품 이미지 = 우리 제품 이미지를 자동으로 무채색·블러 처리해 사용
-//   사용자가 generalImage 를 직접 지정하지 않은 경우, 우리 제품 사진(ourImage)을
-//   그대로 사용하면서 CSS filter 로 grayscale + blur + brightness 보정 → "비슷한 실루엣"
-//   효과. 우리 제품 이미지가 바뀌면 자동으로 반영된다.
-//
 // 🛟 ourImage 도 없는 경우의 fallback: 무채색 그라디언트 빈 박스 (제품 윤곽 없음)
 const GENERIC_FALLBACK_BG =
   'data:image/svg+xml;utf8,' +
@@ -26,25 +21,36 @@ const GENERIC_FALLBACK_BG =
   `.trim());
 
 // ─────────────────────────────────────────────────────────────
-// 🎨 사용자 목업(2026-05-09) 기준 디자인 토큰 — 하드코딩 (BRAND 와 별개)
+// 🎨 (2026-05-09 v2) 사용자 HTML 목업 사양 — 하드코딩 디자인 토큰
 // ─────────────────────────────────────────────────────────────
-const MOCKUP = {
-  border: '#d4c4b0',
-  borderWidth: '1.5px',
-  // 컬럼 배경
-  bgLeft: '#f1ebe4',     // 비교항목 컬럼
-  bgCenter: '#c5b5a3',   // 우리 제품 (POP-OUT)
-  bgRight: '#e5e1dd',    // 일반 제품
-  // 콘텐츠 셀 배경
-  cellWhite: '#ffffff',
-  cellLeft: '#faf8f5',
-  // 텍스트 색
-  textLeft: '#5d4e3f',
-  textCenter: '#ffffff',
-  textRight: '#757575',
-  textCellLeft: '#5d4e3f',
-  textCellOurs: '#3d3329',
-  textCellGeneral: '#9a9a9a',
+const M = {
+  // 외곽선 / 행 구분선
+  outerBorder: '#d4c4b0',
+  outerBorderWidth: '1.5px',
+  rowDivider: '#e0d8cf',
+  rowDividerWidth: '1px',
+  // 컬럼 헤더 배경
+  headerLeftBg: '#f1ebe4',
+  headerCenterBg: '#8b7355',   // 진한 모카 브라운
+  headerRightBg: '#e5e1dd',
+  // 헤더 텍스트
+  headerLeftText: '#5d4e3f',
+  headerCenterText: '#ffffff',
+  headerRightText: '#757575',
+  // 데이터 셀 배경
+  cellLeftBg: '#faf8f5',
+  cellCenterBg: '#ffffff',
+  cellRightBg: '#ffffff',
+  // 데이터 셀 텍스트
+  cellLeftText: '#5d4e3f',
+  cellCenterText: '#333333',
+  cellRightText: '#888888',
+  // POP-OUT
+  popoutExtend: 14,            // 위/아래 각 14px 확장
+  popoutBorder: '#8b7355',     // 중앙 컬럼 외곽선 (헤더 색과 동일)
+  popoutShadow: '0 10px 28px rgba(0,0,0,0.15)',
+  // 그리드 컬럼 비율
+  gridColumns: '1fr 1.3fr 1fr',
 };
 
 // P5: 2지선다 비교표 — 글 버전 + 사진 버전
@@ -91,7 +97,6 @@ export default function P5Compare({
 
   const mainImgId = 'P5.ourImage';
   const generalImgId = 'P5.generalImage';
-  // 🆕 (2026-04-28) 일반 제품 이미지도 EditableImage 로 등록 → 사용자가 직접 교체/리사이즈 가능
   const mainLayers = version === 'photo'
     ? [
         { id: mainImgId, defaultName: '🖼 우리 제품 사진', defaultZ: 1 },
@@ -132,37 +137,45 @@ export default function P5Compare({
   const resolvedGeneralImage = generalImage || ourImage || GENERIC_FALLBACK_BG;
 
   // ─────────────────────────────────────────────────────────────
-  // 🆕 (2026-05-09 REWRITE) 사용자 HTML 목업 기반 완전 재작성
+  // 🆕 (2026-05-09 v2) 사용자 HTML 목업 정확한 사양 기반 재작성
   // ─────────────────────────────────────────────────────────────
-  // 구조: 가로 3컬럼 Flexbox (각 컬럼은 세로 Flex 스택)
-  //   ┌──────────┬──────────┬──────────┐
-  //   │ 비교항목 │우리 제품 │ 일반     │
-  //   │ (좌)     │ POP-OUT  │ 제품     │
-  //   │ #f1ebe4  │ #c5b5a3  │ #e5e1dd  │
-  //   ├──────────┼──────────┼──────────┤
-  //   │ 행1 셀  │ 행1 셀   │ 행1 셀   │
-  //   │ 행2 셀  │ 행2 셀   │ 행2 셀   │
-  //   │ ...      │ ...      │ ...      │
-  //   └──────────┴──────────┴──────────┘
-  // POP-OUT: 중앙 컬럼 marginTop/Bottom: -8 + zIndex + box-shadow (transform 미사용 → PNG 안전)
+  // 핵심 구조:
+  //   - CSS Grid (gridTemplateColumns: '1fr 1.3fr 1fr')  ← Flexbox 컬럼 분리 금지
+  //   - 행 높이 자동 정렬 (Grid 의 본질적 특성)
+  //   - 중앙 POP-OUT = 별도 절대 배치 배경 레이어 + 셀들은 zIndex 2 로 그 위에
+  //     · transform 미사용 → html-to-image PNG 내보내기 안전
+  //     · 위/아래 각 14px 확장
+  //   - 외곽: 1.5px #d4c4b0 / 행 구분선: 1px #e0d8cf
   // ─────────────────────────────────────────────────────────────
 
-  // 컬럼 헤더 셀 (3컬럼 첫번째 행)
-  const renderColumnHeader = (labelId, label, kind) => {
-    const bg = kind === 'left' ? MOCKUP.bgLeft : kind === 'center' ? MOCKUP.bgCenter : MOCKUP.bgRight;
-    const color = kind === 'left' ? MOCKUP.textLeft : kind === 'center' ? MOCKUP.textCenter : MOCKUP.textRight;
+  // 셀 공통 베이스 — z-index 2 로 POP-OUT 배경 위에 배치
+  const cellBase = {
+    padding: '16px 12px',
+    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    zIndex: 2,
+    fontSize: 14,
+    pointerEvents: editMode ? 'auto' : 'inherit',
+  };
+
+  // 헤더 셀 (3컬럼)
+  const renderHeaderCell = (labelId, label, kind) => {
+    const bg = kind === 'left' ? M.headerLeftBg : kind === 'center' ? M.headerCenterBg : M.headerRightBg;
+    const color = kind === 'left' ? M.headerLeftText : kind === 'center' ? M.headerCenterText : M.headerRightText;
+    const fontWeight = kind === 'center' ? 700 : 600;
     return (
       <div
         style={{
-          padding: '16px 12px',
+          ...cellBase,
+          padding: '18px 12px',
           backgroundColor: bg,
           color,
-          textAlign: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: 56,
-          pointerEvents: editMode ? 'auto' : 'inherit',
+          fontSize: 15,
+          fontWeight,
+          borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
         }}
       >
         {labelId ? (
@@ -170,7 +183,7 @@ export default function P5Compare({
             {...editPropsFor(labelId)}
             as="div"
             defaultStyle={{
-              fontWeight: 600,
+              fontWeight,
               fontSize: 15,
               letterSpacing: '-0.02em',
               lineHeight: 1.3,
@@ -184,42 +197,25 @@ export default function P5Compare({
             {label}
           </EditableText>
         ) : (
-          <div
-            style={{
-              fontWeight: 600,
-              fontSize: 15,
-              letterSpacing: '-0.02em',
-              color: 'inherit',
-              width: '100%',
-            }}
-          >
-            {label}
-          </div>
+          <div style={{ fontWeight, fontSize: 15, color: 'inherit', width: '100%' }}>{label}</div>
         )}
       </div>
     );
   };
 
-  // 데이터 콘텐츠 셀 — 좌(라벨) / 중(우리) / 우(일반)
-  const renderDataCell = (id, text, kind, isFirstDataRow = false) => {
+  // 데이터 셀 (좌/중/우)
+  const renderDataCell = (id, text, kind, isLastRow = false) => {
     const isLeft = kind === 'left';
-    const isOurs = kind === 'center';
-    const bg = isLeft ? MOCKUP.cellLeft : MOCKUP.cellWhite;
-    const color = isLeft ? MOCKUP.textCellLeft : isOurs ? MOCKUP.textCellOurs : MOCKUP.textCellGeneral;
-    const fontWeight = isLeft ? 600 : isOurs ? 600 : 400;
+    const isCenter = kind === 'center';
+    const bg = isLeft ? M.cellLeftBg : isCenter ? M.cellCenterBg : M.cellRightBg;
+    const color = isLeft ? M.cellLeftText : isCenter ? M.cellCenterText : M.cellRightText;
+    const fontWeight = isLeft ? 600 : isCenter ? 500 : 400;
     return (
       <div
         style={{
-          padding: '18px 14px',
+          ...cellBase,
           backgroundColor: bg,
-          // 첫 데이터 행은 헤더와 자연스러운 분리선, 이후 행은 셀 사이 구분선
-          borderTop: `${MOCKUP.borderWidth} solid ${MOCKUP.border}`,
-          minHeight: 60,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          pointerEvents: editMode ? 'auto' : 'inherit',
+          borderBottom: isLastRow ? 'none' : `${M.rowDividerWidth} solid ${M.rowDivider}`,
         }}
       >
         {id ? (
@@ -228,7 +224,7 @@ export default function P5Compare({
             as="div"
             defaultStyle={{
               color,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight,
               textAlign: 'center',
               lineHeight: 1.4,
@@ -239,44 +235,28 @@ export default function P5Compare({
             {text}
           </EditableText>
         ) : (
-          <div
-            style={{
-              color,
-              fontSize: 15,
-              fontWeight,
-              textAlign: 'center',
-              lineHeight: 1.4,
-              wordBreak: 'keep-all',
-              width: '100%',
-            }}
-          >
-            {text}
-          </div>
+          <div style={{ color, fontSize: 14, fontWeight, lineHeight: 1.4, width: '100%' }}>{text}</div>
         )}
       </div>
     );
   };
 
-  // 사진 행의 좌측 라벨 셀 ("제품")
+  // 사진 행: 좌측 "제품" 라벨
   const renderPhotoLabelCell = () => (
     <div
       style={{
-        padding: '18px 14px',
-        backgroundColor: MOCKUP.cellLeft,
-        borderTop: `${MOCKUP.borderWidth} solid ${MOCKUP.border}`,
-        minHeight: 160,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: editMode ? 'auto' : 'inherit',
+        ...cellBase,
+        backgroundColor: M.cellLeftBg,
+        minHeight: 140,
+        borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
       }}
     >
       <EditableText
         {...editPropsFor('P5.photoRowLabel')}
         as="div"
         defaultStyle={{
-          color: MOCKUP.textCellLeft,
-          fontSize: 15,
+          color: M.cellLeftText,
+          fontSize: 14,
           fontWeight: 600,
           textAlign: 'center',
           width: '100%',
@@ -287,24 +267,21 @@ export default function P5Compare({
     </div>
   );
 
-  // 우리 제품 사진 셀 (중앙 컬럼)
+  // 사진 행: 중앙 (우리 제품)
   const renderOurPhotoCell = () => (
     <div
       style={{
-        padding: '20px 14px',
-        backgroundColor: MOCKUP.cellWhite,
-        borderTop: `${MOCKUP.borderWidth} solid ${MOCKUP.border}`,
-        minHeight: 160,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        ...cellBase,
+        backgroundColor: M.cellCenterBg,
+        minHeight: 140,
+        borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
       }}
     >
       <div
         style={{
           width: 120,
-          height: 140,
-          borderRadius: 10,
+          height: 120,
+          borderRadius: 8,
           overflow: editMode ? 'visible' : 'hidden',
           backgroundColor: '#fff',
           boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -316,7 +293,7 @@ export default function P5Compare({
         <EditableImage
           id={mainImgId}
           src={ourImage}
-          aspect="120 / 140"
+          aspect="1 / 1"
           radius={0}
           editMode={editMode}
           override={imageOverrides[mainImgId] || {}}
@@ -331,24 +308,20 @@ export default function P5Compare({
     </div>
   );
 
-  // 일반 제품 사진 셀 (우측 컬럼) — 더 작은 크기 + 흐림 처리
+  // 사진 행: 우측 (일반 제품 — 흐림)
   const renderGeneralPhotoCell = () => (
     <div
       style={{
-        padding: '20px 14px',
-        backgroundColor: MOCKUP.cellWhite,
-        borderTop: `${MOCKUP.borderWidth} solid ${MOCKUP.border}`,
-        minHeight: 160,
-        display: 'flex',
-        // 우리 제품과 하단 라인 맞춤 (사진이 작으니 flex-end)
-        alignItems: 'flex-end',
-        justifyContent: 'center',
+        ...cellBase,
+        backgroundColor: M.cellRightBg,
+        minHeight: 140,
+        borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
       }}
     >
       <div
         style={{
           width: 100,
-          height: 90,
+          height: 100,
           borderRadius: 8,
           overflow: editMode ? 'visible' : 'hidden',
           backgroundColor: '#fff',
@@ -356,13 +329,12 @@ export default function P5Compare({
           position: 'relative',
           pointerEvents: 'auto',
           zIndex: imageOverrides[generalImgId]?.zIndex ?? 1,
-          marginBottom: 6, // 우리 제품 사진 하단과 시각적 라인 정렬
         }}
       >
         <EditableImage
           id={generalImgId}
           src={resolvedGeneralImage}
-          aspect="100 / 90"
+          aspect="1 / 1"
           radius={0}
           editMode={editMode}
           override={imageOverrides[generalImgId] || {}}
@@ -378,13 +350,8 @@ export default function P5Compare({
     </div>
   );
 
-  // 컬럼 공통 래퍼 (세로 Flex 스택)
-  const columnBase = {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-  };
+  // rows 의 마지막 행 인덱스 (사진 행 포함 시 전체 행 수 기준)
+  const lastDataRowIdx = rows.length - 1;
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
@@ -426,84 +393,69 @@ export default function P5Compare({
           )}
         </div>
 
-        {/* 비교표 컨테이너 — 사용자 HTML 목업 기반 (3컬럼 Flexbox) */}
-        <div style={{ padding: '20px 30px 50px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        {/* 비교표 컨테이너 — POP-OUT 이 위/아래로 14px 튀어나오므로
+            바깥 padding 충분히 확보 (상하 30px) */}
+        <div style={{ padding: '30px 30px 50px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+          {/* Grid 표 + POP-OUT 배경 레이어 동시 보유하기 위해 position: relative */}
           <div
             style={{
-              display: 'flex',
-              gap: 0,
-              border: `${MOCKUP.borderWidth} solid ${MOCKUP.border}`,
+              display: 'grid',
+              gridTemplateColumns: M.gridColumns,
+              border: `${M.outerBorderWidth} solid ${M.outerBorder}`,
               borderRadius: 12,
-              // overflow: hidden 시 POP-OUT 컬럼이 잘리므로 visible 유지
-              // 대신 각 컬럼이 자체 borderRadius 로 모서리 처리
-              overflow: 'visible',
+              overflow: 'visible', // POP-OUT 배경이 위/아래로 튀어나가야 하므로 visible
               position: 'relative',
-              backgroundColor: MOCKUP.cellWhite,
+              backgroundColor: '#ffffff',
             }}
           >
-            {/* ── 컬럼 1: 비교 항목 (좌측) ── */}
+            {/* ── 중앙 컬럼 POP-OUT 배경 레이어 ──
+                절대 배치로 그리드 안에 흰 박스를 띄워 시각적 POP-OUT 효과 구현
+                · top/bottom: -14px → 위/아래로 14px 튀어나옴
+                · left/width: 1fr 1.3fr 1fr 비율 기반 → 1/3.3 ~ 2.3/3.3 영역
+                · transform 미사용 → PNG 안전
+                · zIndex 1 (셀들은 zIndex 2 로 이 위에 보임) */}
             <div
+              aria-hidden="true"
               style={{
-                ...columnBase,
-                backgroundColor: MOCKUP.bgLeft,
-                borderRadius: '12px 0 0 12px',
-                overflow: 'hidden',
-              }}
-            >
-              {renderColumnHeader('P5.compareLabel', '비교 항목', 'left')}
-              {version === 'photo' && renderPhotoLabelCell()}
-              {rows.map((row, i) => (
-                <div key={`l-${i}`} style={{ display: 'contents' }}>
-                  {renderDataCell(`P5.rows.${i}.label`, row.label, 'left', i === 0)}
-                </div>
-              ))}
-            </div>
-
-            {/* ── 컬럼 2: 우리 제품 (중앙, POP-OUT) ──
-                marginTop/Bottom: -8 → 위/아래로 8px 튀어나옴
-                position: relative + zIndex: 10 → 다른 컬럼 위에 떠 보이게
-                box-shadow → 떠 있는 듯한 입체감
-                transform 미사용 → html-to-image PNG 내보내기 안전 */}
-            <div
-              style={{
-                ...columnBase,
-                backgroundColor: MOCKUP.cellWhite,
-                marginTop: -8,
-                marginBottom: -8,
-                position: 'relative',
-                zIndex: 10,
-                boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+                position: 'absolute',
+                top: -M.popoutExtend,
+                bottom: -M.popoutExtend,
+                left: `${(1 / 3.3) * 100}%`,
+                width: `${(1.3 / 3.3) * 100}%`,
+                backgroundColor: '#ffffff',
                 borderRadius: 12,
-                overflow: 'hidden',
-                border: `${MOCKUP.borderWidth} solid ${MOCKUP.border}`,
+                boxShadow: M.popoutShadow,
+                border: `2px solid ${M.popoutBorder}`,
+                zIndex: 1,
+                pointerEvents: 'none',
               }}
-            >
-              {renderColumnHeader('P5.ourProductName', ourProductName, 'center')}
-              {version === 'photo' && renderOurPhotoCell()}
-              {rows.map((row, i) => (
-                <div key={`c-${i}`} style={{ display: 'contents' }}>
-                  {renderDataCell(`P5.rows.${i}.ours`, row.ours, 'center', i === 0)}
-                </div>
-              ))}
-            </div>
+            />
 
-            {/* ── 컬럼 3: 일반 제품 (우측) ── */}
-            <div
-              style={{
-                ...columnBase,
-                backgroundColor: MOCKUP.bgRight,
-                borderRadius: '0 12px 12px 0',
-                overflow: 'hidden',
-              }}
-            >
-              {renderColumnHeader('P5.generalProductName', generalProductName, 'right')}
-              {version === 'photo' && renderGeneralPhotoCell()}
-              {rows.map((row, i) => (
-                <div key={`r-${i}`} style={{ display: 'contents' }}>
-                  {renderDataCell(`P5.rows.${i}.general`, row.general, 'right', i === 0)}
+            {/* ── 헤더 행 ── */}
+            {renderHeaderCell('P5.compareLabel', '비교 항목', 'left')}
+            {renderHeaderCell('P5.ourProductName', ourProductName, 'center')}
+            {renderHeaderCell('P5.generalProductName', generalProductName, 'right')}
+
+            {/* ── 사진 행 (사진 버전에서만) ── */}
+            {version === 'photo' && (
+              <>
+                {renderPhotoLabelCell()}
+                {renderOurPhotoCell()}
+                {renderGeneralPhotoCell()}
+              </>
+            )}
+
+            {/* ── 데이터 행들 ── */}
+            {rows.map((row, i) => {
+              const isLastRow = i === lastDataRowIdx;
+              return (
+                <div key={i} style={{ display: 'contents' }}>
+                  {renderDataCell(`P5.rows.${i}.label`, row.label, 'left', isLastRow)}
+                  {renderDataCell(`P5.rows.${i}.ours`, row.ours, 'center', isLastRow)}
+                  {renderDataCell(`P5.rows.${i}.general`, row.general, 'right', isLastRow)}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>
