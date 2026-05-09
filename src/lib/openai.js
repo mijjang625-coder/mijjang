@@ -476,28 +476,74 @@ export function validateCommonBrief(brief, images) {
  */
 export function validatePageRequirements(pageNumber, brief) {
   const warnings = [];
+
+  // P1 — 메인 히어로 + 강점 카드: 제품명, 핵심 강점 3가지
+  if (pageNumber === 'P1') {
+    const strengths = (brief?.strengths || []).filter((s) => s?.trim());
+    if (strengths.length < 3) warnings.push(`핵심 강점 ${3 - strengths.length}가지 (AI가 추론)`);
+    if (!brief?.productType?.trim()) warnings.push('제품 카테고리 (AI가 추론)');
+  }
+
+  // P2 — 베네핏 심화 설명: 핵심 강점 3가지
+  if (pageNumber === 'P2') {
+    const strengths = (brief?.strengths || []).filter((s) => s?.trim());
+    if (strengths.length < 3) warnings.push(`핵심 강점 ${3 - strengths.length}가지 (AI가 베네핏으로 확장)`);
+  }
+
+  // P3 — 이런 분들께 추천드려요: 주 고객층 3가지
+  if (pageNumber === 'P3') {
+    const targets = (brief?.targetCustomers || []).filter((c) => c?.trim());
+    if (targets.length < 3) warnings.push(`주 고객층 ${3 - targets.length}가지 (AI가 추론)`);
+  }
+
+  // P4 — 리뷰: 4개
   if (pageNumber === 'P4') {
     const valid = (brief?.reviews || []).filter(
       (r) => r?.nickname?.trim() && r?.body?.trim(),
     );
     if (valid.length < 4) warnings.push(`리뷰 ${4 - valid.length}개 (AI가 샘플 리뷰 생성)`);
   }
+
+  // P5 — 비교표: 차별점 4개
   if (pageNumber === 'P5') {
     const diffs = (brief?.differences || []).filter((d) => d?.trim());
     if (diffs.length < 4) warnings.push(`차별점 ${4 - diffs.length}개 (AI가 추론)`);
+    if (!brief?.generalProductName?.trim()) {
+      warnings.push('비교 대상 일반 상품명 (AI가 추론)');
+    }
   }
+
+  // P6 — 소재 & 사이즈 실증: 소재 또는 사이즈/규격
+  if (pageNumber === 'P6') {
+    if (!brief?.material?.trim()) warnings.push('소재 (AI가 추론)');
+    if (!brief?.sizeSpec?.trim()) warnings.push('사이즈/규격 (AI가 추론)');
+  }
+
+  // P7 — 감성 라이프스타일: 보유 사진 종류, 주 고객층
+  if (pageNumber === 'P7') {
+    if (!brief?.photoTypes?.trim()) warnings.push('보유 사진 종류 (AI가 추론)');
+    const targets = (brief?.targetCustomers || []).filter((c) => c?.trim());
+    if (targets.length < 3) warnings.push(`주 고객층 ${3 - targets.length}가지 (AI가 라이프스타일 장면 추론)`);
+  }
+
+  // P8 — 다양한 활용법: 4개
   if (pageNumber === 'P8') {
     const usages = (brief?.usages || []).filter((u) => u?.trim());
     if (usages.length < 4) warnings.push(`활용법 ${4 - usages.length}개 (AI가 추론)`);
   }
+
+  // P9 — 사용법: 사용 순서 3단계
   if (pageNumber === 'P9') {
     const steps = (brief?.usageSteps || []).filter((s) => s?.trim());
     if (steps.length < 3) warnings.push(`사용 순서 ${3 - steps.length}단계 (AI가 추론)`);
   }
+
+  // P10 — 구성품 + FAQ: 5개
   if (pageNumber === 'P10') {
     const faqs = (brief?.faqs || []).filter((f) => f?.q?.trim() && f?.a?.trim());
     if (faqs.length < 5) warnings.push(`FAQ ${5 - faqs.length}개 (AI가 추론)`);
   }
+
   // 더이상 차단하지 않음 — 항상 ok: true
   return { ok: true, warnings, missing: [] };
 }
