@@ -24,31 +24,36 @@ const GENERIC_FALLBACK_BG =
 // 🎨 (2026-05-09 v2) 사용자 HTML 목업 사양 — 하드코딩 디자인 토큰
 // ─────────────────────────────────────────────────────────────
 const M = {
-  // 외곽선 / 행 구분선
-  outerBorder: '#d4c4b0',
+  // 외곽 카드
+  cardBg: '#eee8dd',
+  cardRadius: 14,
+
+  // 표 외곽 / 행 구분선
+  outerBorder: '#d9d1c8',
   outerBorderWidth: '1.5px',
-  rowDivider: '#e0d8cf',
+  rowDivider: '#e5ddd3',
   rowDividerWidth: '1px',
-  // 컬럼 헤더 배경
-  headerLeftBg: '#f1ebe4',
-  headerCenterBg: '#8b7355',   // 진한 모카 브라운
-  headerRightBg: '#e5e1dd',
-  // 헤더 텍스트
-  headerLeftText: '#5d4e3f',
-  headerCenterText: '#ffffff',
-  headerRightText: '#757575',
-  // 데이터 셀 배경
-  cellLeftBg: '#faf8f5',
-  cellCenterBg: '#ffffff',
+
+  // 좌/우 헤더 라벨
+  headerLeftBg: '#efe6dc',
+  headerRightBg: '#d7cdc2',
+  headerLeftText: '#4b3f34',
+  headerRightText: '#4b3f34',
+
+  // 중앙 POP-OUT
+  popoutBg: '#a87749',
+  popoutBorder: '#8b6038',
+  popoutExtendTop: 18,
+  popoutExtendBottom: 12,
+  popoutShadow: '0 14px 28px rgba(0,0,0,0.22)',
+
+  // 데이터 셀
+  cellLeftBg: '#ffffff',
   cellRightBg: '#ffffff',
-  // 데이터 셀 텍스트
-  cellLeftText: '#5d4e3f',
-  cellCenterText: '#333333',
-  cellRightText: '#888888',
-  // POP-OUT
-  popoutExtend: 14,            // 위/아래 각 14px 확장
-  popoutBorder: '#8b7355',     // 중앙 컬럼 외곽선 (헤더 색과 동일)
-  popoutShadow: '0 10px 28px rgba(0,0,0,0.15)',
+  cellLeftText: '#222222',
+  cellCenterText: '#ffffff',
+  cellRightText: '#222222',
+
   // 그리드 컬럼 비율
   gridColumns: '1fr 1.3fr 1fr',
 };
@@ -150,7 +155,7 @@ export default function P5Compare({
 
   // 셀 공통 베이스 — z-index 2 로 POP-OUT 배경 위에 배치
   const cellBase = {
-    padding: '16px 12px',
+    padding: '18px 12px',
     textAlign: 'center',
     display: 'flex',
     alignItems: 'center',
@@ -163,32 +168,32 @@ export default function P5Compare({
 
   // 헤더 셀 (3컬럼)
   const renderHeaderCell = (labelId, label, kind) => {
-    const bg = kind === 'left' ? M.headerLeftBg : kind === 'center' ? M.headerCenterBg : M.headerRightBg;
-    const color = kind === 'left' ? M.headerLeftText : kind === 'center' ? M.headerCenterText : M.headerRightText;
-    const fontWeight = kind === 'center' ? 700 : 600;
+    const isCenter = kind === 'center';
+    const color = isCenter ? '#ffffff' : kind === 'left' ? M.headerLeftText : M.headerRightText;
+
     return (
       <div
         style={{
           ...cellBase,
-          padding: '18px 12px',
-          backgroundColor: bg,
+          padding: isCenter ? '14px 8px 12px' : '14px 10px',
+          backgroundColor: isCenter ? 'transparent' : '#ffffff',
           color,
-          fontSize: 15,
-          fontWeight,
-          borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
+          fontSize: isCenter ? 42 : 15,
+          fontWeight: isCenter ? 800 : 700,
+          borderBottom: `${M.rowDividerWidth} solid ${isCenter ? 'rgba(255,255,255,0.3)' : M.rowDivider}`,
         }}
       >
-        {labelId ? (
+        {isCenter ? (
           <EditableText
             {...editPropsFor(labelId)}
             as="div"
             defaultStyle={{
-              fontWeight,
-              fontSize: 15,
-              letterSpacing: '-0.02em',
-              lineHeight: 1.3,
+              fontWeight: 800,
+              fontSize: 42,
+              letterSpacing: '-0.03em',
+              lineHeight: 1.15,
               wordBreak: 'keep-all',
-              color: 'inherit',
+              color: '#ffffff',
               textAlign: 'center',
               width: '100%',
               margin: 0,
@@ -197,7 +202,36 @@ export default function P5Compare({
             {label}
           </EditableText>
         ) : (
-          <div style={{ fontWeight, fontSize: 15, color: 'inherit', width: '100%' }}>{label}</div>
+          <div
+            style={{
+              width: '100%',
+              borderRadius: 10,
+              padding: '10px 10px',
+              backgroundColor: kind === 'left' ? M.headerLeftBg : M.headerRightBg,
+            }}
+          >
+            {labelId ? (
+              <EditableText
+                {...editPropsFor(labelId)}
+                as="div"
+                defaultStyle={{
+                  fontWeight: 700,
+                  fontSize: 15,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.3,
+                  wordBreak: 'keep-all',
+                  color: 'inherit',
+                  textAlign: 'center',
+                  width: '100%',
+                  margin: 0,
+                }}
+              >
+                {label}
+              </EditableText>
+            ) : (
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'inherit', width: '100%' }}>{label}</div>
+            )}
+          </div>
         )}
       </div>
     );
@@ -207,15 +241,16 @@ export default function P5Compare({
   const renderDataCell = (id, text, kind, isLastRow = false) => {
     const isLeft = kind === 'left';
     const isCenter = kind === 'center';
-    const bg = isLeft ? M.cellLeftBg : isCenter ? M.cellCenterBg : M.cellRightBg;
+    const bg = isCenter ? 'transparent' : isLeft ? M.cellLeftBg : M.cellRightBg;
     const color = isLeft ? M.cellLeftText : isCenter ? M.cellCenterText : M.cellRightText;
-    const fontWeight = isLeft ? 600 : isCenter ? 500 : 400;
+
     return (
       <div
         style={{
           ...cellBase,
+          minHeight: 92,
           backgroundColor: bg,
-          borderBottom: isLastRow ? 'none' : `${M.rowDividerWidth} solid ${M.rowDivider}`,
+          borderBottom: isLastRow ? 'none' : `${M.rowDividerWidth} solid ${isCenter ? 'rgba(255,255,255,0.28)' : M.rowDivider}`,
         }}
       >
         {id ? (
@@ -224,10 +259,10 @@ export default function P5Compare({
             as="div"
             defaultStyle={{
               color,
-              fontSize: 14,
-              fontWeight,
+              fontSize: 42,
+              fontWeight: 700,
               textAlign: 'center',
-              lineHeight: 1.4,
+              lineHeight: 1.28,
               wordBreak: 'keep-all',
               width: '100%',
             }}
@@ -235,7 +270,7 @@ export default function P5Compare({
             {text}
           </EditableText>
         ) : (
-          <div style={{ color, fontSize: 14, fontWeight, lineHeight: 1.4, width: '100%' }}>{text}</div>
+          <div style={{ color, fontSize: 42, fontWeight: 700, lineHeight: 1.28, width: '100%' }}>{text}</div>
         )}
       </div>
     );
@@ -247,7 +282,7 @@ export default function P5Compare({
       style={{
         ...cellBase,
         backgroundColor: M.cellLeftBg,
-        minHeight: 140,
+        minHeight: 176,
         borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
       }}
     >
@@ -256,8 +291,8 @@ export default function P5Compare({
         as="div"
         defaultStyle={{
           color: M.cellLeftText,
-          fontSize: 14,
-          fontWeight: 600,
+          fontSize: 48,
+          fontWeight: 700,
           textAlign: 'center',
           width: '100%',
         }}
@@ -272,9 +307,9 @@ export default function P5Compare({
     <div
       style={{
         ...cellBase,
-        backgroundColor: M.cellCenterBg,
-        minHeight: 140,
-        borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
+        backgroundColor: 'transparent',
+        minHeight: 176,
+        borderBottom: `${M.rowDividerWidth} solid rgba(255,255,255,0.3)`,
       }}
     >
       <div
@@ -283,8 +318,8 @@ export default function P5Compare({
           height: 120,
           borderRadius: 8,
           overflow: editMode ? 'visible' : 'hidden',
-          backgroundColor: '#fff',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 3px 10px rgba(0,0,0,0.14)',
           position: 'relative',
           pointerEvents: 'auto',
           zIndex: imageOverrides[mainImgId]?.zIndex ?? 1,
@@ -314,7 +349,7 @@ export default function P5Compare({
       style={{
         ...cellBase,
         backgroundColor: M.cellRightBg,
-        minHeight: 140,
+        minHeight: 176,
         borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
       }}
     >
@@ -324,8 +359,8 @@ export default function P5Compare({
           height: 100,
           borderRadius: 8,
           overflow: editMode ? 'visible' : 'hidden',
-          backgroundColor: '#fff',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
           position: 'relative',
           pointerEvents: 'auto',
           zIndex: imageOverrides[generalImgId]?.zIndex ?? 1,
@@ -344,7 +379,7 @@ export default function P5Compare({
           onActivate={() => layer.activateLayer('main', generalImgId)}
           hasActiveOther={editMode && layer.hasActiveLayer && !generalActive}
           onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: generalImgId }, action)}
-          extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.95) contrast(0.7) blur(8px)' : ''}
+          extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.92) contrast(0.78) blur(2px) opacity(0.75)' : 'grayscale(18%) brightness(0.95)'}
         />
       </div>
     </div>
@@ -355,15 +390,24 @@ export default function P5Compare({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
-        <div style={{ padding: '50px 40px 24px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+      <div
+        style={{
+          position: 'relative',
+          pointerEvents: 'auto',
+          margin: '28px 20px 20px',
+          backgroundColor: M.cardBg,
+          borderRadius: M.cardRadius,
+          padding: '36px 28px 34px',
+        }}
+      >
+        <div style={{ padding: '0 12px 10px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P5.headline')}
             as="h2"
             defaultStyle={{
-              fontSize: 38,
-              fontWeight: 800,
-              color: BRAND.colors.text,
+              fontSize: 56,
+              fontWeight: 900,
+              color: '#1f1f1f',
               margin: 0,
               textAlign: 'center',
               letterSpacing: '-0.03em',
@@ -378,9 +422,9 @@ export default function P5Compare({
                 {...editPropsFor('P5.sub')}
                 as="p"
                 defaultStyle={{
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: 500,
-                  color: BRAND.colors.text,
+                  color: '#222222',
                   margin: 0,
                   textAlign: 'center',
                   lineHeight: 1.6,
@@ -395,15 +439,15 @@ export default function P5Compare({
 
         {/* 비교표 컨테이너 — POP-OUT 이 위/아래로 14px 튀어나오므로
             바깥 padding 충분히 확보 (상하 30px) */}
-        <div style={{ padding: '30px 30px 50px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        <div style={{ padding: '16px 10px 8px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           {/* Grid 표 + POP-OUT 배경 레이어 동시 보유하기 위해 position: relative */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: M.gridColumns,
               border: `${M.outerBorderWidth} solid ${M.outerBorder}`,
-              borderRadius: 12,
-              overflow: 'visible', // POP-OUT 배경이 위/아래로 튀어나가야 하므로 visible
+              borderRadius: 16,
+              overflow: 'visible',
               position: 'relative',
               backgroundColor: '#ffffff',
             }}
@@ -418,12 +462,12 @@ export default function P5Compare({
               aria-hidden="true"
               style={{
                 position: 'absolute',
-                top: -M.popoutExtend,
-                bottom: -M.popoutExtend,
+                top: -M.popoutExtendTop,
+                bottom: -M.popoutExtendBottom,
                 left: `${(1 / 3.3) * 100}%`,
                 width: `${(1.3 / 3.3) * 100}%`,
-                backgroundColor: '#ffffff',
-                borderRadius: 12,
+                backgroundColor: M.popoutBg,
+                borderRadius: 14,
                 boxShadow: M.popoutShadow,
                 border: `2px solid ${M.popoutBorder}`,
                 zIndex: 1,
