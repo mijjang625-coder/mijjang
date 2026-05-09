@@ -396,11 +396,12 @@ export default function P5Compare({
                 <div
                   style={{
                     // 🆕 (2026-05-09) 우리 제품(100%) 대비 일반 제품을 명확히 작게 표시
-                    //   width 90% + transform: scale(0.9) 로 가로/세로 모두 추가 축소
-                    //   → 우리 제품 셀 대비 시각적으로 명확하게 작아 보임
+                    //   width 100% + transform: scale(0.75) 로 가로/세로 모두 25% 축소
+                    //   → 우리 제품 셀 대비 시각적으로 한눈에 확실히 작아 보임
+                    //   v2: scale(0.9) → scale(0.75) 강화 (사용자 요청 — 차이가 잘 안 보였음)
                     width: '100%',
                     aspectRatio: '1 / 1',
-                    transform: 'scale(0.9)',
+                    transform: 'scale(0.75)',
                     transformOrigin: 'center center',
                     borderRadius: 12,
                     overflow: editMode ? 'visible' : 'hidden',
