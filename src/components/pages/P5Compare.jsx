@@ -126,7 +126,7 @@ export default function P5Compare({
   //   - transform 미사용 → PNG 내보내기 안전
   const colHeader = (labelId, label, isOurs) => {
     if (isOurs) {
-      // 우리 제품: 기존과 동일한 솔리드 헤더
+      // 우리 제품: 솔리드 헤더 + 우측 상단만 둥글게 (사용자 요청)
       return (
         <div
           style={{
@@ -138,6 +138,10 @@ export default function P5Compare({
             flexDirection: 'column',
             justifyContent: 'center',
             minHeight: 72,
+            // 🆕 (2026-05-09) 우측 상단 모서리 둥글게 — GENERAL 헤더 둥근 박스와 시각적 균형
+            borderRadius: '0 14px 0 0',
+            // 🆕 (2026-05-09) 그리드 외곽 border 제거에 따른 상단 외곽선 보강
+            borderTop: `1px solid ${BRAND.colors.neutral}`,
             // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
             borderLeft: `1px solid ${BRAND.colors.neutral}`,
             pointerEvents: editMode ? 'auto' : 'inherit',
@@ -212,13 +216,17 @@ export default function P5Compare({
   // 좌측 '비교 항목' 라벨 셀 (통일된 스타일)
   // 🆕 (2026-04-28) EditableText 로 변경 — 사용자가 비교 항목 이름 수정 가능
   //   id 가 null 이면 (예: '제품' 사진 행 라벨) 일반 텍스트로 표시
-  const renderLabelCell = (text, id = null, isFirstRow = false) => (
+  const renderLabelCell = (text, id = null, isFirstRow = false, isLastRow = false) => (
     <div
       style={{
         padding: UNIFORM_PADDING,
         backgroundColor: BRAND.colors.sub,
         color: BRAND.colors.text,
         borderTop: isFirstRow ? 'none' : `1px solid ${BRAND.colors.neutral}`,
+        // 🆕 (2026-05-09) 그리드 외곽 border 제거에 따른 좌측 외곽선 보강
+        borderLeft: `1px solid ${BRAND.colors.neutral}`,
+        borderBottom: isLastRow ? `1px solid ${BRAND.colors.neutral}` : 'none',
+        borderRadius: isLastRow ? '0 0 0 14px' : 0,
         textAlign: 'center',
         display: 'flex',
         alignItems: 'center',
@@ -254,7 +262,7 @@ export default function P5Compare({
   // 🆕 (2026-04-28) EditableText 로 변경 — 사용자가 셀 내용 수정 가능
   // 🆕 (2026-05-09 v5) 단순화 — 안쪽 wrapper 박스 제거, 원래 단순 회색 셀로 복귀
   //   행 높이 자동 정렬 유지 (PREMIUM 컬럼과 줄 맞춤). 일반 제품 헤더만 padding-top 으로 내려옴.
-  const renderCell = (id, text, isOurs) => (
+  const renderCell = (id, text, isOurs, isLastRow = false) => (
     <div
       style={{
         padding: UNIFORM_PADDING,
@@ -262,6 +270,9 @@ export default function P5Compare({
         borderBottom: `1px solid ${BRAND.colors.neutral}`,
         // 🆕 (2026-04-28) 컬럼 사이 세로 구분선
         borderLeft: `1px solid ${BRAND.colors.neutral}`,
+        // 🆕 (2026-05-09) 우리 제품 셀 마지막 행 우하단 둥근 처리
+        //   (일반 제품 셀은 외곽선/둥근 처리 없음 — 단독 둥근 헤더 박스 디자인 유지)
+        borderRadius: isLastRow && isOurs ? '0 0 14px 0' : 0,
         textAlign: 'center',
         opacity: isOurs ? 1 : 0.8,
         display: 'flex',
@@ -331,18 +342,15 @@ export default function P5Compare({
       <div style={{ padding: '10px 30px 50px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <div
           style={{
-            border: `1px solid ${BRAND.colors.neutral}`,
-            borderRadius: 16,
-            overflow: editMode ? 'visible' : 'hidden',
+            // 🆕 (2026-05-09) 그리드 외곽 border/borderRadius 제거
+            //   → GENERAL 헤더 위쪽 빈 공간 위로 보이던 잔여 외곽선 완전 제거
+            //   → 각 셀이 자체적으로 외곽 테두리/모서리 처리
             display: 'grid',
-            // 🆕 (2026-05-09) 일반 제품 컬럼 전체를 우리 제품 대비 90% 폭으로 축소
-            //   기존: '0.7fr 1fr 1fr' (우리 제품 = 일반 제품 동일)
-            //   변경: '0.7fr 1fr 0.9fr' (일반 제품 컬럼 전체가 90% 폭)
-            //   → 헤더(일반 청소 도구), 이미지, 모든 비교 행이 일제히 작아짐
             gridTemplateColumns: '0.7fr 1fr 0.9fr',
           }}
         >
           {/* 헤더 행 — 동일한 EditableText 시스템으로 좌측 '비교 항목' 텍스트도 수정 가능 (2026-04-28) */}
+          {/* 🆕 (2026-05-09) 그리드 외곽 border 제거에 따른 셀별 외곽선 보강 */}
           <div
             style={{
               backgroundColor: '#fff',
@@ -351,6 +359,9 @@ export default function P5Compare({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              borderTop: `1px solid ${BRAND.colors.neutral}`,
+              borderLeft: `1px solid ${BRAND.colors.neutral}`,
+              borderRadius: '14px 0 0 0',
               pointerEvents: editMode ? 'auto' : 'inherit',
             }}
           >
@@ -478,18 +489,22 @@ export default function P5Compare({
           )}
 
           {/* 비교 데이터 행들 — 레이블/우리/일반 모두 EditableText 로 수정 가능 (2026-04-28) */}
-          {rows.map((row, i) => (
-            <div key={i} style={{ display: 'contents' }}>
-              {renderLabelCell(row.label, `P5.rows.${i}.label`)}
+          {/* 🆕 (2026-05-09) 마지막 행에 isLastRow 플래그 전달 → 좌하단/우하단 둥근 처리 */}
+          {rows.map((row, i) => {
+            const isLastRow = i === rows.length - 1;
+            return (
+              <div key={i} style={{ display: 'contents' }}>
+                {renderLabelCell(row.label, `P5.rows.${i}.label`, false, isLastRow)}
 
-              {/* 우리 제품 셀 — 정상 크기 */}
-              {renderCell(`P5.rows.${i}.ours`, row.ours, true)}
+                {/* 우리 제품 셀 — 정상 크기 */}
+                {renderCell(`P5.rows.${i}.ours`, row.ours, true, isLastRow)}
 
-              {/* 일반 제품 셀 — renderCell 사용 (단순 회색 셀)
-                  🆕 (2026-05-09 v5) 안쪽 wrapper 제거하고 renderCell 로 통일 */}
-              {renderCell(`P5.rows.${i}.general`, row.general, false)}
-            </div>
-          ))}
+                {/* 일반 제품 셀 — renderCell 사용 (단순 회색 셀)
+                    🆕 (2026-05-09 v5) 안쪽 wrapper 제거하고 renderCell 로 통일 */}
+                {renderCell(`P5.rows.${i}.general`, row.general, false, isLastRow)}
+              </div>
+            );
+          })}
         </div>
       </div>
       </div>
