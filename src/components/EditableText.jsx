@@ -100,6 +100,10 @@ export default function EditableText({
   // ─────────── 더블클릭 → 편집 시작 ───────────
   const startEditing = (e) => {
     e.stopPropagation();
+    // 더블클릭 편집 시작 시 드래그 상태를 즉시 초기화해서
+    // 텍스트 선택/더블클릭 진입이 드래그 로직에 막히지 않게 함
+    dragStart.current.active = false;
+    dragStart.current.started = false;
     // 🆕 (2026-05-08) 이미 편집 중이면 — innerHTML 재주입 / selection 강제 변경 안 함.
     //   이렇게 안 하면 "이미 서식 적용된 글씨 (span 으로 감싸진 부분)" 위에서 더블클릭할 때
     //   브라우저가 자동으로 잡아준 word selection 이 우리 setTimeout 의
@@ -268,6 +272,15 @@ export default function EditableText({
     if (isEditing) return;
     if (!draggable) return;
     if (e.target.closest('[data-toolbar]')) return;
+
+    // 더블클릭(편집 진입)과 충돌하지 않도록 다중 클릭에서는 드래그 시작 금지
+    if (e.detail >= 2) return;
+
+    // 이미 부분서식이 적용된 텍스트(span 등) 위에서는
+    // 드래그보다 클릭/더블클릭/선택 동작을 우선한다.
+    // (빈 여백/래퍼 자체 클릭일 때만 이동 드래그 시작)
+    if (e.target !== ref.current) return;
+
     // preventDefault 하지 않음 (클릭 이벤트가 살아있어야 함)
     dragStart.current = {
       x: e.clientX,
