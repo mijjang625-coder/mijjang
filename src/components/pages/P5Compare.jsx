@@ -445,7 +445,9 @@ export default function P5Compare({
                   🆕 (2026-04-28) EditableImage 로 교체 — 사용자가 일반 제품 사진을
                        자유롭게 업로드/교체/리사이즈/이동할 수 있게 됨.
                   🆕 (2026-05-09 v5) 단순화 — 원래 단순 회색 셀로 복귀
-                       (안쪽 wrapper 제거, 행 높이 자동 정렬 유지) */}
+                       (안쪽 wrapper 제거, 행 높이 자동 정렬 유지)
+                  🆕 (2026-05-09) 사진 박스 자체를 90% 폭으로 축소 (사용자 요청 1-A)
+                       — 우리 제품 대비 약간 작아 보이는 효과 */}
               <div
                 style={{
                   padding: 10,
@@ -460,7 +462,9 @@ export default function P5Compare({
               >
                 <div
                   style={{
-                    width: '100%',
+                    // 🆕 (2026-05-09) 박스 자체를 90% 폭으로 축소 (사용자 요청 1-A)
+                    //   transform: scale 미사용 → html-to-image PNG 내보내기 안전
+                    width: '90%',
                     aspectRatio: '1 / 1',
                     borderRadius: 12,
                     overflow: editMode ? 'visible' : 'hidden',
