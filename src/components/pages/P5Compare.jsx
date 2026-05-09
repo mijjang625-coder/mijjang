@@ -166,6 +166,9 @@ export default function P5Compare({
       );
     }
     // 일반 제품: 셀 자체는 투명, 안쪽 박스만 둥근 회색
+    // 🆕 (2026-05-09) 박스 하단을 다음 행으로 40px 침범시켜 키만 시각적으로 키움
+    //   marginBottom: -40px → 그리드 행 높이는 변경 없음 (욕실청소솔 헤더 영향 없음)
+    //   overflow: visible 로 박스가 셀 경계를 넘어 다음 행에 겹쳐 보이게 함
     return (
       <div
         style={{
@@ -175,6 +178,7 @@ export default function P5Compare({
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'stretch',
+          overflow: 'visible',
           pointerEvents: editMode ? 'auto' : 'inherit',
         }}
       >
@@ -184,6 +188,11 @@ export default function P5Compare({
             backgroundColor: '#c8c8c8',
             color: '#6b6b6b',
             padding: '14px 10px',
+            // 🆕 박스 하단을 다음 행(제품 사진 셀) 위쪽 40px 까지 확장
+            //   → 사진 1처럼 일반 청소 도구 박스가 욕실청소솔 헤더보다 더 아래로 내려옴
+            //   → 그리드 행 높이 자체에는 영향 없음 (욕실청소솔 헤더 키 변동 없음)
+            marginBottom: -40,
+            paddingBottom: 14 + 40, // 박스 안쪽 컨텐츠는 셀 경계 안쪽에 정렬되도록
             textAlign: 'center',
             display: 'flex',
             flexDirection: 'column',
@@ -191,6 +200,8 @@ export default function P5Compare({
             // 위쪽 두 모서리만 둥글게
             borderRadius: '14px 14px 0 0',
             opacity: 0.85,
+            position: 'relative',
+            zIndex: 2, // 다음 행(이미지 셀) 위로 박스가 보이도록
           }}
         >
           <EditableText
