@@ -1845,12 +1845,45 @@ export default function App() {
 
               {/* 🤖 우측: AI가 채울 항목 안내 박스 — 아래 미리보기 카드의 "실행취소" 버튼과 좌측 라인 정렬
                   레이아웃: [상단 전체폭 제목] / [좌측 항목 목록 | 중앙 세로선 | 우측 💡 안내]
-                  3줄 높이로 컴팩트하게 유지 */}
+                  3줄 높이로 컴팩트하게 유지.
+                  ✅ 빈 칸이 없어도 같은 크기의 박스가 항상 표시됨 (페이지 간 레이아웃 일관성 유지) */}
               {(() => {
                 const common = validateCommonBrief(brief, images);
                 const specific = validatePageRequirements(currentPage, brief);
                 const allWarnings = [...(common.warnings || []), ...(specific.warnings || [])];
-                if (allWarnings.length === 0 || !common.ok) return null;
+                const hasWarnings = allWarnings.length > 0 && common.ok;
+
+                // 빈 칸이 없을 때 — 동일한 크기의 빈(완료) 박스 표시
+                if (!hasWarnings) {
+                  return (
+                    <div
+                      className="ml-auto p-3 rounded-lg border text-xs flex flex-col justify-center overflow-hidden"
+                      style={{
+                        backgroundColor: '#F0FDF4',
+                        borderColor: '#86EFAC',
+                        color: '#166534',
+                        width: '750px',
+                        maxWidth: '78%',
+                      }}
+                    >
+                      {/* 1행: 제목 — 전체폭 */}
+                      <div className="font-bold mb-1.5">✅ 모든 항목이 채워져 있습니다 — 바로 생성 가능합니다</div>
+                      {/* 2~3행: 좌(상태) | 중앙 세로선 | 우(💡 안내) */}
+                      <div className="flex items-stretch gap-2">
+                        <ul className="list-disc list-inside flex-1 min-w-0" style={{ width: '50%' }}>
+                          <li className="truncate">필수/추천 항목 모두 입력 완료</li>
+                          <li className="truncate">추가 자동 보완 불필요</li>
+                        </ul>
+                        <div style={{ width: '1px', backgroundColor: '#86EFAC', flexShrink: 0 }} />
+                        <div className="flex-1 min-w-0 text-[11px]" style={{ width: '50%' }}>
+                          💡 우측 상단의 <b>생성</b> 버튼을 눌러 페이지를 만들어 보세요.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // 빈 칸이 있을 때 — 기존 주황색 안내 박스
                 return (
                   <div
                     className="ml-auto p-3 rounded-lg border text-xs flex flex-col justify-center overflow-hidden"
