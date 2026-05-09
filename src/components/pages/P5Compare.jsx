@@ -425,7 +425,9 @@ export default function P5Compare({
                     // 🆕 (2026-04-28) 사용자가 일반 제품 사진을 따로 지정하지 않은 경우에만
                     //   이미지에만 grayscale+blur 적용 → 툴바/핸들은 선명하게 유지
                     // 🆕 (2026-04-28 v3) blur 3px → 1px 로 약화 (사용자 요청 — 너무 흐릿했음)
-                    extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.9) contrast(0.9) blur(1px)' : ''}
+                    // 🆕 (2026-05-09 v4) blur 1px → 8px 로 5배+ 강화 (사용자 요청 — 형태가 알아볼 수 있어서 더 흐릿하게)
+                    //   brightness 0.9 → 0.95, contrast 0.9 → 0.7 로 추가 약화하여 형태 식별 더 어렵게
+                    extraFilter={useOurAsGeneralBase ? 'grayscale(100%) brightness(0.95) contrast(0.7) blur(8px)' : ''}
                   />
                 </div>
               </div>
