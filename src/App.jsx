@@ -834,29 +834,55 @@ export default function App() {
     P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
   };
 
+  // API 설정 로컬 저장소 hydration 완료 플래그
+  const [aiSettingsHydrated, setAiSettingsHydrated] = useState(false);
+
   // API 키 저장/로딩 — provider 별로 키 분리
   useEffect(() => {
-    const saved = localStorage.getItem('openai_api_key');
-    if (saved) setApiKey(saved);
-    const savedClaude = localStorage.getItem('claude_api_key');
-    if (savedClaude) setClaudeApiKey(savedClaude);
-    const savedGemini = localStorage.getItem('gemini_api_key');
-    if (savedGemini) setGeminiApiKey(savedGemini);
-    const savedFal = localStorage.getItem('fal_api_key');
-    if (savedFal) setFalApiKey(savedFal);
-    const savedModel = localStorage.getItem('openai_model');
-    if (savedModel) setModel(savedModel);
-    const savedProvider = localStorage.getItem('ai_provider');
-    if (savedProvider && ['openai', 'anthropic', 'google'].includes(savedProvider)) {
-      setProvider(savedProvider);
+    try {
+      const saved = localStorage.getItem('openai_api_key');
+      if (saved) setApiKey(saved);
+      const savedClaude = localStorage.getItem('claude_api_key');
+      if (savedClaude) setClaudeApiKey(savedClaude);
+      const savedGemini = localStorage.getItem('gemini_api_key');
+      if (savedGemini) setGeminiApiKey(savedGemini);
+      const savedFal = localStorage.getItem('fal_api_key');
+      if (savedFal) setFalApiKey(savedFal);
+      const savedModel = localStorage.getItem('openai_model');
+      if (savedModel) setModel(savedModel);
+      const savedProviderRaw = localStorage.getItem('ai_provider');
+      const savedProvider = savedProviderRaw === 'claude' ? 'anthropic' : savedProviderRaw;
+      if (savedProvider && ['openai', 'anthropic', 'google'].includes(savedProvider)) {
+        setProvider(savedProvider);
+      }
+    } finally {
+      setAiSettingsHydrated(true);
     }
   }, []);
-  useEffect(() => { if (apiKey) localStorage.setItem('openai_api_key', apiKey); }, [apiKey]);
-  useEffect(() => { if (claudeApiKey) localStorage.setItem('claude_api_key', claudeApiKey); }, [claudeApiKey]);
-  useEffect(() => { if (geminiApiKey) localStorage.setItem('gemini_api_key', geminiApiKey); }, [geminiApiKey]);
-  useEffect(() => { if (falApiKey) localStorage.setItem('fal_api_key', falApiKey); }, [falApiKey]);
-  useEffect(() => { if (model) localStorage.setItem('openai_model', model); }, [model]);
-  useEffect(() => { if (provider) localStorage.setItem('ai_provider', provider); }, [provider]);
+  useEffect(() => {
+    if (!aiSettingsHydrated) return;
+    if (apiKey) localStorage.setItem('openai_api_key', apiKey);
+  }, [apiKey, aiSettingsHydrated]);
+  useEffect(() => {
+    if (!aiSettingsHydrated) return;
+    if (claudeApiKey) localStorage.setItem('claude_api_key', claudeApiKey);
+  }, [claudeApiKey, aiSettingsHydrated]);
+  useEffect(() => {
+    if (!aiSettingsHydrated) return;
+    if (geminiApiKey) localStorage.setItem('gemini_api_key', geminiApiKey);
+  }, [geminiApiKey, aiSettingsHydrated]);
+  useEffect(() => {
+    if (!aiSettingsHydrated) return;
+    if (falApiKey) localStorage.setItem('fal_api_key', falApiKey);
+  }, [falApiKey, aiSettingsHydrated]);
+  useEffect(() => {
+    if (!aiSettingsHydrated) return;
+    if (model) localStorage.setItem('openai_model', model);
+  }, [model, aiSettingsHydrated]);
+  useEffect(() => {
+    if (!aiSettingsHydrated) return;
+    if (provider) localStorage.setItem('ai_provider', provider);
+  }, [provider, aiSettingsHydrated]);
 
   // ─── 프로젝트 자동 저장/복원 ─────────────────────────
   const [hydrated, setHydrated] = useState(false);     // 첫 로드 완료 여부
