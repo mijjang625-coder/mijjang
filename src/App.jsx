@@ -1445,17 +1445,20 @@ export default function App() {
       }
     } catch (err) {
       console.error(`[handleGenerate] ${pageNumber} 실패`, err);
-      setError(`❌ ${pageNumber} 생성 실패: ${err.message || err}\n→ 브라우저 콘솔(F12)에서 자세한 에러를 확인할 수 있습니다.`);
       if (revisionRequest) {
+        // 수정 모드는 상단 하드 에러 배너 대신 채팅 안내로 처리 (기존 화면 유지)
+        setError('');
         const assistantErrorTurn = {
           role: 'assistant',
-          text: `수정 반영 중 오류가 발생했습니다: ${err.message || err}`,
+          text: `수정 반영 중 응답 형식 오류가 발생해 이번에는 화면을 그대로 유지했어요. 같은 요청을 한 번 더 보내주시면 재시도할게요. (${err.message || err})`,
           at: new Date().toLocaleTimeString('ko-KR'),
         };
         setRevisionChats((prev) => ({
           ...prev,
           [pageNumber]: [...(prev[pageNumber] || []), assistantErrorTurn],
         }));
+      } else {
+        setError(`❌ ${pageNumber} 생성 실패: ${err.message || err}\n→ 브라우저 콘솔(F12)에서 자세한 에러를 확인할 수 있습니다.`);
       }
     } finally {
       setIsLoading(false);

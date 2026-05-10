@@ -503,9 +503,9 @@ ${previousPagesSummary ? `이전 페이지 요약:\n${previousPagesSummary}\n\n`
     systemPrompt: COUPANG_DETAIL_SYSTEM_PROMPT,
     userPrompt,
     responseFormat: 'json',
-    // 수정 모드는 낮은 temperature (0.2) — 일관성·정확성 우선
+    // 수정 모드는 더 낮은 temperature (0.1) — 스키마 일관성·정확성 우선
     // 초기 생성은 0.6 — 창의적 카피
-    temperature: isRevisionMode ? 0.2 : 0.6,
+    temperature: isRevisionMode ? 0.1 : 0.6,
     maxTokens: 4096,
   });
 
@@ -562,15 +562,43 @@ ${content}`;
       systemPrompt: COUPANG_DETAIL_SYSTEM_PROMPT,
       userPrompt: retryPrompt,
       responseFormat: 'json',
-      temperature: isRevisionMode ? 0.2 : 0.5,
+      temperature: isRevisionMode ? 0.1 : 0.5,
       maxTokens: 4096,
     });
     parsed = parseJsonLoose(retried?.content || '') || parsed;
   }
 
-  // 재시도 후에도 copy가 없으면 실패로 처리하여 사용자에게 명확히 안내
+  // 여전히 copy가 없으면 더 엄격한 복구 프롬프트로 1회 추가 시도
   if (!parsed?.copy) {
-    throw new Error('AI가 페이지 본문(copy)을 만들지 못했습니다. 다시 생성을 시도해주세요.');
+    console.warn('[generateCoupangPage] copy 누락 지속 — 엄격 복구 재시도', { pageNumber });
+    const strictRetryPrompt = `${userPrompt}\n\n⚠️ 반드시 유효한 JSON 오브젝트 1개만 반환하세요. 최상위에 copy 키를 포함해야 하며, copy가 없으면 실패입니다.`;
+    const strictRetried = await callAI({
+      provider: _provider,
+      apiKey,
+      model,
+      systemPrompt: COUPANG_DETAIL_SYSTEM_PROMPT,
+      userPrompt: strictRetryPrompt,
+      responseFormat: 'json',
+      temperature: 0,
+      maxTokens: 4096,
+    });
+    parsed = parseJsonLoose(strictRetried?.content || '') || parsed;
+  }
+
+  // 재시도 후에도 copy가 없으면(특히 수정 모드) 기존 페이지를 유지하는 안전 폴백 사용
+  if (!parsed?.copy) {
+    if (isRevisionMode && previousCopy) {
+      console.warn('[generateCoupangPage] copy 복구 실패 — 기존 copy 유지 폴백 적용', { pageNumber });
+      parsed = {
+        ...(parsed || {}),
+        copy: previousCopy,
+        needsMoreInfo: false,
+        missingItems: [],
+        confirmMessage: '요청은 이해했지만 응답 형식 오류가 발생해 이번에는 화면 변경 없이 유지했습니다. 같은 요청을 다시 보내주시면 재시도할게요.',
+      };
+    } else {
+      throw new Error('AI가 페이지 본문(copy)을 만들지 못했습니다. 다시 생성을 시도해주세요.');
+    }
   }
 
   // 응답에 usage 첨부 (App.jsx에서 비용 기록)
