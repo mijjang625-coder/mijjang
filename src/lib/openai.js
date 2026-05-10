@@ -334,6 +334,82 @@ function buildP4RevisionRequest({ userMessage, revisionRequest }) {
   return baseRequest;
 }
 
+function normalizeP4Copy(candidate, previousCopy = {}) {
+  if (!candidate || typeof candidate !== 'object') return null;
+
+  const previousTitle = previousCopy?.sectionTitle || '고객님들의 생생한 후기';
+  const previousReviews = Array.isArray(previousCopy?.reviews) ? previousCopy.reviews : [];
+  const rawReviews = Array.isArray(candidate.reviews) ? candidate.reviews : [];
+
+  const reviews = rawReviews
+    .slice(0, 4)
+    .map((r, i) => ({
+      nickname: r?.nickname || previousReviews[i]?.nickname || '고객님',
+      date: r?.date || previousReviews[i]?.date || '2026-01-01',
+      body: r?.body || previousReviews[i]?.body || '',
+    }));
+
+  while (reviews.length < 4) {
+    const i = reviews.length;
+    reviews.push({
+      nickname: previousReviews[i]?.nickname || '고객님',
+      date: previousReviews[i]?.date || '2026-01-01',
+      body: previousReviews[i]?.body || '',
+    });
+  }
+
+  return {
+    sectionTitle: candidate.sectionTitle || previousTitle,
+    reviews,
+  };
+}
+
+async function attemptFocusedP4ReviewRevision({
+  provider,
+  apiKey,
+  model,
+  revisionRequest,
+  previousCopy,
+}) {
+  const focusedSystemPrompt = `너는 P4 리뷰 카피만 수정하는 JSON 편집기다. 반드시 유효한 단일 JSON 오브젝트만 출력한다.`;
+  const focusedUserPrompt = `다음 previousCopy를 기반으로, 사용자의 요청을 반영해 P4 copy를 수정하세요.
+
+사용자 요청:
+${revisionRequest}
+
+규칙:
+- sectionTitle은 previousCopy 값을 그대로 유지
+- reviews 배열의 nickname/date/body만 필요 시 수정
+- reviews는 정확히 4개 유지
+- 최종 출력은 아래 스키마의 JSON 1개만 반환
+{
+  "sectionTitle": "string",
+  "reviews": [
+    {"nickname":"string","date":"string","body":"string"},
+    {"nickname":"string","date":"string","body":"string"},
+    {"nickname":"string","date":"string","body":"string"},
+    {"nickname":"string","date":"string","body":"string"}
+  ]
+}
+
+previousCopy:
+${JSON.stringify(previousCopy || {}, null, 2)}`;
+
+  const focused = await callAI({
+    provider,
+    apiKey,
+    model,
+    systemPrompt: focusedSystemPrompt,
+    userPrompt: focusedUserPrompt,
+    responseFormat: 'json',
+    temperature: 0,
+    maxTokens: 1800,
+  });
+
+  const focusedParsed = parseJsonLoose(focused?.content || '');
+  return normalizeP4Copy(focusedParsed, previousCopy);
+}
+
 export async function classifyRevisionChatIntent({
   apiKey,
   model = 'gpt-4o-mini',
@@ -623,6 +699,30 @@ ${content}`;
       maxTokens: 4096,
     });
     parsed = parseJsonLoose(strictRetried?.content || '') || parsed;
+  }
+
+  // P4 리뷰 수정은 별도 집중 복구를 1회 더 시도 (리뷰 수정 성공률 강화)
+  if (!parsed?.copy && isRevisionMode && pageNumber === 'P4' && previousCopy && p4Target === 'reviews') {
+    try {
+      const recoveredP4Copy = await attemptFocusedP4ReviewRevision({
+        provider: _provider,
+        apiKey,
+        model,
+        revisionRequest,
+        previousCopy,
+      });
+      if (recoveredP4Copy) {
+        parsed = {
+          ...(parsed || {}),
+          copy: recoveredP4Copy,
+          needsMoreInfo: false,
+          missingItems: [],
+          confirmMessage: '요청하신 리뷰 수정을 반영했습니다. 추가로 다듬고 싶은 문구가 있으면 이어서 말씀해 주세요.',
+        };
+      }
+    } catch (focusedErr) {
+      console.warn('[generateCoupangPage] P4 집중 복구 실패', focusedErr);
+    }
   }
 
   // 재시도 후에도 copy가 없으면(특히 수정 모드) 기존 페이지를 유지하는 안전 폴백 사용
