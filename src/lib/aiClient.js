@@ -14,6 +14,7 @@
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models';
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
@@ -168,6 +169,63 @@ function getAnthropicFallbackModel(model) {
   return null;
 }
 
+function isAnthropicModelNotFound(res, text) {
+  return !res.ok && [400, 404].includes(res.status) && /not_found_error|invalid_request_error|"model"|model/i.test(text || '');
+}
+
+let anthropicModelCache = {
+  at: 0,
+  ids: [],
+};
+
+async function fetchAnthropicModelIds(headers) {
+  // 5분 캐시
+  const now = Date.now();
+  if (anthropicModelCache.ids.length > 0 && now - anthropicModelCache.at < 5 * 60 * 1000) {
+    return anthropicModelCache.ids;
+  }
+
+  const res = await fetch(ANTHROPIC_MODELS_URL, {
+    method: 'GET',
+    headers,
+  });
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const ids = (data?.data || []).map((m) => m?.id).filter(Boolean);
+  if (ids.length > 0) {
+    anthropicModelCache = { at: now, ids };
+  }
+  return ids;
+}
+
+function pickBestAnthropicModel(requestedModel, modelIds) {
+  if (!Array.isArray(modelIds) || modelIds.length === 0) return null;
+  if (modelIds.includes(requestedModel)) return requestedModel;
+
+  const family = requestedModel?.includes('haiku')
+    ? 'haiku'
+    : requestedModel?.includes('sonnet')
+      ? 'sonnet'
+      : requestedModel?.includes('opus')
+        ? 'opus'
+        : null;
+
+  const scored = modelIds
+    .filter((id) => id.startsWith('claude-'))
+    .map((id) => {
+      let score = 0;
+      if (family && id.includes(family)) score += 100;
+      if (id.includes('-latest')) score += 20;
+      const date = id.match(/(\d{8})$/)?.[1];
+      if (date) score += Number(date) / 100000000;
+      return { id, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.id || null;
+}
+
 async function callAnthropic({ apiKey, model, systemPrompt, userPrompt, responseFormat, temperature, maxTokens }) {
   // JSON 응답 형식이면 시스템 프롬프트에 강제 안내 추가
   let finalSystem = systemPrompt;
@@ -203,8 +261,8 @@ async function callAnthropic({ apiKey, model, systemPrompt, userPrompt, response
   let firstTry = await callWithModel(model);
   let { res, text, modelUsed } = firstTry;
 
-  // 모델 not_found 일 때 latest alias로 1회 자동 재시도
-  if (!res.ok && res.status === 404 && /not_found_error|"model"/i.test(text)) {
+  // 1) 날짜 버전/고정 ID를 latest alias로 자동 재시도
+  if (isAnthropicModelNotFound(res, text)) {
     const fallbackModel = getAnthropicFallbackModel(model);
     if (fallbackModel && fallbackModel !== model) {
       const retry = await callWithModel(fallbackModel);
@@ -215,11 +273,33 @@ async function callAnthropic({ apiKey, model, systemPrompt, userPrompt, response
     }
   }
 
+  // 2) 그래도 모델 오류면, 계정에서 실제 사용 가능한 모델 목록 조회 후 최적 모델로 재시도
+  if (isAnthropicModelNotFound(res, text)) {
+    try {
+      const availableModelIds = await fetchAnthropicModelIds(headers);
+      const discoveredModel = pickBestAnthropicModel(model, availableModelIds);
+      if (discoveredModel && discoveredModel !== modelUsed) {
+        const retry = await callWithModel(discoveredModel);
+        res = retry.res;
+        text = retry.text;
+        modelUsed = retry.modelUsed;
+        console.warn(`[callAnthropic] 모델 동적 대체: ${model} -> ${discoveredModel}`);
+      }
+    } catch (e) {
+      console.warn('[callAnthropic] 모델 목록 조회 실패:', e);
+    }
+  }
+
   if (!res.ok) {
     throw new Error(`Anthropic API 오류 (${res.status}): ${text}`);
   }
 
-  const data = JSON.parse(text);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Anthropic API 응답 파싱 실패: ${String(text).slice(0, 500)}`);
+  }
   let content = data?.content?.[0]?.text;
   if (!content) throw new Error('Claude 응답이 비어있습니다.');
 
