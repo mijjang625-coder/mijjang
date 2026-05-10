@@ -130,6 +130,8 @@ export default function App() {
   const [feedbackInput, setFeedbackInput] = useState('');
   const [isRevising, setIsRevising] = useState(false);
   const [revisionHistory, setRevisionHistory] = useState({}); // { P1: [{ feedback, at }, ...] }
+  const [revisionChats, setRevisionChats] = useState({}); // { P1: [{ role: 'user'|'assistant', text, at }] }
+  const [activeRevisionIndex, setActiveRevisionIndex] = useState(null); // 현재 수정 히스토리에서 편집 중인 항목 인덱스
   // 🆕 (2026-04-28) 채팅창 접기/펼치기 — 기본 접힘
   const [feedbackExpanded, setFeedbackExpanded] = useState(false);
 
@@ -210,6 +212,19 @@ export default function App() {
   useEffect(() => {
     setActiveLayerId(null);
   }, [editMode, currentPage]);
+
+  // 수정 요청 히스토리 편집 대상은 페이지가 바뀌면 해제
+  useEffect(() => {
+    setActiveRevisionIndex(null);
+  }, [currentPage]);
+
+  // 히스토리 길이가 줄어 active index가 범위를 벗어나면 자동 해제
+  useEffect(() => {
+    const length = revisionHistory[currentPage]?.length || 0;
+    if (activeRevisionIndex != null && activeRevisionIndex >= length) {
+      setActiveRevisionIndex(null);
+    }
+  }, [revisionHistory, currentPage, activeRevisionIndex]);
 
   // 🆕 텍스트(EditableText/FreeText) 가 활성화 됐다는 broadcast 를 받으면
   //   이미지/도형의 activeLayerId 도 함께 해제 → 사진 옵션바 자동으로 닫힘
@@ -1378,6 +1393,7 @@ export default function App() {
           ],
         }));
         setFeedbackInput('');
+        setActiveRevisionIndex(null);
       } else {
         // "다시 생성" 또는 "초기 생성" — variant +1로 레이아웃/아이콘 모양 변경
         // (채팅 수정이 아닐 때만 variant 증가)
@@ -1394,6 +1410,39 @@ export default function App() {
       setIsRevising(false);
       setGenerationProgress(null);
     }
+  };
+
+  const handleFeedbackInputChange = (value) => {
+    setFeedbackInput(value);
+
+    if (activeRevisionIndex == null) return;
+
+    setRevisionHistory((prev) => {
+      const pageHistory = [...(prev[currentPage] || [])];
+      if (!pageHistory[activeRevisionIndex]) return prev;
+      pageHistory[activeRevisionIndex] = {
+        ...pageHistory[activeRevisionIndex],
+        feedback: value,
+      };
+      return {
+        ...prev,
+        [currentPage]: pageHistory,
+      };
+    });
+  };
+
+  const handleSelectRevisionHistory = (index) => {
+    const selected = revisionHistory[currentPage]?.[index];
+    if (!selected) return;
+
+    if (activeRevisionIndex === index) {
+      setActiveRevisionIndex(null);
+      setFeedbackInput('');
+      return;
+    }
+
+    setActiveRevisionIndex(index);
+    setFeedbackInput(selected.feedback || '');
   };
 
   // 수정 요청 (채팅창에서 전송)
@@ -1486,6 +1535,7 @@ export default function App() {
   };
 
   const currentResult = pages[currentPage];
+  const currentRevisionChat = revisionChats[currentPage] || [];
   const completedCount = PAGE_LIST.filter((p) => pages[p] && !pages[p].needsMoreInfo).length;
 
   return (
@@ -2586,7 +2636,11 @@ export default function App() {
                         누적된 수정 {revisionHistory[currentPage].length}개
                       </span>
                       <button
-                        onClick={() => setRevisionHistory((prev) => ({ ...prev, [currentPage]: [] }))}
+                        onClick={() => {
+                          setRevisionHistory((prev) => ({ ...prev, [currentPage]: [] }));
+                          setActiveRevisionIndex(null);
+                          setFeedbackInput('');
+                        }}
                         className="text-slate-500 hover:text-slate-700 underline"
                         style={{ fontSize: '11px' }}
                         title="수정 누적 초기화 (다음 수정부터 이전 지시가 반영되지 않음)"
@@ -2596,16 +2650,27 @@ export default function App() {
                     </div>
 
                     <div className="mb-3 space-y-1 max-h-32 overflow-auto">
-                      {revisionHistory[currentPage].map((h, i) => (
-                        <div
-                          key={i}
-                          className="p-1.5 rounded flex items-start gap-1"
-                          style={{ color: '#6b635c', backgroundColor: '#F7F3EE', fontSize: '12px' }}
-                        >
-                          <span className="font-bold whitespace-nowrap">#{i + 1} [{h.at}]</span>
-                          <span className="flex-1">{h.feedback}</span>
-                        </div>
-                      ))}
+                      {revisionHistory[currentPage].map((h, i) => {
+                        const isActive = activeRevisionIndex === i;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => handleSelectRevisionHistory(i)}
+                            className="w-full p-1.5 rounded flex items-start gap-1 text-left border"
+                            style={{
+                              color: '#6b635c',
+                              backgroundColor: isActive ? '#fff3e8' : '#F7F3EE',
+                              borderColor: isActive ? '#E87A2B' : '#e7e1d8',
+                              fontSize: '12px',
+                            }}
+                            title={isActive ? '현재 textarea와 양방향 편집 중 (다시 클릭하면 해제)' : '클릭하면 textarea로 불러와서 편집'}
+                          >
+                            <span className="font-bold whitespace-nowrap">#{i + 1} [{h.at}]</span>
+                            <span className="flex-1">{h.feedback}</span>
+                          </button>
+                        );
+                      })}
                       <div className="text-emerald-700 font-semibold" style={{ fontSize: '11px' }}>
                         ✓ 위 {revisionHistory[currentPage].length}개 수정이 누적되어 다음 요청에도 유지됩니다.
                       </div>
@@ -2615,7 +2680,7 @@ export default function App() {
 
                 <textarea
                   value={feedbackInput}
-                  onChange={(e) => setFeedbackInput(e.target.value)}
+                  onChange={(e) => handleFeedbackInputChange(e.target.value)}
                   onKeyDown={(e) => {
                     // Ctrl/⌘ + Enter → 수정 전송
                     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
