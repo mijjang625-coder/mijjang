@@ -462,6 +462,36 @@ ${content}`;
     throw new Error('AI 응답을 JSON으로 파싱할 수 없습니다.');
   }
 
+  // API 에러 payload가 JSON으로 들어온 경우(예: {type:"error", ...})는
+  // "생성 성공"으로 처리하면 미리보기가 빈 화면이 되므로 즉시 실패 처리한다.
+  const parsedErrorType = parsed?.type === 'error' || parsed?.error?.type === 'error';
+  const parsedErrorMessage = parsed?.error?.message || parsed?.message;
+  if (parsedErrorType || parsedErrorMessage) {
+    throw new Error(`AI 응답 에러: ${parsedErrorMessage || '요청 처리 실패'}`);
+  }
+
+  // 스키마 핵심 필드(copy)가 없으면 한 번 더 강제 재생성 시도
+  if (!parsed?.copy) {
+    console.warn('[generateCoupangPage] copy 누락 응답 감지 — 강제 재생성 1회 시도', { pageNumber });
+    const retryPrompt = `${userPrompt}\n\n⚠️ 직전 응답이 스키마를 지키지 못했습니다. 이번에는 반드시 copy 키를 포함한 단일 JSON 오브젝트만 반환하세요.`;
+    const retried = await callAI({
+      provider: _provider,
+      apiKey,
+      model,
+      systemPrompt: COUPANG_DETAIL_SYSTEM_PROMPT,
+      userPrompt: retryPrompt,
+      responseFormat: 'json',
+      temperature: isRevisionMode ? 0.2 : 0.5,
+      maxTokens: 4096,
+    });
+    parsed = parseJsonLoose(retried?.content || '') || parsed;
+  }
+
+  // 재시도 후에도 copy가 없으면 실패로 처리하여 사용자에게 명확히 안내
+  if (!parsed?.copy) {
+    throw new Error('AI가 페이지 본문(copy)을 만들지 못했습니다. 다시 생성을 시도해주세요.');
+  }
+
   // 응답에 usage 첨부 (App.jsx에서 비용 기록)
   // 호환성: costTracker 가 prompt_tokens/completion_tokens 형식을 기대하므로 변환해서 함께 첨부
   if (parsed && usage) {
