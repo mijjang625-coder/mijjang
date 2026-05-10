@@ -1507,6 +1507,9 @@ export default function App() {
     }
 
     const userMessage = feedbackInput.trim();
+    // 전송 즉시 입력창은 비움 (실행 완료 후에도 명령어가 남아보이지 않게)
+    setFeedbackInput('');
+    setActiveRevisionIndex(null);
 
     // 1) 먼저 "대화"인지 "실제 수정"인지 분류 (클로드처럼 잡담/확인 응답 가능)
     setIsRevising(true);
@@ -1531,8 +1534,6 @@ export default function App() {
             { role: 'assistant', text: route.assistantMessage, at: now },
           ],
         }));
-        setFeedbackInput('');
-        setActiveRevisionIndex(null);
         return;
       }
 
@@ -1542,6 +1543,8 @@ export default function App() {
         previousCopy: current.copy,
       });
     } catch (err) {
+      // 분류 실패 시에는 사용자가 다시 보낼 수 있게 입력 복원
+      setFeedbackInput(userMessage);
       setError(`채팅 분류 실패: ${err.message || err}`);
     } finally {
       setIsRevising(false);
@@ -2773,8 +2776,8 @@ export default function App() {
                   value={feedbackInput}
                   onChange={(e) => handleFeedbackInputChange(e.target.value)}
                   onKeyDown={(e) => {
-                    // Ctrl/⌘ + Enter → 수정 전송
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    // Enter → 수정 전송 (Shift+Enter는 줄바꿈)
+                    if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       handleRevise();
                       return;
@@ -2861,7 +2864,7 @@ export default function App() {
                 <div className="text-slate-500 mt-2 leading-relaxed" style={{ fontSize: '11px' }}>
                   💡 <b>텍스트 수정</b>: 지워달라 / 바꿔달라 / 더 짧게 등 (이전 수정도 누적 반영)<br />
                   📷 <b>사진 교체</b>는 편집 모드에서 사진 클릭 후 우측 <b>↔ 사진 변경</b> 버튼 사용<br />
-                  ⌨️ Ctrl/⌘ + Enter 전송 · Ctrl/⌘ + Z 되돌리기
+                  ⌨️ Enter 전송 · Shift+Enter 줄바꿈 · Ctrl/⌘ + Z 되돌리기
                 </div>
               </div>
             </div>
