@@ -21,7 +21,7 @@ import ScaledHeightWrap from './components/ui/ScaledHeightWrap.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
 import OnboardingTour from './components/onboarding/OnboardingTour.jsx';
 import { DEFAULT_BRIEF } from './lib/briefDefaults.js';
-import { THEME_PRESETS, applyTheme, applyFont } from './lib/theme.js';
+import { THEME_PRESETS, applyTheme, applyFont, getCategoryVisualPreset } from './lib/theme.js';
 import {
   saveProject,
   loadProject,
@@ -816,6 +816,39 @@ export default function App() {
     });
   };
 
+  // 카테고리 선택 시 강한 시각 프리셋 자동 적용 (theme/font/P1 카드)
+  useEffect(() => {
+    const preset = getCategoryVisualPreset(brief.productType);
+    if (!preset) return;
+
+    setBrief((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      if (preset.themeId && prev.themeId !== preset.themeId) {
+        next.themeId = preset.themeId;
+        changed = true;
+      }
+      if (preset.fontId && prev.fontId !== preset.fontId) {
+        next.fontId = preset.fontId;
+        changed = true;
+      }
+
+      if (preset.p1CardSettings) {
+        const prevCard = prev.p1CardSettings || {};
+        const mergedCard = { ...prevCard, ...preset.p1CardSettings };
+        const cardChanged = Object.keys(preset.p1CardSettings)
+          .some((key) => prevCard[key] !== mergedCard[key]);
+        if (cardChanged) {
+          next.p1CardSettings = mergedCard;
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [brief.productType]);
+
   // 테마 적용 — themeId 바뀔 때마다 BRAND.colors 스왑
   useEffect(() => {
     applyTheme(brief.themeId || 'warmBeige');
@@ -1046,6 +1079,16 @@ export default function App() {
 
   // 브리프 수정 헬퍼
   const updateBrief = (patch) => setBrief((b) => ({ ...b, ...patch }));
+
+  const categoryVisualPreset = getCategoryVisualPreset(brief.productType);
+  const previewSkin = categoryVisualPreset?.previewSkin || {
+    surface: '#f0ebe4',
+    shell: '#1e293b',
+    shellInner: '#fff',
+    labelBg: '#fff',
+    labelText: '#2F2A26',
+  };
+
   const updateArrayItem = (key, idx, value) => {
     setBrief((b) => {
       const next = [...b[key]];
@@ -2358,7 +2401,7 @@ export default function App() {
                 ⌨️ <b>미세 이동</b> — 요소 선택 후 <b>화살표 키 = 1px</b> · <b>Shift+화살표 = 10px</b> · <b>Alt+드래그 = 자동 정렬(스냅) OFF</b> (자유 이동)
               </div>
             )}
-            <div className="rounded-xl overflow-auto flex justify-center py-4 gap-6" style={{ backgroundColor: '#f0ebe4', maxHeight: 'calc(100vh - 260px)' }}>
+            <div className="rounded-xl overflow-auto flex justify-center py-4 gap-6" style={{ backgroundColor: previewSkin.surface, maxHeight: 'calc(100vh - 260px)' }}>
               {currentResult?.copy && !currentResult.needsMoreInfo ? (() => {
                 // 페이지 콘텐츠 — 한번만 정의, 모드별로 다른 wrapper에 넣음
                 const renderPage = (refToUse, deviceMode) => (
@@ -2410,13 +2453,13 @@ export default function App() {
                 const MobileFrame = ({ children, label }) => (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {label && (
-                      <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#fff', color: '#2F2A26', border: '1px solid #e2ddd4' }}>
+                      <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: previewSkin.labelBg, color: previewSkin.labelText, border: '1px solid rgba(0,0,0,0.12)' }}>
                         {label}
                       </div>
                     )}
                     <div style={{
                       width: MOBILE_W + 24, // 폰 베젤 양옆 12px씩
-                      backgroundColor: '#1e293b',
+                      backgroundColor: previewSkin.shell,
                       borderRadius: 28,
                       padding: '36px 12px 36px',
                       boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
@@ -2425,13 +2468,13 @@ export default function App() {
                       {/* 노치 */}
                       <div style={{
                         position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
-                        width: 80, height: 16, backgroundColor: '#0f172a', borderRadius: 999,
+                        width: 80, height: 16, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 999,
                       }} />
                       {/* 📱 화면 영역 — 고정 높이로 안에서만 스크롤 */}
                       <div style={{
                         width: MOBILE_W,
                         height: MOBILE_H,
-                        backgroundColor: '#fff',
+                        backgroundColor: previewSkin.shellInner,
                         borderRadius: 6,
                         overflowY: 'auto',
                         overflowX: 'hidden',
@@ -2446,7 +2489,7 @@ export default function App() {
                       {/* 하단 홈 인디케이터 */}
                       <div style={{
                         position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-                        width: 100, height: 4, backgroundColor: '#475569', borderRadius: 999,
+                        width: 100, height: 4, backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 999,
                       }} />
                     </div>
                   </div>
@@ -2455,7 +2498,7 @@ export default function App() {
                 const PCFrame = ({ children, label }) => (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {label && (
-                      <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#fff', color: '#2F2A26', border: '1px solid #e2ddd4' }}>
+                      <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: previewSkin.labelBg, color: previewSkin.labelText, border: '1px solid rgba(0,0,0,0.12)' }}>
                         {label}
                       </div>
                     )}
@@ -2486,7 +2529,7 @@ export default function App() {
                         style={{
                           width: TABLET_W + 24,
                           padding: 12,
-                          background: '#1f2937',
+                          background: previewSkin.shell,
                           borderRadius: 28,
                           boxShadow: '0 16px 40px rgba(0,0,0,0.18)',
                         }}
@@ -2494,7 +2537,7 @@ export default function App() {
                         <div
                           style={{
                             width: TABLET_W,
-                            background: '#fff',
+                            background: previewSkin.shellInner,
                             borderRadius: 18,
                             overflow: 'hidden',
                           }}

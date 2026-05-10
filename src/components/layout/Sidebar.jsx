@@ -1103,7 +1103,7 @@ Q5. / A5.
               </select>
               {brief.productType && (
                 <div className="text-[11px] mt-1.5 px-2 py-1.5 rounded" style={{ backgroundColor: '#FFF8F0', borderLeft: '3px solid #FDBA74', color: '#9A3412' }}>
-                  ✨ <b>{brief.productType}</b> 카테고리 가이드 적용 중 — 톤/강조점/사진추천이 카테고리에 맞게 자동 조정됩니다.
+                  ✨ <b>{brief.productType}</b> 카테고리 프리셋 적용 중 — 카피 톤 + 디자인 테마/폰트/카드 스타일이 카테고리에 맞게 자동 조정됩니다.
                 </div>
               )}
             </Field>

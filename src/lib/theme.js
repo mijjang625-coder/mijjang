@@ -147,6 +147,100 @@ export const THEME_PRESETS = {
   },
 };
 
+// 카테고리별 강한 시각 프리셋
+// - 사용자가 productType 을 선택하면 theme/font/P1 카드 스타일을 자동 동기화하여
+//   카테고리별로 "보자마자 다른" 분위기를 제공합니다.
+export const CATEGORY_VISUAL_PRESETS = {
+  '청소도구형': {
+    themeId: 'oceanBlue',
+    fontId: 'nanumGothic',
+    p1CardSettings: { iconVariant: 1, cardRadius: 10, cardGap: 14, cardMinHeight: 205 },
+    previewSkin: {
+      surface: '#EAF3FA',
+      shell: '#0F3C5C',
+      shellInner: '#FFFFFF',
+      labelBg: '#0F3C5C',
+      labelText: '#FFFFFF',
+    },
+  },
+  '수납형': {
+    themeId: 'modernMono',
+    fontId: 'pretendard',
+    p1CardSettings: { iconVariant: 2, cardRadius: 8, cardGap: 12, cardMinHeight: 200 },
+    previewSkin: {
+      surface: '#ECEFF2',
+      shell: '#20242A',
+      shellInner: '#FFFFFF',
+      labelBg: '#20242A',
+      labelText: '#FFFFFF',
+    },
+  },
+  '욕실/위생형': {
+    themeId: 'oceanBlue',
+    fontId: 'notoSansKR',
+    p1CardSettings: { iconVariant: 0, cardRadius: 24, cardGap: 18, cardMinHeight: 220 },
+    previewSkin: {
+      surface: '#E7F6FF',
+      shell: '#0A4F77',
+      shellInner: '#F8FDFF',
+      labelBg: '#0A4F77',
+      labelText: '#FFFFFF',
+    },
+  },
+  '주방정리형': {
+    themeId: 'softSage',
+    fontId: 'gowunDodum',
+    p1CardSettings: { iconVariant: 4, cardRadius: 16, cardGap: 16, cardMinHeight: 214 },
+    previewSkin: {
+      surface: '#EEF6EA',
+      shell: '#37513C',
+      shellInner: '#FFFFFF',
+      labelBg: '#37513C',
+      labelText: '#FFFFFF',
+    },
+  },
+  '소모품형': {
+    themeId: 'deepNavy',
+    fontId: 'notoSansKR',
+    p1CardSettings: { iconVariant: 3, cardRadius: 6, cardGap: 12, cardMinHeight: 196 },
+    previewSkin: {
+      surface: '#EEF2F8',
+      shell: '#1A2940',
+      shellInner: '#FFFFFF',
+      labelBg: '#1A2940',
+      labelText: '#FFFFFF',
+    },
+  },
+  '생활보조형': {
+    themeId: 'warmBeige',
+    fontId: 'nanumGothic',
+    p1CardSettings: { iconVariant: 5, cardRadius: 22, cardGap: 20, cardMinHeight: 226 },
+    previewSkin: {
+      surface: '#F8F1E8',
+      shell: '#6B4F3C',
+      shellInner: '#FFFDF8',
+      labelBg: '#6B4F3C',
+      labelText: '#FFFFFF',
+    },
+  },
+  '인테리어소품형': {
+    themeId: 'softPink',
+    fontId: 'gaegu',
+    p1CardSettings: { iconVariant: 5, cardRadius: 28, cardGap: 22, cardMinHeight: 232 },
+    previewSkin: {
+      surface: '#FDF0F4',
+      shell: '#6F2F48',
+      shellInner: '#FFFFFF',
+      labelBg: '#6F2F48',
+      labelText: '#FFFFFF',
+    },
+  },
+};
+
+export function getCategoryVisualPreset(productType) {
+  return CATEGORY_VISUAL_PRESETS[productType] || null;
+}
+
 // 기본 테마 (호환용)
 export const BRAND = {
   colors: THEME_PRESETS.warmBeige.colors,
