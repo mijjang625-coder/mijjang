@@ -8,6 +8,7 @@ import {
   extractProductInfoFromText,
   extractRecommendedKeywords,
   autoFillBrief,
+  classifyRevisionChatIntent,
 } from './lib/openai.js';
 import {
   downloadAsImage, downloadAsHtml,
@@ -1504,10 +1505,47 @@ export default function App() {
       setError(`${currentPage}를 먼저 생성해주세요.`);
       return;
     }
-    await handleGenerate(currentPage, {
-      revisionRequest: feedbackInput.trim(),
-      previousCopy: current.copy,
-    });
+
+    const userMessage = feedbackInput.trim();
+
+    // 1) 먼저 "대화"인지 "실제 수정"인지 분류 (클로드처럼 잡담/확인 응답 가능)
+    setIsRevising(true);
+    try {
+      const route = await classifyRevisionChatIntent({
+        provider,
+        apiKey: activeApiKey.trim(),
+        model,
+        pageNumber: currentPage,
+        userMessage,
+        previousCopy: current.copy,
+        revisionChats: revisionChats[currentPage] || [],
+      });
+
+      if (route.action === 'chat') {
+        const now = new Date().toLocaleTimeString('ko-KR');
+        setRevisionChats((prev) => ({
+          ...prev,
+          [currentPage]: [
+            ...(prev[currentPage] || []),
+            { role: 'user', text: userMessage, at: now },
+            { role: 'assistant', text: route.assistantMessage, at: now },
+          ],
+        }));
+        setFeedbackInput('');
+        setActiveRevisionIndex(null);
+        return;
+      }
+
+      // 2) 실제 수정 지시로 판단된 경우에만 페이지 재생성/수정 실행
+      await handleGenerate(currentPage, {
+        revisionRequest: route.revisionRequest || userMessage,
+        previousCopy: current.copy,
+      });
+    } catch (err) {
+      setError(`채팅 분류 실패: ${err.message || err}`);
+    } finally {
+      setIsRevising(false);
+    }
   };
 
   // 다운로드

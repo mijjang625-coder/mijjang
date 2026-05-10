@@ -308,6 +308,76 @@ ${JSON.stringify(currentBrief, null, 2)}
 /**
  * 특정 페이지(P1~P10) 콘텐츠를 생성.
  */
+export async function classifyRevisionChatIntent({
+  apiKey,
+  model = 'gpt-4o-mini',
+  provider,
+  pageNumber,
+  userMessage,
+  previousCopy = null,
+  revisionChats = [],
+}) {
+  const _provider = provider || detectProviderFromModel(model);
+  if (!apiKey) throw new Error('AI API 키가 필요합니다.');
+
+  const normalizedChats = (revisionChats || [])
+    .filter((m) => m && typeof m.text === 'string' && m.text.trim())
+    .slice(-10)
+    .map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', text: m.text }));
+
+  const systemPrompt = `당신은 상세페이지 수정용 AI 채팅 라우터입니다.
+사용자 메시지가 "실제 수정 지시"인지, "일반 대화/확인/잡담"인지 분류하세요.
+
+반드시 단일 JSON으로만 답하세요.
+출력 스키마:
+{
+  "action": "chat" | "revise",
+  "assistantMessage": "사용자에게 보여줄 자연스러운 한국어 답변 (1~2문장)",
+  "revisionRequest": "action이 revise일 때만, 실제 수정에 사용할 명확한 지시문"
+}
+
+판단 규칙:
+- action=chat: 인사, 테스트("내말들려?"), 가능여부 질문, 상태 확인, 설명 요청, 잡담
+- action=revise: 문구 변경/삭제/추가, 구조 변경, 톤 변경, 길이 조절 등 실제 페이지 수정 지시
+- 애매하면 chat으로 보수적으로 판단하세요.
+- chat일 때는 페이지를 수정하라고 지시하지 말고, 사용자의 말을 이해했음을 짧게 답하세요.`;
+
+  const userPrompt = `현재 페이지: ${pageNumber}
+사용자 최신 메시지: ${userMessage}
+
+최근 대화(최신 10턴):
+${JSON.stringify(normalizedChats, null, 2)}
+
+현재 페이지 copy 스냅샷(요약 참고):
+${JSON.stringify(previousCopy || {}, null, 2).slice(0, 2500)}`;
+
+  const { content } = await callAI({
+    provider: _provider,
+    apiKey,
+    model,
+    systemPrompt,
+    userPrompt,
+    responseFormat: 'json',
+    temperature: 0,
+    maxTokens: 900,
+  });
+
+  const parsed = parseJsonLoose(content) || {};
+  const action = parsed.action === 'revise' ? 'revise' : 'chat';
+  const assistantMessage = typeof parsed.assistantMessage === 'string' && parsed.assistantMessage.trim()
+    ? parsed.assistantMessage.trim()
+    : (action === 'revise'
+      ? '요청하신 수정 방향을 이해했습니다. 반영해볼게요.'
+      : '네, 잘 들려요. 원하는 수정 내용을 말씀해주시면 바로 반영할게요.');
+  const revisionRequest = typeof parsed.revisionRequest === 'string' ? parsed.revisionRequest.trim() : '';
+
+  return {
+    action,
+    assistantMessage,
+    revisionRequest: action === 'revise' ? (revisionRequest || userMessage) : '',
+  };
+}
+
 export async function generateCoupangPage({
   apiKey,
   model = 'gpt-4o-mini',
