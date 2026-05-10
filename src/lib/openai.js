@@ -309,7 +309,12 @@ ${JSON.stringify(currentBrief, null, 2)}
  * 특정 페이지(P1~P10) 콘텐츠를 생성.
  */
 function detectP4RevisionTarget(text = '') {
-  const normalized = String(text || '').toLowerCase();
+  const normalized = String(text || '').toLowerCase().trim();
+
+  // 내부 정규화 지시문을 다시 판별할 때는 우선순위를 명확히 고정
+  if (normalized.includes('sectiontitle(상단 제목)만 수정하세요')) return 'headline';
+  if (normalized.includes('reviews 배열 내용만 수정하세요')) return 'reviews';
+
   const headlineRequested = /(헤드라인|제목|타이틀|섹션명|상단 문구|상단 제목)/i.test(normalized);
   const reviewsRequested = /(리뷰|후기|본문|리뷰내용|후기내용|멘트|내용)/i.test(normalized);
 
