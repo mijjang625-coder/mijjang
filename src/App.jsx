@@ -1852,6 +1852,13 @@ export default function App() {
                 const specific = validatePageRequirements(currentPage, brief);
                 const allWarnings = [...(common.warnings || []), ...(specific.warnings || [])];
                 const hasWarnings = allWarnings.length > 0 && common.ok;
+                const hasAnyInput = Boolean(
+                  brief.productName?.trim() ||
+                  referenceUrl?.trim() ||
+                  pastedText?.trim() ||
+                  userNotes?.trim() ||
+                  (Array.isArray(images) && images.length > 0)
+                );
 
                 // 빈 칸이 없을 때 — 동일한 크기의 빈(완료) 박스 표시
                 if (!hasWarnings) {
@@ -1867,16 +1874,31 @@ export default function App() {
                       }}
                     >
                       {/* 1행: 제목 — 전체폭 */}
-                      <div className="font-bold mb-1.5">✅ 모든 항목이 채워져 있습니다 — 바로 생성 가능합니다</div>
+                      <div className="font-bold mb-1.5">
+                        {hasAnyInput
+                          ? '✅ 모든 항목이 채워져 있습니다 — 바로 생성 가능합니다'
+                          : 'ℹ️ 아직 입력값이 없습니다'}
+                      </div>
                       {/* 2~3행: 좌(상태) | 중앙 세로선 | 우(💡 안내) */}
                       <div className="flex items-stretch gap-2">
                         <ul className="list-disc list-inside flex-1 min-w-0" style={{ width: '50%' }}>
-                          <li className="truncate">필수/추천 항목 모두 입력 완료</li>
-                          <li className="truncate">추가 자동 보완 불필요</li>
+                          {hasAnyInput ? (
+                            <>
+                              <li className="truncate">필수/추천 항목 모두 입력 완료</li>
+                              <li className="truncate">추가 자동 보완 불필요</li>
+                            </>
+                          ) : (
+                            <>
+                              <li className="truncate">제품명 또는 참조 자료를 먼저 입력해 주세요</li>
+                              <li className="truncate">입력 후 AI 자동 채우기를 사용할 수 있어요</li>
+                            </>
+                          )}
                         </ul>
                         <div style={{ width: '1px', backgroundColor: '#86EFAC', flexShrink: 0 }} />
                         <div className="flex-1 min-w-0 text-[11px]" style={{ width: '50%' }}>
-                          💡 우측 상단의 <b>생성</b> 버튼을 눌러 페이지를 만들어 보세요.
+                          {hasAnyInput
+                            ? <><span>💡 우측 상단의 <b>생성</b> 버튼을 눌러 페이지를 만들어 보세요.</span></>
+                            : <><span>💡 좌측에서 기본 정보를 입력하면 안내 문구가 자동으로 업데이트됩니다.</span></>}
                         </div>
                       </div>
                     </div>
