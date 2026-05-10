@@ -15,6 +15,46 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 /**
  * 사용자 입력 정보를 모델이 읽기 쉬운 프롬프트로 직렬화.
  */
+function parseJsonLoose(text) {
+  if (typeof text !== 'string') return null;
+  const candidates = [];
+
+  // 1) 원문 그대로
+  candidates.push(text.trim());
+
+  // 2) 코드펜스 제거
+  const noFence = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  candidates.push(noFence);
+
+  // 3) 첫 { ~ 마지막 } 추출
+  const firstBrace = noFence.indexOf('{');
+  const lastBrace = noFence.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    candidates.push(noFence.slice(firstBrace, lastBrace + 1));
+  }
+
+  for (const c of candidates) {
+    if (!c) continue;
+    try {
+      return JSON.parse(c);
+    } catch {
+      // trailing comma 보정 1회 시도
+      try {
+        const cleaned = c.replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(cleaned);
+      } catch {
+        // continue
+      }
+    }
+  }
+
+  return null;
+}
+
 function serializeUserBrief(brief, imageCount) {
   const {
     productName,
@@ -388,11 +428,37 @@ ${previousPagesSummary ? `이전 페이지 요약:\n${previousPagesSummary}\n\n`
     maxTokens: 4096,
   });
 
-  let parsed;
-  try {
-    parsed = JSON.parse(content);
-  } catch (e) {
-    console.error('[generateCoupangPage] JSON parse 실패', { pageNumber, content, error: e });
+  let parsed = parseJsonLoose(content);
+
+  // 1차 파싱 실패 시: 동일 모델에 JSON 정규화 요청 1회 재시도
+  if (!parsed) {
+    console.warn('[generateCoupangPage] 1차 JSON parse 실패 — JSON 정규화 재시도', { pageNumber });
+    const repairPrompt = `아래 텍스트를 의미 손실 없이 "유효한 단일 JSON 오브젝트"로만 정규화하세요.
+
+규칙:
+- 설명문/주석/코드펜스 금지
+- JSON만 출력
+- 키 이름/구조는 원문 의도를 최대한 유지
+
+원문:
+${content}`;
+
+    const repaired = await callAI({
+      provider: _provider,
+      apiKey,
+      model,
+      systemPrompt: '너는 JSON 정규화 도우미다. 반드시 단일 JSON 오브젝트만 출력한다.',
+      userPrompt: repairPrompt,
+      responseFormat: 'json',
+      temperature: 0,
+      maxTokens: 4096,
+    });
+
+    parsed = parseJsonLoose(repaired?.content || '');
+  }
+
+  if (!parsed) {
+    console.error('[generateCoupangPage] JSON parse 최종 실패', { pageNumber, content: String(content).slice(0, 1200) });
     throw new Error('AI 응답을 JSON으로 파싱할 수 없습니다.');
   }
 
