@@ -28,9 +28,9 @@ export const AI_MODELS = {
     { id: 'gpt-4.1', label: 'GPT-4.1 (최고 품질)', input: 2.00, output: 8.00 },
   ],
   anthropic: [
-    { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (빠름·균형)', input: 0.80, output: 4.00 },
-    { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (한국어 카피 최강) ⭐', input: 3.00, output: 15.00 },
-    { id: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet (최신)', input: 3.00, output: 15.00 },
+    { id: 'claude-3-5-haiku-latest', label: 'Claude 3.5 Haiku (빠름·균형)', input: 0.80, output: 4.00 },
+    { id: 'claude-3-5-sonnet-latest', label: 'Claude 3.5 Sonnet (한국어 카피 최강) ⭐', input: 3.00, output: 15.00 },
+    { id: 'claude-3-7-sonnet-latest', label: 'Claude 3.7 Sonnet (최신)', input: 3.00, output: 15.00 },
   ],
   google: [
     { id: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (가장 저렴) 💰', input: 0.10, output: 0.40 },
@@ -154,6 +154,20 @@ async function callOpenAI({ apiKey, model, systemPrompt, userPrompt, responseFor
 // ─────────────────────────── Anthropic (Claude) ───────────────────────────
 // Claude messages API: https://docs.anthropic.com/en/api/messages
 // JSON 강제: 시스템 프롬프트에 "단일 JSON 오브젝트만 반환" 명시 + 응답에서 JSON 추출
+const ANTHROPIC_MODEL_FALLBACKS = {
+  'claude-3-5-haiku-20241022': 'claude-3-5-haiku-latest',
+  'claude-3-5-sonnet-20241022': 'claude-3-5-sonnet-latest',
+  'claude-3-7-sonnet-20250219': 'claude-3-7-sonnet-latest',
+};
+
+function getAnthropicFallbackModel(model) {
+  if (ANTHROPIC_MODEL_FALLBACKS[model]) return ANTHROPIC_MODEL_FALLBACKS[model];
+  // 날짜 버전이 들어오면 latest alias로 자동 변환
+  const dateVersion = model?.match(/^(claude-[\d-]+-(haiku|sonnet))-\d{8}$/);
+  if (dateVersion) return `${dateVersion[1]}-latest`;
+  return null;
+}
+
 async function callAnthropic({ apiKey, model, systemPrompt, userPrompt, responseFormat, temperature, maxTokens }) {
   // JSON 응답 형식이면 시스템 프롬프트에 강제 안내 추가
   let finalSystem = systemPrompt;
@@ -161,30 +175,51 @@ async function callAnthropic({ apiKey, model, systemPrompt, userPrompt, response
     finalSystem = `${systemPrompt}\n\n⚠️ CRITICAL: 응답은 반드시 단일 JSON 오브젝트(코드 펜스 없이)로만 반환하세요. 다른 설명/주석/문구 절대 금지. 응답 시작은 { 로 끝은 } 로 끝나야 합니다.`;
   }
 
-  const body = {
-    model,
-    max_tokens: maxTokens,
-    temperature,
-    system: finalSystem,
-    messages: [{ role: 'user', content: userPrompt }],
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    // 브라우저에서 Claude 직접 호출 시 필요 (CORS)
+    'anthropic-dangerous-direct-browser-access': 'true',
   };
 
-  const res = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      // 브라우저에서 Claude 직접 호출 시 필요 (CORS)
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Anthropic API 오류 (${res.status}): ${errText}`);
+  const callWithModel = async (modelToUse) => {
+    const body = {
+      model: modelToUse,
+      max_tokens: maxTokens,
+      temperature,
+      system: finalSystem,
+      messages: [{ role: 'user', content: userPrompt }],
+    };
+    const res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    return { res, text, modelUsed: modelToUse };
+  };
+
+  let firstTry = await callWithModel(model);
+  let { res, text, modelUsed } = firstTry;
+
+  // 모델 not_found 일 때 latest alias로 1회 자동 재시도
+  if (!res.ok && res.status === 404 && /not_found_error|"model"/i.test(text)) {
+    const fallbackModel = getAnthropicFallbackModel(model);
+    if (fallbackModel && fallbackModel !== model) {
+      const retry = await callWithModel(fallbackModel);
+      res = retry.res;
+      text = retry.text;
+      modelUsed = retry.modelUsed;
+      console.warn(`[callAnthropic] 모델 자동 fallback: ${model} -> ${fallbackModel}`);
+    }
   }
-  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(`Anthropic API 오류 (${res.status}): ${text}`);
+  }
+
+  const data = JSON.parse(text);
   let content = data?.content?.[0]?.text;
   if (!content) throw new Error('Claude 응답이 비어있습니다.');
 
@@ -199,7 +234,10 @@ async function callAnthropic({ apiKey, model, systemPrompt, userPrompt, response
       input: data?.usage?.input_tokens || 0,
       output: data?.usage?.output_tokens || 0,
     },
-    raw: data,
+    raw: {
+      ...data,
+      _resolvedModel: modelUsed,
+    },
   };
 }
 
