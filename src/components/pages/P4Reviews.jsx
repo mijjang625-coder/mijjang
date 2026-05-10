@@ -37,7 +37,10 @@ export default function P4Reviews({
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
-  const { reviews = [] } = copy;
+  const {
+    sectionTitle = '고객님들의 생생한 후기',
+    reviews = [],
+  } = copy;
   const editPropsFor = (id) => ({
     id, editMode,
     override: overrides[id] || {},
@@ -81,7 +84,7 @@ export default function P4Reviews({
               textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.3,
             }}
           >
-            고객님들의 생생한 후기
+            {sectionTitle}
           </EditableText>
         </div>
 

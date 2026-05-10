@@ -199,7 +199,10 @@ P1: {
   [주의] desc에 줄바꿈(\n)을 넣어도 되고, 자연스럽게 2줄로 끊기는 분량이면 OK.
 P2: { sections: [{title, desc, photoHint}, x3] }
 P3: { badge, mainTitle, badgePoint, checklist: [string x4~5] }
-P4: { reviews: [{nickname, date, body}, x4] }  // 원문 그대로
+P4: {
+  sectionTitle: "후기 섹션 제목 (예: 고객님들의 생생한 후기)",
+  reviews: [{nickname, date, body}, x4]
+}  // 원문 그대로 + 제목/본문 필드 구분 유지
 P5: {
   headline, sub,
   rows: [{label, ours, general}, x4~6],

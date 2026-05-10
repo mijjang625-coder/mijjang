@@ -308,6 +308,32 @@ ${JSON.stringify(currentBrief, null, 2)}
 /**
  * 특정 페이지(P1~P10) 콘텐츠를 생성.
  */
+function detectP4RevisionTarget(text = '') {
+  const normalized = String(text || '').toLowerCase();
+  const headlineRequested = /(헤드라인|제목|타이틀|섹션명|상단 문구|상단 제목)/i.test(normalized);
+  const reviewsRequested = /(리뷰|후기|본문|리뷰내용|후기내용|멘트|내용)/i.test(normalized);
+
+  if (headlineRequested && reviewsRequested) return 'both';
+  if (headlineRequested) return 'headline';
+  if (reviewsRequested) return 'reviews';
+  return 'unknown';
+}
+
+function buildP4RevisionRequest({ userMessage, revisionRequest }) {
+  const baseRequest = String(revisionRequest || userMessage || '').trim();
+  const target = detectP4RevisionTarget(baseRequest);
+
+  if (target === 'headline') {
+    return `P4에서 sectionTitle(상단 제목)만 수정하세요. 원요청: "${baseRequest}". reviews 배열의 nickname/date/body는 절대 변경하지 마세요.`;
+  }
+
+  if (target === 'reviews') {
+    return `P4에서 reviews 배열 내용만 수정하세요. 원요청: "${baseRequest}". sectionTitle(상단 제목)은 유지하세요.`;
+  }
+
+  return baseRequest;
+}
+
 export async function classifyRevisionChatIntent({
   apiKey,
   model = 'gpt-4o-mini',
@@ -370,11 +396,16 @@ ${JSON.stringify(previousCopy || {}, null, 2).slice(0, 2500)}`;
       ? '요청하신 수정 방향을 이해했습니다. 반영해볼게요.'
       : '네, 잘 들려요. 원하는 수정 내용을 말씀해주시면 바로 반영할게요.');
   const revisionRequest = typeof parsed.revisionRequest === 'string' ? parsed.revisionRequest.trim() : '';
+  const normalizedRevisionRequest = action === 'revise'
+    ? (pageNumber === 'P4'
+      ? buildP4RevisionRequest({ userMessage, revisionRequest })
+      : (revisionRequest || userMessage))
+    : '';
 
   return {
     action,
     assistantMessage,
-    revisionRequest: action === 'revise' ? (revisionRequest || userMessage) : '',
+    revisionRequest: normalizedRevisionRequest,
   };
 }
 
@@ -441,6 +472,15 @@ copy 안에 반드시 아래 3개 키가 모두 있어야 합니다:
       .join('\n')}\n`
     : '';
 
+  const p4Target = pageNumber === 'P4' ? detectP4RevisionTarget(revisionRequest) : 'unknown';
+  const p4RevisionGuard = (isRevisionMode && pageNumber === 'P4')
+    ? `\n7. P4 필드 타깃 규칙:\n${p4Target === 'headline'
+      ? '   - 이번 요청은 sectionTitle(상단 제목) 전용 수정입니다. reviews 배열(nickname/date/body)은 절대 변경하지 마세요.'
+      : p4Target === 'reviews'
+        ? '   - 이번 요청은 reviews 배열 수정입니다. sectionTitle(상단 제목)은 유지하세요.'
+        : '   - 사용자가 명시한 대상 필드만 수정하세요. sectionTitle와 reviews를 불필요하게 함께 바꾸지 마세요.'}`
+    : '';
+
   const userPrompt = isRevisionMode
     ? `🔧 [수정 작업] ${pageNumber} 페이지를 수정합니다.
 
@@ -464,7 +504,7 @@ ${briefText}${p5ExtraBrief}${p10Hint}
 3. **현재 페이지 상태를 base로** 수정 부분만 바꾸고, 나머지는 그대로 유지 (재생성 금지).
 4. 최종 결과는 시스템 프롬프트의 ${pageNumber} JSON 스키마 준수.
 5. 단일 JSON 오브젝트만, 코드 펜스 없이 반환.
-6. confirmMessage는 시스템 프롬프트 포맷 그대로.
+6. confirmMessage는 시스템 프롬프트 포맷 그대로.${p4RevisionGuard}
 
 🚫 금지 사항:
 - 사용자가 지우라고 한 내용을 "브리프에 있으니까" 다시 넣지 마세요.
