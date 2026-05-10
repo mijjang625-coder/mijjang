@@ -410,6 +410,20 @@ ${previousPagesSummary ? `이전 페이지 요약:\n${previousPagesSummary}\n\n`
     parsed._provider = _provider;
   }
 
+  // Claude가 가끔 copy를 채워두고도 needsMoreInfo=true를 반환하는 경우가 있어,
+  // 렌더 가능한 copy가 있으면 생성 진행을 막지 않도록 자동 완화.
+  const hasRenderableCopy = (() => {
+    if (!parsed?.copy) return false;
+    if (typeof parsed.copy === 'string') return parsed.copy.trim().length > 0;
+    if (typeof parsed.copy === 'object') return Object.keys(parsed.copy).length > 0;
+    return false;
+  })();
+  if (parsed?.needsMoreInfo && hasRenderableCopy) {
+    console.warn('[generateCoupangPage] needsMoreInfo=true 이지만 copy 존재 — 자동 생성 허용으로 전환');
+    parsed.needsMoreInfo = false;
+    parsed.missingItems = [];
+  }
+
   // 🛡️ P10 안전 보강 — 응답이 부분적이거나 needsMoreInfo여도 빈 데이터로 깨지지 않도록
   if (pageNumber === 'P10') {
     parsed.copy = parsed.copy || {};
