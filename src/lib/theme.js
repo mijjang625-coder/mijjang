@@ -241,10 +241,69 @@ export function getCategoryVisualPreset(productType) {
   return CATEGORY_VISUAL_PRESETS[productType] || null;
 }
 
+// 카테고리별 페이지 쉘(프레임) 스타일 — 같은 색상 테마라도 화면 인상이 확 달라지도록 구성
+export const DEFAULT_PAGE_SKIN = {
+  borderRadius: 0,
+  border: '0px solid transparent',
+  shadow: 'none',
+  backgroundImage: 'none',
+};
+
+export const CATEGORY_PAGE_SKINS = {
+  '청소도구형': {
+    borderRadius: 14,
+    border: '2px solid #A8CAE2',
+    shadow: '0 16px 38px rgba(15, 60, 92, 0.16)',
+    backgroundImage: 'linear-gradient(180deg, rgba(234,245,252,0.92) 0%, rgba(255,255,255,1) 46%)',
+  },
+  '수납형': {
+    borderRadius: 4,
+    border: '1px solid #2D3138',
+    shadow: '0 14px 34px rgba(24, 28, 34, 0.22)',
+    backgroundImage: 'linear-gradient(180deg, rgba(242,244,246,0.95) 0%, rgba(255,255,255,1) 44%)',
+  },
+  '욕실/위생형': {
+    borderRadius: 24,
+    border: '3px solid #84C4E3',
+    shadow: '0 20px 44px rgba(10, 79, 119, 0.18)',
+    backgroundImage: 'linear-gradient(180deg, rgba(226,246,255,0.95) 0%, rgba(255,255,255,1) 50%)',
+  },
+  '주방정리형': {
+    borderRadius: 18,
+    border: '2px solid #93B18E',
+    shadow: '0 18px 40px rgba(55, 81, 60, 0.18)',
+    backgroundImage: 'linear-gradient(180deg, rgba(235,245,227,0.95) 0%, rgba(255,255,255,1) 48%)',
+  },
+  '소모품형': {
+    borderRadius: 6,
+    border: '1px solid #203149',
+    shadow: '0 14px 36px rgba(15, 24, 37, 0.26)',
+    backgroundImage: 'linear-gradient(180deg, rgba(236,241,248,0.95) 0%, rgba(255,255,255,1) 46%)',
+  },
+  '생활보조형': {
+    borderRadius: 22,
+    border: '2px solid #D4BCA4',
+    shadow: '0 18px 40px rgba(90, 64, 42, 0.18)',
+    backgroundImage: 'linear-gradient(180deg, rgba(249,241,233,0.95) 0%, rgba(255,255,255,1) 50%)',
+  },
+  '인테리어소품형': {
+    borderRadius: 28,
+    border: '2px solid #E9B7CB',
+    shadow: '0 20px 46px rgba(95, 45, 66, 0.2)',
+    backgroundImage: 'linear-gradient(180deg, rgba(252,238,244,0.96) 0%, rgba(255,255,255,1) 52%)',
+  },
+};
+
+export function applyCategoryPageSkin(productType) {
+  BRAND.pageSkin = CATEGORY_PAGE_SKINS[productType] || DEFAULT_PAGE_SKIN;
+  return BRAND.pageSkin;
+}
+
 // 기본 테마 (호환용)
 export const BRAND = {
   colors: THEME_PRESETS.warmBeige.colors,
   fontFamily: FONT_FAMILY,
+  pageSkin: DEFAULT_PAGE_SKIN,
 };
 
 // 선택된 테마로 BRAND.colors 스왑

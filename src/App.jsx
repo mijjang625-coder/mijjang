@@ -21,7 +21,7 @@ import ScaledHeightWrap from './components/ui/ScaledHeightWrap.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
 import OnboardingTour from './components/onboarding/OnboardingTour.jsx';
 import { DEFAULT_BRIEF } from './lib/briefDefaults.js';
-import { THEME_PRESETS, applyTheme, applyFont, getCategoryVisualPreset } from './lib/theme.js';
+import { THEME_PRESETS, applyTheme, applyFont, applyCategoryPageSkin, getCategoryVisualPreset } from './lib/theme.js';
 import {
   saveProject,
   loadProject,
@@ -847,6 +847,12 @@ export default function App() {
 
       return changed ? next : prev;
     });
+  }, [brief.productType]);
+
+  // 카테고리별 페이지 프레임 스킨 적용 (모서리/테두리/그림자/그라데이션)
+  useEffect(() => {
+    applyCategoryPageSkin(brief.productType);
+    setPages((prev) => ({ ...prev }));
   }, [brief.productType]);
 
   // 테마 적용 — themeId 바뀔 때마다 BRAND.colors 스왑
