@@ -226,6 +226,20 @@ export default function App() {
     }
   }, [revisionHistory, currentPage, activeRevisionIndex]);
 
+  // 패널을 열었고 textarea가 비어 있으면, 최신 수정 항목을 자동으로 불러와 양방향 편집 시작
+  useEffect(() => {
+    if (!feedbackExpanded) return;
+    if (activeRevisionIndex != null) return;
+    if (feedbackInput.trim()) return;
+
+    const pageHistory = revisionHistory[currentPage] || [];
+    if (!pageHistory.length) return;
+
+    const lastIndex = pageHistory.length - 1;
+    setActiveRevisionIndex(lastIndex);
+    setFeedbackInput(pageHistory[lastIndex]?.feedback || '');
+  }, [feedbackExpanded, activeRevisionIndex, feedbackInput, revisionHistory, currentPage]);
+
   // 🆕 텍스트(EditableText/FreeText) 가 활성화 됐다는 broadcast 를 받으면
   //   이미지/도형의 activeLayerId 도 함께 해제 → 사진 옵션바 자동으로 닫힘
   useEffect(() => {
