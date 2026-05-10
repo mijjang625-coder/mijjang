@@ -319,6 +319,7 @@ export async function generateCoupangPage({
   revisionRequest = '',           // 사용자 수정요청 피드백 (현재 턴)
   previousCopy = null,             // 이전 생성 결과 (수정의 base)
   revisionHistory = [],            // 이전 턴까지의 수정 히스토리 [{ feedback, at }, ...]
+  revisionChats = [],              // 현재 페이지 대화 히스토리 [{ role, text, at }, ...]
 }) {
   const _provider = provider || detectProviderFromModel(model);
   if (!apiKey) throw new Error('AI API 키가 필요합니다.');
@@ -360,6 +361,16 @@ copy 안에 반드시 아래 3개 키가 모두 있어야 합니다:
     ? `\n\n📝 이전까지의 수정 요청 히스토리 (모두 누적 적용):\n${revisionHistory.map((h, i) => `  ${i + 1}. "${h.feedback}"`).join('\n')}\n`
     : '';
 
+  const normalizedRevisionChats = (revisionChats || [])
+    .filter((m) => m && typeof m.text === 'string' && m.text.trim())
+    .slice(-12);
+
+  const chatHistoryBlock = normalizedRevisionChats.length > 0
+    ? `\n\n💬 현재 ${pageNumber} 페이지 채팅 맥락 (최신 12턴):\n${normalizedRevisionChats
+      .map((m, i) => `  ${i + 1}. [${m.role === 'assistant' ? 'AI' : '사용자'}] ${m.text}`)
+      .join('\n')}\n`
+    : '';
+
   const userPrompt = isRevisionMode
     ? `🔧 [수정 작업] ${pageNumber} 페이지를 수정합니다.
 
@@ -367,7 +378,7 @@ copy 안에 반드시 아래 3개 키가 모두 있어야 합니다:
 ⚡ 최우선 지시 — 아래 수정 요청을 반드시 그대로 반영하세요:
 "${revisionRequest}"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${historyBlock}
+${historyBlock}${chatHistoryBlock}
 📄 현재 페이지 상태 (이걸 base로 수정):
 ${JSON.stringify(previousCopy, null, 2)}
 
@@ -379,7 +390,7 @@ ${briefText}${p5ExtraBrief}${p10Hint}
    - "X를 지워줘"라고 했으면 **X가 다시 나오면 안 됩니다** (브리프에 있어도 무시).
    - "Y로 바꿔줘"라고 했으면 원래 Y가 아니었어도 Y로 바꾸세요.
    - "더 짧게"라고 했으면 이전보다 반드시 더 짧게.
-2. **이전 수정 히스토리도 모두 존중** — 누적해서 적용됩니다.
+2. **이전 수정 히스토리와 채팅 맥락을 모두 존중** — 누적해서 적용됩니다.
 3. **현재 페이지 상태를 base로** 수정 부분만 바꾸고, 나머지는 그대로 유지 (재생성 금지).
 4. 최종 결과는 시스템 프롬프트의 ${pageNumber} JSON 스키마 준수.
 5. 단일 JSON 오브젝트만, 코드 펜스 없이 반환.

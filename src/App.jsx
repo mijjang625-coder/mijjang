@@ -1332,6 +1332,22 @@ export default function App() {
     // 페이지별 체크는 경고만 — AI가 자동으로 채움
     validatePageRequirements(pageNumber, brief);
 
+    const revisionChatForPrompt = revisionRequest
+      ? [...(revisionChats[pageNumber] || []), { role: 'user', text: revisionRequest }]
+      : (revisionChats[pageNumber] || []);
+
+    if (revisionRequest) {
+      const userTurn = {
+        role: 'user',
+        text: revisionRequest,
+        at: new Date().toLocaleTimeString('ko-KR'),
+      };
+      setRevisionChats((prev) => ({
+        ...prev,
+        [pageNumber]: [...(prev[pageNumber] || []), userTurn],
+      }));
+    }
+
     if (revisionRequest) setIsRevising(true); else setIsLoading(true);
     // ⏱ 진행 상태 시작
     setGenerationProgress({
@@ -1360,6 +1376,7 @@ export default function App() {
         revisionRequest,
         previousCopy,
         revisionHistory: revisionHistory[pageNumber] || [], // 누적 수정 히스토리
+        revisionChats: revisionChatForPrompt, // 현재 페이지 대화 문맥
       });
       console.log(`[handleGenerate] ${pageNumber} 응답 수신`, {
         hasCopy: !!result?.copy,
@@ -1406,6 +1423,15 @@ export default function App() {
             { feedback: revisionRequest, at: new Date().toLocaleTimeString('ko-KR') },
           ],
         }));
+        const assistantTurn = {
+          role: 'assistant',
+          text: result?.confirmMessage || `${pageNumber} 수정 요청을 반영했습니다. 다음 요청을 이어서 말씀해 주세요.`,
+          at: new Date().toLocaleTimeString('ko-KR'),
+        };
+        setRevisionChats((prev) => ({
+          ...prev,
+          [pageNumber]: [...(prev[pageNumber] || []), assistantTurn],
+        }));
         setFeedbackInput('');
         setActiveRevisionIndex(null);
       } else {
@@ -1419,6 +1445,17 @@ export default function App() {
     } catch (err) {
       console.error(`[handleGenerate] ${pageNumber} 실패`, err);
       setError(`❌ ${pageNumber} 생성 실패: ${err.message || err}\n→ 브라우저 콘솔(F12)에서 자세한 에러를 확인할 수 있습니다.`);
+      if (revisionRequest) {
+        const assistantErrorTurn = {
+          role: 'assistant',
+          text: `수정 반영 중 오류가 발생했습니다: ${err.message || err}`,
+          at: new Date().toLocaleTimeString('ko-KR'),
+        };
+        setRevisionChats((prev) => ({
+          ...prev,
+          [pageNumber]: [...(prev[pageNumber] || []), assistantErrorTurn],
+        }));
+      }
     } finally {
       setIsLoading(false);
       setIsRevising(false);
@@ -2643,50 +2680,52 @@ export default function App() {
 
               {/* 본문 */}
               <div className="px-4 py-3 overflow-auto" style={{ backgroundColor: '#fff' }}>
-                {revisionHistory[currentPage]?.length > 0 && (
+                {(currentRevisionChat.length > 0 || revisionHistory[currentPage]?.length > 0) && (
                   <>
                     <div className="flex items-center justify-between mb-2">
                       <span style={{ color: '#6b635c', fontSize: '12px' }}>
-                        누적된 수정 {revisionHistory[currentPage].length}개
+                        현재 {currentPage} 대화 {currentRevisionChat.length}턴 · 누적 수정 {revisionHistory[currentPage]?.length || 0}개
                       </span>
                       <button
                         onClick={() => {
                           setRevisionHistory((prev) => ({ ...prev, [currentPage]: [] }));
+                          setRevisionChats((prev) => ({ ...prev, [currentPage]: [] }));
                           setActiveRevisionIndex(null);
                           setFeedbackInput('');
                         }}
                         className="text-slate-500 hover:text-slate-700 underline"
                         style={{ fontSize: '11px' }}
-                        title="수정 누적 초기화 (다음 수정부터 이전 지시가 반영되지 않음)"
+                        title="현재 페이지의 수정 히스토리와 채팅 맥락을 초기화"
                       >
                         🔄 히스토리 초기화
                       </button>
                     </div>
 
-                    <div className="mb-3 space-y-1 max-h-32 overflow-auto">
-                      {revisionHistory[currentPage].map((h, i) => {
-                        const isActive = activeRevisionIndex === i;
+                    <div className="mb-3 space-y-2 max-h-48 overflow-auto rounded-lg border p-2" style={{ borderColor: '#ece7df', backgroundColor: '#fcfaf8' }}>
+                      {currentRevisionChat.map((msg, i) => {
+                        const isUser = msg.role === 'user';
                         return (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => handleSelectRevisionHistory(i)}
-                            className="w-full p-1.5 rounded flex items-start gap-1 text-left border"
-                            style={{
-                              color: '#6b635c',
-                              backgroundColor: isActive ? '#fff3e8' : '#F7F3EE',
-                              borderColor: isActive ? '#E87A2B' : '#e7e1d8',
-                              fontSize: '12px',
-                            }}
-                            title={isActive ? '현재 textarea와 양방향 편집 중 (다시 클릭하면 해제)' : '클릭하면 textarea로 불러와서 편집'}
-                          >
-                            <span className="font-bold whitespace-nowrap">#{i + 1} [{h.at}]</span>
-                            <span className="flex-1">{h.feedback}</span>
-                          </button>
+                          <div key={`${msg.at || 'time'}-${i}`} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                              className="rounded-xl px-2.5 py-2 max-w-[92%]"
+                              style={{
+                                backgroundColor: isUser ? '#E87A2B' : '#F7F3EE',
+                                color: isUser ? '#fff' : '#2F2A26',
+                                fontSize: '12px',
+                                lineHeight: 1.4,
+                                border: isUser ? 'none' : '1px solid #e8e1d8',
+                              }}
+                            >
+                              <div style={{ opacity: 0.8, fontSize: '10px', marginBottom: 2, fontWeight: 700 }}>
+                                {isUser ? '나' : 'AI'} {msg.at ? `· ${msg.at}` : ''}
+                              </div>
+                              <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                            </div>
+                          </div>
                         );
                       })}
                       <div className="text-emerald-700 font-semibold" style={{ fontSize: '11px' }}>
-                        ✓ 위 {revisionHistory[currentPage].length}개 수정이 누적되어 다음 요청에도 유지됩니다.
+                        ✓ 이 대화는 {currentPage}에만 저장되고 다음 수정에도 문맥으로 반영됩니다.
                       </div>
                     </div>
                   </>
