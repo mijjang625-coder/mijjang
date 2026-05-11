@@ -1074,6 +1074,46 @@ function truncate(text, max = 25000) {
 }
 
 /**
+ * 1688/타오바오/쿠팡 페이지를 Ctrl+A 복붙했을 때 섞여 들어오는
+ * 추천상품/다른 판매자/네비게이션 텍스트를 줄여 제품 핵심 문맥만 남깁니다.
+ */
+function sanitizePastedMarketplaceText(text) {
+  if (!text || typeof text !== 'string') return '';
+
+  const normalized = text
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  const seen = new Set();
+  const noisyLinePattern = /(추천|연관|다른\s*판매자|함께\s*본|유사\s*상품|베스트|인기\s*상품|광고|sponsored|shop\s*now|enter\s*shop|store|stores?|seller|판매자\s*정보|고객센터|문의|채팅|장바구니|쿠폰|로그인|회원가입|app\s*download|download\s*app|猜你喜欢|推荐|店铺|客服|收藏|分享|登录|注册|广告|相关|同款)/i;
+  const strongSignalPattern = /(상품명|제품명|모델|규격|스펙|사이즈|크기|재질|소재|무게|중량|색상|용량|구성|원산지|제조|특징|포인트|사용법|주의사항|후기|리뷰|cm|mm|kg|g\b|ml|l\b|개입|세트|\d+\s*[x×]\s*\d+)/i;
+
+  const kept = [];
+  for (const line of normalized) {
+    if (line.length < 2) continue;
+    if (/^https?:\/\//i.test(line)) continue;
+    if (/^[\W_]+$/.test(line)) continue;
+    if (seen.has(line)) continue;
+
+    const isNoisy = noisyLinePattern.test(line);
+    const hasStrongSignal = strongSignalPattern.test(line);
+
+    if (isNoisy && !hasStrongSignal) continue;
+
+    seen.add(line);
+    kept.push(line);
+  }
+
+  const cleaned = kept.join('\n');
+  // 과도 필터링 방지: 결과가 너무 짧으면 원문 유지
+  if (cleaned.length < 300 && text.length >= 300) return text;
+  return cleaned || text;
+}
+
+/**
  * 참조 URL에서 제품 정보를 추출.
  * 중국어(1688/타오바오)는 한국어로 번역해서 반환.
  */
@@ -1190,9 +1230,10 @@ export async function extractProductInfoFromText({
   // Vision은 gpt-4o-mini / gpt-4o / gpt-4.1-mini / gpt-4.1 모두 지원
   const visionModel = model;
 
-  const pageContent = hasPasted ? truncate(pastedText) : '(페이지 내용 없음)';
+  const sanitizedPastedText = hasPasted ? sanitizePastedMarketplaceText(pastedText) : '';
+  const pageContent = hasPasted ? truncate(sanitizedPastedText || pastedText) : '(페이지 내용 없음)';
   const notesContent = hasNotes ? truncate(userNotes, 8000) : '';
-  const contentLength = (pastedText?.length || 0) + (userNotes?.length || 0);
+  const contentLength = (sanitizedPastedText?.length || pastedText?.length || 0) + (userNotes?.length || 0);
 
   const systemPrompt = `당신은 이커머스 상품 페이지 분석 전문가입니다.
 사용자가 제공한 자료에서만 정보를 추출합니다. 추측·창작·일반상식 보충은 절대 금지합니다.
@@ -1324,7 +1365,15 @@ ${hasNotes ? '🔑 **사용자 메모([B])가 무조건 우선**입니다. ' : '
       }));
     }
     const sources = [];
-    if (hasPasted) sources.push(`텍스트 ${pastedText.length.toLocaleString()}자`);
+    if (hasPasted) {
+      const rawLen = pastedText.length;
+      const cleanLen = (sanitizedPastedText || '').length;
+      if (cleanLen > 0 && cleanLen !== rawLen) {
+        sources.push(`텍스트 ${rawLen.toLocaleString()}자 (정제 ${cleanLen.toLocaleString()}자)`);
+      } else {
+        sources.push(`텍스트 ${rawLen.toLocaleString()}자`);
+      }
+    }
     if (hasNotes) sources.push(`메모 ${userNotes.length.toLocaleString()}자`);
     if (hasImages) sources.push(`이미지 ${validImages.length}장 OCR`);
     return {
@@ -1368,7 +1417,8 @@ export async function extractRecommendedKeywords({
     throw new Error('제품명·페이지 내용·메모·이미지 중 하나는 필요합니다.');
   }
 
-  const pageContent = hasPasted ? truncate(pastedText) : '(없음)';
+  const sanitizedPastedText = hasPasted ? sanitizePastedMarketplaceText(pastedText) : '';
+  const pageContent = hasPasted ? truncate(sanitizedPastedText || pastedText) : '(없음)';
   const notesContent = hasNotes ? truncate(userNotes, 8000) : '';
 
   const systemPrompt = `당신은 쿠팡/네이버쇼핑 SEO 전문가입니다.
