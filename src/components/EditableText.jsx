@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { FONT_PRESETS } from '../lib/theme.js';
 import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
@@ -519,6 +520,11 @@ export default function EditableText({
     ? {} // 편집 중엔 React가 자식 제어 안 함 (contentEditable이 사용자 입력 직접 처리)
     : { dangerouslySetInnerHTML: { __html: mergedHtml || escapeHtml(placeholder || '') } };
 
+  const renderInPortal = (node) => {
+    if (typeof document === 'undefined') return node;
+    return createPortal(node, document.body);
+  };
+
   return (
     <>
       <Tag
@@ -582,7 +588,7 @@ export default function EditableText({
         {...editableProps}
       />
 
-      {showToolbar && (
+      {showToolbar && renderInPortal(
         <MiniToolbar
           pos={toolbarPos}
           currentStyle={mergedStyle}
@@ -593,7 +599,7 @@ export default function EditableText({
       )}
 
       {/* 🆕 인라인 툴바 — 선택 부분만 서식 변경 */}
-      {isEditing && inlineToolbar.show && (
+      {isEditing && inlineToolbar.show && renderInPortal(
         <InlineToolbar
           pos={inlineToolbar}
           onApply={applyInline}
