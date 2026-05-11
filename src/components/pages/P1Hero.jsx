@@ -146,7 +146,7 @@ export default function P1Hero({
     }),
     // 🆕 (2026-05-03) 글박스 레이어 — overrides 에서 frame/zIndex 가 있는 항목만 추출
     ...Object.entries(overrides || {})
-      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset))
+      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset || ov.hidden || ov.registered))
       .map(([id, ov]) => {
         // id 가 'P1.mainHeadline' 형태 → 마지막 토큰을 보여주기 좋게 변환
         const shortId = id.split('.').slice(1).join('.') || id;

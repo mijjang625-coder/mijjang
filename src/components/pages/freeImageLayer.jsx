@@ -148,7 +148,7 @@ export function useFreeImageLayer({
     }),
     // 🆕 (2026-05-06) 메인 글박스 레이어 — overrides 에서 의미있는 항목만 추출
     ...Object.entries(textOverrides || {})
-      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset || ov.hidden))
+      .filter(([_id, ov]) => ov && (ov.frame || ov.zIndex !== undefined || ov.html !== undefined || ov.text !== undefined || ov.style || ov.offset || ov.hidden || ov.registered))
       .map(([id, ov]) => {
         const shortId = id.split('.').slice(1).join('.') || id;
         const def = `🅰 글박스: ${shortId}`;

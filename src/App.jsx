@@ -774,7 +774,13 @@ export default function App() {
 
   // 텍스트 오버라이드 업데이트 헬퍼 (페이지 + 텍스트ID + 부분 override 병합)
   const updateTextOverride = (pageNum, textId, partial) => {
-    pushHistoryDebounced(`text.${pageNum}.${textId}`, `${pageNum} 텍스트 수정`);
+    const registerOnly = !!partial?.__registerOnly;
+    if (!registerOnly) {
+      pushHistoryDebounced(`text.${pageNum}.${textId}`, `${pageNum} 텍스트 수정`);
+    }
+
+    const { __registerOnly, ...safePartial } = partial || {};
+
     setTextOverrides((prev) => {
       const pagePrev = prev[pageNum] || {};
       const itemPrev = pagePrev[textId] || {};
@@ -782,7 +788,7 @@ export default function App() {
         ...prev,
         [pageNum]: {
           ...pagePrev,
-          [textId]: { ...itemPrev, ...partial },
+          [textId]: { ...itemPrev, ...safePartial },
         },
       };
     });

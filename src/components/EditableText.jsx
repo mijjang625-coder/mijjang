@@ -92,10 +92,20 @@ export default function EditableText({
   const mergedText = override?.text !== undefined ? override.text : (typeof children === 'string' ? children : '');
   const mergedStyle = { ...defaultStyle, ...(override?.style || {}) };
   const offset = override?.offset || { x: 0, y: 0 };
+  const isRegistered = !!override?.registered;
 
   // ⚠️ Hook 규칙 — useEffect는 early return 보다 먼저 호출되어야 함
   //    (editMode 토글 시 Hook 개수가 바뀌면 React가 크래시함)
   //    early return은 모든 Hook 호출 뒤로 이동.
+
+  // 편집 모드에서 레이어 패널용 텍스트 레이어를 자동 등록
+  // (P2~P10에서도 P1처럼 글박스 레이어/눈 아이콘 사용 가능하게)
+  useEffect(() => {
+    if (!editMode) return;
+    if (isRegistered) return;
+    onChange({ registered: true, __registerOnly: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode, isRegistered, id]);
 
   // 툴바 위치 계산 — viewport 기준 (position: fixed)
   const updateToolbarPos = () => {
