@@ -36,7 +36,7 @@ const M = {
 
   // 좌/우 헤더 라벨
   headerLeftBg: '#efe6dc',
-  headerRightBg: '#d7cdc2',
+  headerRightBg: '#e8ebef',
   headerLeftText: '#4b3f34',
   headerRightText: '#4b3f34',
 
@@ -49,7 +49,7 @@ const M = {
 
   // 데이터 셀
   cellLeftBg: '#ffffff',
-  cellRightBg: '#ffffff',
+  cellRightBg: '#f3f5f7',
   cellLeftText: '#222222',
   cellCenterText: '#ffffff',
   cellRightText: '#222222',
@@ -180,7 +180,7 @@ export default function P5Compare({
         style={{
           ...cellBase,
           padding: isCenter ? '14px 8px 12px' : '14px 10px',
-          backgroundColor: isCenter ? 'transparent' : '#ffffff',
+          backgroundColor: isCenter ? 'transparent' : kind === 'right' ? M.cellRightBg : '#ffffff',
           color,
           fontSize: isCenter ? 30 : 23,
           fontWeight: isCenter ? 800 : 700,
