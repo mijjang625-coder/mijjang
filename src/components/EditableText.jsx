@@ -650,7 +650,7 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
       {/* 크기 조절 */}
       <button
         style={toolbarBtnStyle}
-        onClick={() => onApply({ fontSize: Math.max(8, currentFontSize - 2) })}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onApply({ fontSize: Math.max(8, currentFontSize - 2) }); }}
         title="크기 작게"
       >
         A−
@@ -660,7 +660,7 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
       </span>
       <button
         style={toolbarBtnStyle}
-        onClick={() => onApply({ fontSize: currentFontSize + 2 })}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onApply({ fontSize: currentFontSize + 2 }); }}
         title="크기 크게"
       >
         A+
@@ -674,11 +674,13 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
           backgroundColor:
             (currentStyle?.fontWeight || 400) >= 700 ? '#3b82f6' : '#334155',
         }}
-        onClick={() =>
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           onApply({
             fontWeight: (currentStyle?.fontWeight || 400) >= 700 ? 500 : 800,
-          })
-        }
+          });
+        }}
         title="굵게"
       >
         B
@@ -702,27 +704,27 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
       </label>
 
       {/* 정렬 */}
-      <button style={toolbarBtnStyle} onClick={() => onApply({ textAlign: 'left' })} title="왼쪽 정렬">
+      <button style={toolbarBtnStyle} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onApply({ textAlign: 'left' }); }} title="왼쪽 정렬">
         ⬅
       </button>
-      <button style={toolbarBtnStyle} onClick={() => onApply({ textAlign: 'center' })} title="가운데">
+      <button style={toolbarBtnStyle} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onApply({ textAlign: 'center' }); }} title="가운데">
         ⬌
       </button>
-      <button style={toolbarBtnStyle} onClick={() => onApply({ textAlign: 'right' })} title="오른쪽">
+      <button style={toolbarBtnStyle} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onApply({ textAlign: 'right' }); }} title="오른쪽">
         ➡
       </button>
 
       {/* 초기화 */}
       <button
         style={{ ...toolbarBtnStyle, backgroundColor: '#7c2d12' }}
-        onClick={onReset}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onReset(); }}
         title="이 텍스트 스타일 초기화"
       >
         ↺
       </button>
 
       {/* 닫기 */}
-      <button style={toolbarBtnStyle} onClick={onClose} title="툴바 닫기">
+      <button style={toolbarBtnStyle} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} title="툴바 닫기">
         ✕
       </button>
     </div>
