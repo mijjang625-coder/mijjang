@@ -237,7 +237,7 @@ export default function P1Hero({
       <div className={editMode ? 'p1-content-layer' : ''} style={{
         position: 'relative',
         padding: '60px 50px 30px', textAlign: 'center',
-        pointerEvents: editMode ? 'none' : 'auto',
+        pointerEvents: 'auto',
       }}>
         <EditableText
           {...editPropsFor('P1.mainHeadline')}
@@ -278,7 +278,7 @@ export default function P1Hero({
           style={{
             marginTop: 36,
             // wrapper는 항상 통과 (실제 사진 영역만 EditableImage 내부에서 클릭 받음)
-            pointerEvents: editMode ? 'none' : 'auto',
+            pointerEvents: 'auto',
             position: 'relative',
             zIndex: mainZ,
             borderRadius: 22,
@@ -307,7 +307,7 @@ export default function P1Hero({
       <div className={editMode ? 'p1-content-layer' : ''} style={{
         position: 'relative',
         backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20,
-        pointerEvents: editMode ? 'none' : 'auto',
+        pointerEvents: 'auto',
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: cardCfg.cardGap }}>
           {strengthCards.slice(0, 3).map((c, i) => (
