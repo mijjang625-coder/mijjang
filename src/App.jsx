@@ -76,6 +76,8 @@ export default function App() {
 
   // 🆕 리뷰 분석 결과 (CompetitorAnalyzer 갭 매칭용)
   const [reviewInsights, setReviewInsights] = useState(null);
+  // 리뷰 분석기 내부 상태 강제 리셋 신호 (초기화 시 +1)
+  const [reviewAnalyzerResetKey, setReviewAnalyzerResetKey] = useState(0);
 
   // 브리프 + 이미지
   const [brief, setBrief] = useState(DEFAULT_BRIEF);
@@ -1065,12 +1067,16 @@ export default function App() {
     setLayerNames({});
     setP5Version('text');
     setRevisionHistory({});
+    setReviewInsights(null);
+    setKeywords([]);
     setExtractResult(null);
     setReferenceUrl('');
     setPastedText('');
     setUserNotes('');
     setError('');
     setLastSavedAt(null);
+    try { localStorage.removeItem('reviewAnalyzer.v1'); } catch {}
+    setReviewAnalyzerResetKey((k) => k + 1);
     // 🔄 히스토리도 초기화
     undoHistory.reset({
       pages: {},
@@ -1980,6 +1986,7 @@ export default function App() {
           handleImageUpload={handleImageUpload}
           reviewInsights={reviewInsights}
           setReviewInsights={setReviewInsights}
+          reviewAnalyzerResetKey={reviewAnalyzerResetKey}
           referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
           isExtracting={isExtracting}
           extractResult={extractResult}

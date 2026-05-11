@@ -58,6 +58,7 @@ export default function Sidebar({
   images, handleImageUpload,
   // 리뷰/경쟁사 분석
   reviewInsights, setReviewInsights,
+  reviewAnalyzerResetKey = 0,
   // 참조 자료
   referenceUrl, setReferenceUrl,
   isExtracting,
@@ -465,6 +466,7 @@ export default function Sidebar({
               model={model}
               productName={brief.productName}
               productType={brief.productType}
+              resetSignal={reviewAnalyzerResetKey}
               onAnalyzed={setReviewInsights}
               onApplyAdoptedToNotes={(text) => {
                 // 🆕 (2026-04-28) 채택 문구를 "내 메모"에 자동 추가

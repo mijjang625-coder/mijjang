@@ -30,6 +30,8 @@ export default function ReviewAnalyzer({
   model = 'gpt-4o-mini',
   productName = '',
   productType = '',
+  // 부모(App)에서 전체 초기화 시 전달되는 리셋 신호값
+  resetSignal = 0,
   // 외부에 채택된 문구 알림 (선택)
   onAdoptedHeadlinesChange = () => {},
   // 키워드를 사이드바 검색량 키워드 영역에 추가할 때 사용 (선택)
@@ -213,9 +215,7 @@ export default function ReviewAnalyzer({
     }
   };
 
-  // 분석 초기화
-  const resetAll = () => {
-    if (!window.confirm('분석 결과와 입력을 모두 초기화할까요?')) return;
+  const clearAnalyzerState = () => {
     setResult(null);
     setAdopted({});
     setExcelRows([]);
@@ -227,6 +227,18 @@ export default function ReviewAnalyzer({
     setError('');
     try { localStorage.removeItem('reviewAnalyzer.v1'); } catch (_) {}
   };
+
+  // 분석 초기화 (수동 버튼)
+  const resetAll = () => {
+    if (!window.confirm('분석 결과와 입력을 모두 초기화할까요?')) return;
+    clearAnalyzerState();
+  };
+
+  // 부모에서 전체 초기화가 실행되면 리뷰 분석기도 확인창 없이 즉시 초기화
+  useEffect(() => {
+    if (!resetSignal) return;
+    clearAnalyzerState();
+  }, [resetSignal]);
 
   // 헤드라인 채택 토글
   const toggleAdopt = (id) => {
