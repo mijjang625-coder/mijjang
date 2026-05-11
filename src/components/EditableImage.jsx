@@ -586,6 +586,11 @@ export default function EditableImage({
         : false
   );
 
+  // 툴바/핸들 표시 중에는 wrapper 자체를 최상단으로 올려
+  // 페이지 내부의 다른 셀/사진(popout 포함) 뒤로 툴바가 숨지 않게 한다.
+  const overlayActive = showUI || mode === 'cropping' || showSwapPanel || showAdjust || resizing || draggingFrame || draggingCrop;
+  const wrapperZ = overlayActive ? 100500 : (customZ ?? 1);
+
   return (
     <div
       ref={wrapperRef}
@@ -594,7 +599,7 @@ export default function EditableImage({
         width: '100%',
         aspectRatio: hasFrame ? undefined : aspect,
         minHeight: wrapperMinHeight,
-        zIndex: customZ ?? 1,
+        zIndex: wrapperZ,
         // wrapper는 frame 바깥(빈 여백)에서 클릭을 통과시켜
         // 뒤에 깔린 자유이미지가 선택될 수 있게 한다.
         pointerEvents: hasFrame ? 'none' : 'auto',
