@@ -7,6 +7,13 @@ import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 import SlotInsertButton from './SlotInsertButton.jsx';
 
+function normalizeMultilineText(text = '') {
+  return String(text)
+    .replace(/\s*\n+\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // P2: 베네핏 심화 설명 (세로 3섹션, 사진 중심)
 //
 // 인라인 끼워넣기 슬롯:
@@ -213,6 +220,8 @@ export default function P2Benefits({
           const isImgActive = layer.isLayerActive('main', imgId);
           const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
           const isLast = i === sections.length - 1 || i === 2;
+          const normalizedTitle = normalizeMultilineText(s.title);
+          const normalizedDesc = normalizeMultilineText(s.desc);
           return (
             <div key={i}>
               <div
@@ -237,9 +246,12 @@ export default function P2Benefits({
                       margin: 0,
                       lineHeight: 1.3,
                       letterSpacing: '-0.03em',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    {s.title}
+                    {normalizedTitle}
                   </EditableText>
                   <div style={{ marginTop: 10 }}>
                     <EditableText
@@ -252,9 +264,14 @@ export default function P2Benefits({
                         margin: 0,
                         lineHeight: 1.6,
                         letterSpacing: '-0.02em',
+                        whiteSpace: editMode ? 'pre-wrap' : 'normal',
+                        display: editMode ? 'block' : '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
                       }}
                     >
-                      {s.desc}
+                      {normalizedDesc}
                     </EditableText>
                   </div>
                 </div>
