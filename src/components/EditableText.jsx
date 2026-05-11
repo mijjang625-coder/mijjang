@@ -143,6 +143,14 @@ export default function EditableText({
       dragStart.current.started = false;
       return;
     }
+
+    // 같은 텍스트를 다시 클릭했을 때는 더블클릭 실패 상황에서도 즉시 편집 재진입
+    // (특히 P1처럼 상위 레이어 포인터 제어가 있는 구간에서 재수정 신뢰성 개선)
+    if (showToolbar) {
+      startEditing(e);
+      return;
+    }
+
     e.stopPropagation();
     // 🆕 다른 요소 옵션바 닫기 — 자기 자신이 활성화 됐음을 broadcast
     announceEditorSelection(`text:${id}`);
