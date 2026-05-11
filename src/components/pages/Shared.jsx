@@ -145,14 +145,16 @@ export function PillBadge({ children }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '4px 20px 16px',
+        padding: '10px 20px',
+        minHeight: 52,
         borderRadius: 12,
         backgroundColor: BRAND.colors.main,
         color: '#fff',
         fontSize: 22,
         fontWeight: 800,
         letterSpacing: '-0.02em',
-        lineHeight: 1.4,
+        lineHeight: 1.2,
+        verticalAlign: 'middle',
       }}
     >
       {children}
