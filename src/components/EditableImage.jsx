@@ -95,6 +95,8 @@ export default function EditableImage({
   const wrapperRef = useRef(null);
   const frameRef = useRef(null);
   const imgRef = useRef(null);
+  const hostStackRef = useRef(null);
+  const hostPrevZRef = useRef('');
   const [hovering, setHovering] = useState(false);
   const [mode, setMode] = useState('idle'); // 'idle' | 'cropping'
   const [resizing, setResizing] = useState(null);
@@ -590,6 +592,38 @@ export default function EditableImage({
   // 페이지 내부의 다른 셀/사진(popout 포함) 뒤로 툴바가 숨지 않게 한다.
   const overlayActive = showUI || mode === 'cropping' || showSwapPanel || showAdjust || resizing || draggingFrame || draggingCrop;
   const wrapperZ = overlayActive ? 100500 : (customZ ?? 1);
+
+  // 같은 grid/cell 스택 컨텍스트에 묶여 있으면 wrapper z-index만 올려도
+  // 이웃 셀이 위에 그려질 수 있으므로, 활성 편집 중에는 호스트 셀도 함께 승격.
+  useEffect(() => {
+    const host = wrapperRef.current?.parentElement;
+    if (!host) return undefined;
+
+    if (overlayActive) {
+      if (hostStackRef.current !== host) {
+        if (hostStackRef.current) {
+          hostStackRef.current.style.zIndex = hostPrevZRef.current;
+        }
+        hostStackRef.current = host;
+        hostPrevZRef.current = host.style.zIndex || '';
+      }
+      host.style.zIndex = '100500';
+      return () => {
+        if (hostStackRef.current === host) {
+          host.style.zIndex = hostPrevZRef.current;
+          hostStackRef.current = null;
+          hostPrevZRef.current = '';
+        }
+      };
+    }
+
+    if (hostStackRef.current === host) {
+      host.style.zIndex = hostPrevZRef.current;
+      hostStackRef.current = null;
+      hostPrevZRef.current = '';
+    }
+    return undefined;
+  }, [overlayActive]);
 
   return (
     <div
