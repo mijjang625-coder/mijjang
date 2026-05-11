@@ -55,7 +55,11 @@ const M = {
   cellRightText: '#222222',
 
   // 그리드 컬럼 비율
-  gridColumns: '1fr 1.3fr 1fr',
+  // 사용자 요청: 좌측(비교 항목) 폭은 조금 줄이고, 우측(일반 셀카봉) 폭은 조금 확장
+  gridLeft: 0.82,
+  gridCenter: 1.3,
+  gridRight: 1.18,
+  gridColumns: '0.82fr 1.3fr 1.18fr',
 };
 
 // P5: 2지선다 비교표 — 글 버전 + 사진 버전
@@ -145,7 +149,7 @@ export default function P5Compare({
   // 🆕 (2026-05-09 v2) 사용자 HTML 목업 정확한 사양 기반 재작성
   // ─────────────────────────────────────────────────────────────
   // 핵심 구조:
-  //   - CSS Grid (gridTemplateColumns: '1fr 1.3fr 1fr')  ← Flexbox 컬럼 분리 금지
+  //   - CSS Grid (gridTemplateColumns: '0.82fr 1.3fr 1.18fr')  ← Flexbox 컬럼 분리 금지
   //   - 행 높이 자동 정렬 (Grid 의 본질적 특성)
   //   - 중앙 POP-OUT = 별도 절대 배치 배경 레이어 + 셀들은 zIndex 2 로 그 위에
   //     · transform 미사용 → html-to-image PNG 내보내기 안전
@@ -455,7 +459,7 @@ export default function P5Compare({
             {/* ── 중앙 컬럼 POP-OUT 배경 레이어 ──
                 절대 배치로 그리드 안에 흰 박스를 띄워 시각적 POP-OUT 효과 구현
                 · top/bottom: -14px → 위/아래로 14px 튀어나옴
-                · left/width: 1fr 1.3fr 1fr 비율 기반 → 1/3.3 ~ 2.3/3.3 영역
+                · left/width: 0.82fr 1.3fr 1.18fr 비율 기반
                 · transform 미사용 → PNG 안전
                 · zIndex 1 (셀들은 zIndex 2 로 이 위에 보임) */}
             <div
@@ -464,8 +468,8 @@ export default function P5Compare({
                 position: 'absolute',
                 top: -M.popoutExtendTop,
                 bottom: -M.popoutExtendBottom,
-                left: `${(1 / 3.3) * 100}%`,
-                width: `${(1.3 / 3.3) * 100}%`,
+                left: `${(M.gridLeft / (M.gridLeft + M.gridCenter + M.gridRight)) * 100}%`,
+                width: `${(M.gridCenter / (M.gridLeft + M.gridCenter + M.gridRight)) * 100}%`,
                 backgroundColor: M.popoutBg,
                 borderRadius: 14,
                 boxShadow: M.popoutShadow,
