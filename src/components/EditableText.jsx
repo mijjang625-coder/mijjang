@@ -521,8 +521,15 @@ export default function EditableText({
     : { dangerouslySetInnerHTML: { __html: mergedHtml || escapeHtml(placeholder || '') } };
 
   const renderInPortal = (node) => {
-    if (typeof document === 'undefined') return node;
-    return createPortal(node, document.body);
+    try {
+      const doc = ref.current?.ownerDocument || (typeof document !== 'undefined' ? document : null);
+      const target = doc?.body;
+      if (!target) return node;
+      return createPortal(node, target);
+    } catch (_) {
+      // 포털 렌더 실패 환경(특수 iframe/preview)에서는 안전하게 일반 렌더로 폴백
+      return node;
+    }
   };
 
   return (
