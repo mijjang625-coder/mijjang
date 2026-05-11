@@ -38,6 +38,25 @@ function resolveInitialHtml(override, children) {
   return escapeHtml(children || '');
 }
 
+// 셀 전체 스타일(미니 툴바) 적용 시, 과거 인라인 서식(span style)이
+// fontSize/textAlign 등을 덮어써서 변화가 안 보이는 문제 방지용 정리 함수
+function stripInlineStylePropsFromHtml(html, styleKeys = []) {
+  if (!html || !styleKeys.length) return html;
+  if (typeof document === 'undefined') return html;
+
+  const cssKeys = styleKeys.map((k) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`));
+  const root = document.createElement('div');
+  root.innerHTML = html;
+
+  root.querySelectorAll('[style]').forEach((el) => {
+    cssKeys.forEach((cssKey) => el.style.removeProperty(cssKey));
+    const rest = (el.getAttribute('style') || '').trim();
+    if (!rest) el.removeAttribute('style');
+  });
+
+  return root.innerHTML;
+}
+
 export default function EditableText({
   id,
   defaultStyle = {},
@@ -384,6 +403,23 @@ export default function EditableText({
   // 툴바에서 스타일 변경 (셀 전체 적용)
   const applyStyle = (partial) => {
     const newStyle = { ...(override?.style || {}), ...partial };
+
+    // 미니 툴바(셀 전체 스타일)에서 조정한 속성은
+    // 기존 인라인 span style의 동일 속성을 제거해 실제 화면에 즉시 반영되게 함.
+    const styleKeys = Object.keys(partial || {}).filter((k) => (
+      ['fontSize', 'fontWeight', 'color', 'fontFamily', 'textAlign', 'lineHeight', 'letterSpacing'].includes(k)
+    ));
+    const cleanedHtml = stripInlineStylePropsFromHtml(mergedHtml, styleKeys);
+
+    if (cleanedHtml !== mergedHtml) {
+      onChange({
+        style: newStyle,
+        html: cleanedHtml,
+        text: ref.current?.innerText ?? mergedText,
+      });
+      return;
+    }
+
     onChange({ style: newStyle });
   };
 
