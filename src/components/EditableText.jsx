@@ -458,16 +458,18 @@ export default function EditableText({
     try {
       if (action.type === 'bold') {
         // bold 도 직접 span 으로 처리 — execCommand 가 줄바꿈 노드 가로지르면 DOM 깨짐
-        applySpanStyle(sel, { fontWeight: '900' });
+        applySpanStyle(sel, { fontWeight: '900' }, ['fontWeight']);
       } else if (action.type === 'color') {
         // 🆕 색상도 직접 span 으로 — execCommand('foreColor') 미사용
-        applySpanStyle(sel, { color: action.value });
+        // 같은 선택 영역 안에 과거 span color 가 남아 있으면 새 색이 균일하게 안 보일 수 있어
+        // 하위 color 인라인 스타일을 정리한 뒤 적용한다.
+        applySpanStyle(sel, { color: action.value }, ['color']);
       } else if (action.type === 'fontSize') {
-        applySpanStyle(sel, { fontSize: action.value + 'px' });
+        applySpanStyle(sel, { fontSize: action.value + 'px' }, ['fontSize']);
       } else if (action.type === 'fontSizeDelta') {
         const currentSize = readSelectionFontSize(sel) || (parseInt(mergedStyle.fontSize, 10) || 16);
         const next = Math.max(8, currentSize + action.delta);
-        applySpanStyle(sel, { fontSize: next + 'px' });
+        applySpanStyle(sel, { fontSize: next + 'px' }, ['fontSize']);
       } else if (action.type === 'reset') {
         // 선택 부분의 인라인 서식 제거 — execCommand 도 try/catch 로 보호
         try {
@@ -605,7 +607,7 @@ export default function EditableText({
 // 🆕 (2026-05-06) 줄바꿈(\n) 텍스트노드가 포함된 다중 줄 선택에서도 DOM 손상 없이
 //   안전하게 동작하도록 보강. extractContents 가 \n 을 가로지를 때 발생할 수 있는
 //   예외를 잡아 화면이 꺼지지 않도록 try/catch 로 보호하고, 실패 시 selection 을 원복.
-function applySpanStyle(sel, styleObj) {
+function applySpanStyle(sel, styleObj, normalizeKeys = []) {
   if (!sel || sel.rangeCount === 0) return;
   const range = sel.getRangeAt(0);
   if (range.collapsed) return;
@@ -622,6 +624,18 @@ function applySpanStyle(sel, styleObj) {
     // 선택 영역 추출 → span에 넣기
     const contents = range.extractContents();
     span.appendChild(contents);
+
+    // 같은 속성이 이미 하위 span에 남아 있으면 결과 색/크기가 들쭉날쭉해질 수 있어
+    // 현재 적용하는 속성의 하위 인라인 스타일을 정리해 결과를 균일하게 맞춘다.
+    if (normalizeKeys && normalizeKeys.length) {
+      const cssKeys = normalizeKeys.map((k) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`));
+      span.querySelectorAll('[style]').forEach((el) => {
+        cssKeys.forEach((cssKey) => el.style.removeProperty(cssKey));
+        const rest = (el.getAttribute('style') || '').trim();
+        if (!rest) el.removeAttribute('style');
+      });
+    }
+
     range.insertNode(span);
     // 새 span 안의 영역을 다시 선택 (연속 작업 가능)
     const newRange = document.createRange();
