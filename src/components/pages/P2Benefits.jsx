@@ -221,7 +221,7 @@ export default function P2Benefits({
           const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
           const isLast = i === sections.length - 1 || i === 2;
           const normalizedTitle = normalizeMultilineText(s.title);
-          const normalizedDesc = normalizeMultilineText(s.desc);
+          const descText = String(s.desc ?? '').trim();
           return (
             <div key={i}>
               <div
@@ -258,20 +258,21 @@ export default function P2Benefits({
                       {...editPropsFor(`P2.sections.${i}.desc`)}
                       as="p"
                       defaultStyle={{
-                        fontSize: 24,
+                        fontSize: 20,
                         fontWeight: 500,
                         color: BRAND.colors.text,
                         margin: 0,
-                        lineHeight: 1.6,
-                        letterSpacing: '-0.02em',
+                        lineHeight: 1.5,
+                        letterSpacing: '-0.01em',
                         whiteSpace: editMode ? 'pre-wrap' : 'normal',
                         display: editMode ? 'block' : '-webkit-box',
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden',
+                        minHeight: '3em',
                       }}
                     >
-                      {normalizedDesc}
+                      {descText}
                     </EditableText>
                   </div>
                 </div>
