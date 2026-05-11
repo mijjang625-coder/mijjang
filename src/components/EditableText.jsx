@@ -122,6 +122,9 @@ export default function EditableText({
   const finishEditing = () => {
     setIsEditing(false);
     setInlineToolbar({ show: false, top: 0, left: 0 });
+    // 편집 종료 직후 stale drag 플래그 때문에 다음 클릭이 무시되지 않도록 초기화
+    dragStart.current.active = false;
+    dragStart.current.started = false;
     if (ref.current) {
       const newHtml = ref.current.innerHTML;
       const newText = ref.current.innerText;
@@ -266,10 +269,10 @@ export default function EditableText({
     // 더블클릭(편집 진입)과 충돌하지 않도록 다중 클릭에서는 드래그 시작 금지
     if (e.detail >= 2) return;
 
-    // 이미 부분서식이 적용된 텍스트(span 등) 위에서는
-    // 드래그보다 클릭/더블클릭/선택 동작을 우선한다.
-    // (빈 여백/래퍼 자체 클릭일 때만 이동 드래그 시작)
-    if (e.target !== ref.current) return;
+    // 부분 서식(span 등)으로 감싸진 텍스트를 다시 수정할 때도
+    // 클릭/더블클릭/툴바 진입이 안정적으로 동작하도록 자식 노드 클릭도 허용.
+    // 실제 이동은 DRAG_THRESHOLD를 넘겼을 때만 시작되므로 단순 클릭과 충돌하지 않는다.
+    if (!ref.current || !ref.current.contains(e.target)) return;
 
     // preventDefault 하지 않음 (클릭 이벤트가 살아있어야 함)
     dragStart.current = {
