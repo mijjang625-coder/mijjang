@@ -515,6 +515,54 @@ export default function EditableImage({
   }, []);
   useEditorSelectionListener(`edit-image:${id}`, closeOnOtherSelect);
 
+  // 핸들/툴바/사이즈 표시 가시성 — isActive 명시 시 hovering 변동 무시(깜빡임 방지)
+  // ⚠️ Hook 규칙을 위해 editMode 분기 전에 계산/등록한다.
+  const showUI = mode === 'idle' && (
+    isActive === true
+      ? true
+      : isActive === null
+        ? (hovering || resizing || draggingFrame)
+        : false
+  );
+
+  // 툴바/핸들 표시 중에는 wrapper 자체를 최상단으로 올려
+  // 페이지 내부의 다른 셀/사진(popout 포함) 뒤로 툴바가 숨지 않게 한다.
+  const overlayActive = editMode && (showUI || mode === 'cropping' || showSwapPanel || showAdjust || resizing || draggingFrame || draggingCrop);
+  const wrapperZ = overlayActive ? 100500 : (customZ ?? 1);
+
+  // 같은 grid/cell 스택 컨텍스트에 묶여 있으면 wrapper z-index만 올려도
+  // 이웃 셀이 위에 그려질 수 있으므로, 활성 편집 중에는 호스트 셀도 함께 승격.
+  // ⚠️ editMode 분기와 무관하게 항상 같은 순서로 Hook 호출.
+  useEffect(() => {
+    const host = wrapperRef.current?.parentElement;
+
+    if (!overlayActive || !host) {
+      if (hostStackRef.current) {
+        hostStackRef.current.style.zIndex = hostPrevZRef.current;
+        hostStackRef.current = null;
+        hostPrevZRef.current = '';
+      }
+      return undefined;
+    }
+
+    if (hostStackRef.current && hostStackRef.current !== host) {
+      hostStackRef.current.style.zIndex = hostPrevZRef.current;
+    }
+    if (hostStackRef.current !== host) {
+      hostStackRef.current = host;
+      hostPrevZRef.current = host.style.zIndex || '';
+    }
+    host.style.zIndex = '100500';
+
+    return () => {
+      if (hostStackRef.current === host) {
+        host.style.zIndex = hostPrevZRef.current;
+        hostStackRef.current = null;
+        hostPrevZRef.current = '';
+      }
+    };
+  }, [overlayActive]);
+
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
   if (!editMode) {
     const hasFrame = !!frame;
@@ -578,52 +626,6 @@ export default function EditableImage({
   const fx = hasFrame ? frame.x : 0;
   const fy = hasFrame ? frame.y : 0;
   const wrapperMinHeight = hasFrame ? frame.height + Math.max(0, frame.y) + 20 : (naturalSize.h || undefined);
-
-  // 핸들/툴바/사이즈 표시 가시성 — isActive 명시 시 hovering 변동 무시(깜빡임 방지)
-  const showUI = mode === 'idle' && (
-    isActive === true
-      ? true
-      : isActive === null
-        ? (hovering || resizing || draggingFrame)
-        : false
-  );
-
-  // 툴바/핸들 표시 중에는 wrapper 자체를 최상단으로 올려
-  // 페이지 내부의 다른 셀/사진(popout 포함) 뒤로 툴바가 숨지 않게 한다.
-  const overlayActive = showUI || mode === 'cropping' || showSwapPanel || showAdjust || resizing || draggingFrame || draggingCrop;
-  const wrapperZ = overlayActive ? 100500 : (customZ ?? 1);
-
-  // 같은 grid/cell 스택 컨텍스트에 묶여 있으면 wrapper z-index만 올려도
-  // 이웃 셀이 위에 그려질 수 있으므로, 활성 편집 중에는 호스트 셀도 함께 승격.
-  useEffect(() => {
-    const host = wrapperRef.current?.parentElement;
-    if (!host) return undefined;
-
-    if (overlayActive) {
-      if (hostStackRef.current !== host) {
-        if (hostStackRef.current) {
-          hostStackRef.current.style.zIndex = hostPrevZRef.current;
-        }
-        hostStackRef.current = host;
-        hostPrevZRef.current = host.style.zIndex || '';
-      }
-      host.style.zIndex = '100500';
-      return () => {
-        if (hostStackRef.current === host) {
-          host.style.zIndex = hostPrevZRef.current;
-          hostStackRef.current = null;
-          hostPrevZRef.current = '';
-        }
-      };
-    }
-
-    if (hostStackRef.current === host) {
-      host.style.zIndex = hostPrevZRef.current;
-      hostStackRef.current = null;
-      hostPrevZRef.current = '';
-    }
-    return undefined;
-  }, [overlayActive]);
 
   return (
     <div
