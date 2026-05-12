@@ -24,13 +24,19 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
     <div ref={ref} data-edit-ui data-slot-insert-button style={{
       position: 'relative',
       width: '100%',
+      height: 0,
       pointerEvents: 'auto',
-      margin: '8px 0',
+      margin: 0,
+      zIndex: 30,
     }}>
       <button
         onClick={() => setOpen((s) => !s)}
         style={{
-          width: '100%',
+          position: 'absolute',
+          left: '50%',
+          top: 0,
+          transform: 'translate(-50%, -50%)',
+          width: 'min(560px, 92%)',
           padding: '8px 12px',
           border: '2px dashed #94a3b8',
           backgroundColor: open ? '#dbeafe' : '#f8fafc',
@@ -44,6 +50,7 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
           justifyContent: 'center',
           gap: 6,
           transition: 'background-color 0.15s, border-color 0.15s',
+          zIndex: 31,
         }}
         title="이 자리에 사진을 끼워 넣으면 아래 콘텐츠가 자동으로 밀려납니다"
         onMouseEnter={(e) => { if (!open) { e.currentTarget.style.backgroundColor = '#eff6ff'; e.currentTarget.style.borderColor = '#3b82f6'; } }}
@@ -55,9 +62,9 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
         <div
           style={{
             position: 'absolute',
-            left: '50%', top: '100%',
+            left: '50%', top: 0,
             transform: 'translateX(-50%)',
-            marginTop: 4,
+            marginTop: 22,
             width: 340, maxHeight: 380, overflow: 'auto',
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
