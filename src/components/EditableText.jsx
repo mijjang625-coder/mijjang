@@ -150,18 +150,34 @@ export default function EditableText({
     setToolbarPos({ top, left });
   };
 
+  const selectAllEditableContent = useCallback(() => {
+    if (!ref.current) return;
+    try {
+      ref.current.focus({ preventScroll: true });
+      const range = document.createRange();
+      range.selectNodeContents(ref.current);
+      const sel = window.getSelection();
+      if (!sel) return;
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (_) {
+      // noop
+    }
+  }, []);
+
   // ─────────── 더블클릭 → 편집 시작 ───────────
   const startEditing = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     // 더블클릭 편집 시작 시 드래그 상태를 즉시 초기화해서
     // 텍스트 선택/더블클릭 진입이 드래그 로직에 막히지 않게 함
     dragStart.current.active = false;
     dragStart.current.started = false;
-    // 🆕 (2026-05-08) 이미 편집 중이면 — innerHTML 재주입 / selection 강제 변경 안 함.
-    //   이렇게 안 하면 "이미 서식 적용된 글씨 (span 으로 감싸진 부분)" 위에서 더블클릭할 때
-    //   브라우저가 자동으로 잡아준 word selection 이 우리 setTimeout 의
-    //   selectNodeContents 로 덮어써져서 선택이 풀려버림.
+
+    // 재진입(이미 편집 중) 시에도 항상 전체 선택으로 통일
     if (isEditing) {
+      selectAllEditableContent();
+      requestAnimationFrame(() => selectAllEditableContent());
       return;
     }
     // 🆕 다른 요소 옵션바 닫기 — 자기 자신이 활성화 됐음을 broadcast
@@ -392,22 +408,11 @@ export default function EditableText({
       // 더블클릭 진입 직후 포커스/선택이 브라우저 타이밍에 따라 풀리는 경우가 있어
       // 다음 프레임에서 강제로 전체 선택을 한 번 더 보장한다.
       requestAnimationFrame(() => {
-        if (!ref.current) return;
-        try {
-          ref.current.focus({ preventScroll: true });
-          const range = document.createRange();
-          range.selectNodeContents(ref.current);
-          const sel = window.getSelection();
-          if (!sel) return;
-          sel.removeAllRanges();
-          sel.addRange(range);
-        } catch (_) {
-          // noop
-        }
+        selectAllEditableContent();
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing]);
+  }, [isEditing, selectAllEditableContent]);
 
   // 🆕 (2026-05-03) 가시성 토글 (포토샵 방식) — visibility:hidden (PNG 캡처에도 반영)
   const isHidden = !!override?.hidden;
