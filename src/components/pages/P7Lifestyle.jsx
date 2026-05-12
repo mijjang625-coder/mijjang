@@ -188,6 +188,9 @@ export default function P7Lifestyle({
             const imgId = `P7.images.${i}`;
             const isImgActive = layer.isLayerActive('main', imgId);
             const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
+            const captionId = `P7.modules.${i}.caption`;
+            const rawCaptionOverride = overrides[captionId] || {};
+            const captionOverride = { ...rawCaptionOverride, offset: { x: 0, y: 0 } };
             return (
               <div key={i}>
                 <div style={{
@@ -223,7 +226,11 @@ export default function P7Lifestyle({
                   }}
                 >
                   <EditableText
-                    {...editPropsFor(`P7.modules.${i}.caption`)}
+                    id={captionId}
+                    editMode={editMode}
+                    override={captionOverride}
+                    onChange={(partial) => onOverrideChange(captionId, partial)}
+                    draggable={false}
                     as="div"
                     defaultStyle={{
                       textAlign: 'center',
