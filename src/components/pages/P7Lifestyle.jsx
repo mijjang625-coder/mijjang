@@ -211,13 +211,27 @@ export default function P7Lifestyle({
                     onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: imgId }, action)}
                   />
                 </div>
-                <div style={{ pointerEvents: editMode ? 'auto' : 'inherit' }}>
+                <div
+                  style={{
+                    pointerEvents: editMode ? 'auto' : 'inherit',
+                    marginTop: 18,
+                    minHeight: 44,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
                   <EditableText
                     {...editPropsFor(`P7.modules.${i}.caption`)}
                     as="div"
                     defaultStyle={{
-                      marginTop: 18, textAlign: 'center', fontSize: 26,
-                      fontWeight: 700, color: BRAND.colors.text, letterSpacing: '-0.02em',
+                      textAlign: 'center',
+                      fontSize: 26,
+                      lineHeight: 1.2,
+                      fontWeight: 700,
+                      color: BRAND.colors.text,
+                      letterSpacing: '-0.02em',
+                      width: '100%',
                     }}
                   >
                     {m.caption}
