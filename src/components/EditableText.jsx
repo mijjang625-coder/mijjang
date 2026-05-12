@@ -747,6 +747,21 @@ function clearAncestorInlineLineHeight(range, rootEl) {
   clearPath(range.endContainer);
 }
 
+function normalizeComputedLineHeight(cs) {
+  if (!cs) return null;
+  const raw = cs.lineHeight;
+  const parsed = parseFloat(raw);
+  const fontSize = parseFloat(cs.fontSize);
+
+  if (!Number.isFinite(parsed)) return null;
+
+  // line-height가 px 단위면 배수값으로 환산
+  if (typeof raw === 'string' && raw.trim().toLowerCase().endsWith('px') && Number.isFinite(fontSize) && fontSize > 0) {
+    return Number((parsed / fontSize).toFixed(2));
+  }
+  return Number(parsed.toFixed(2));
+}
+
 function readSelectionLineHeight(sel, rootEl = null) {
   if (!sel || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
@@ -754,19 +769,18 @@ function readSelectionLineHeight(sel, rootEl = null) {
   let node = range.startContainer;
   if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
   if (!node || typeof window === 'undefined') return null;
-  const cs = window.getComputedStyle(node);
-  const raw = cs.lineHeight;
-  const parsed = parseFloat(raw);
-  const fontSize = parseFloat(cs.fontSize);
 
-  if (Number.isFinite(parsed)) {
-    // line-height가 px 단위면 배수값으로 환산
-    if (typeof raw === 'string' && raw.trim().toLowerCase().endsWith('px') && Number.isFinite(fontSize) && fontSize > 0) {
-      return Number((parsed / fontSize).toFixed(2));
-    }
-    return Number(parsed.toFixed(2));
+  const selectionLineHeight = normalizeComputedLineHeight(window.getComputedStyle(node));
+  const rootLineHeight = rootEl ? normalizeComputedLineHeight(window.getComputedStyle(rootEl)) : null;
+
+  if (Number.isFinite(selectionLineHeight) && Number.isFinite(rootLineHeight)) {
+    // 실제 렌더링 line box는 부모 strut보다 작아질 수 없으므로,
+    // UI 표시/증감 기준은 둘 중 큰 값(실효값)을 사용한다.
+    return Number(Math.max(selectionLineHeight, rootLineHeight).toFixed(2));
   }
 
+  if (Number.isFinite(selectionLineHeight)) return selectionLineHeight;
+  if (Number.isFinite(rootLineHeight)) return rootLineHeight;
   return null;
 }
 
