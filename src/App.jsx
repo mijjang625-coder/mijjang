@@ -882,6 +882,35 @@ export default function App() {
     P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),
     P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
   };
+  const splitPreviewScrollRef = useRef(null);
+  const splitMobileViewportRef = useRef(null);
+  const splitScrollSyncLockRef = useRef(false);
+
+  const handleSplitPreviewScroll = useCallback(() => {
+    if (previewMode !== 'split') return;
+    const source = splitPreviewScrollRef.current;
+    const target = splitMobileViewportRef.current;
+    if (!source || !target || splitScrollSyncLockRef.current) return;
+
+    const sourceMax = Math.max(0, source.scrollHeight - source.clientHeight);
+    const targetMax = Math.max(0, target.scrollHeight - target.clientHeight);
+    if (sourceMax <= 0 || targetMax <= 0) {
+      target.scrollTop = 0;
+      return;
+    }
+
+    const ratio = source.scrollTop / sourceMax;
+    splitScrollSyncLockRef.current = true;
+    target.scrollTop = ratio * targetMax;
+    requestAnimationFrame(() => {
+      splitScrollSyncLockRef.current = false;
+    });
+  }, [previewMode]);
+
+  useEffect(() => {
+    if (previewMode !== 'split') return;
+    handleSplitPreviewScroll();
+  }, [previewMode, currentPage, currentResult?.copy, handleSplitPreviewScroll]);
 
   // API 설정 로컬 저장소 hydration 완료 플래그
   const [aiSettingsHydrated, setAiSettingsHydrated] = useState(false);
@@ -2461,7 +2490,12 @@ export default function App() {
                 ⌨️ <b>미세 이동</b> — 요소 선택 후 <b>화살표 키 = 1px</b> · <b>Shift+화살표 = 10px</b> · <b>Alt+드래그 = 자동 정렬(스냅) OFF</b> (자유 이동)
               </div>
             )}
-            <div className="rounded-xl overflow-auto flex justify-center py-4 gap-6" style={{ backgroundColor: previewSkin.surface, maxHeight: 'calc(100vh - 260px)' }}>
+            <div
+              ref={splitPreviewScrollRef}
+              onScroll={previewMode === 'split' ? handleSplitPreviewScroll : undefined}
+              className="rounded-xl overflow-auto flex justify-center py-4 gap-6"
+              style={{ backgroundColor: previewSkin.surface, maxHeight: 'calc(100vh - 260px)' }}
+            >
               {currentResult?.copy && !currentResult.needsMoreInfo ? (() => {
                 // 페이지 콘텐츠 — 한번만 정의, 모드별로 다른 wrapper에 넣음
                 const renderPage = (refToUse, deviceMode) => (
@@ -2510,7 +2544,7 @@ export default function App() {
                 const MOBILE_W = 360;
                 const MOBILE_H = 720; // 실제 핸드폰 비율 (16:9, iPhone 14 Pro 정도)
                 const SCALE = MOBILE_W / 780;
-                const MobileFrame = ({ children, label }) => (
+                const MobileFrame = ({ children, label, viewportRef }) => (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {label && (
                       <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: previewSkin.labelBg, color: previewSkin.labelText, border: '1px solid rgba(0,0,0,0.12)' }}>
@@ -2531,7 +2565,7 @@ export default function App() {
                         width: 80, height: 16, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 999,
                       }} />
                       {/* 📱 화면 영역 — 고정 높이로 안에서만 스크롤 */}
-                      <div style={{
+                      <div ref={viewportRef} style={{
                         width: MOBILE_W,
                         height: MOBILE_H,
                         backgroundColor: previewSkin.shellInner,
@@ -2695,7 +2729,7 @@ export default function App() {
                       <PCFrame label="🖥 PC (780px) — 편집 가능">
                         {renderPage(pageRefs[currentPage], 'pc')}
                       </PCFrame>
-                      <MobileFrame label="📱 모바일 (360px)">
+                      <MobileFrame label="📱 모바일 (360px)" viewportRef={splitMobileViewportRef}>
                         <ScaledHeightWrap scale={SCALE}>
                           {/* split 의 모바일은 별도 ref 없음 — 시각 미리보기용 */}
                           {renderPage(null, 'mobile')}
