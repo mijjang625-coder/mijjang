@@ -2491,10 +2491,14 @@ export default function App() {
               </div>
             )}
             <div
-              ref={splitPreviewScrollRef}
-              onScroll={previewMode === 'split' ? handleSplitPreviewScroll : undefined}
               className="rounded-xl overflow-auto flex justify-center py-4 gap-6"
-              style={{ backgroundColor: previewSkin.surface, maxHeight: 'calc(100vh - 260px)' }}
+              style={{
+                backgroundColor: previewSkin.surface,
+                maxHeight: 'calc(100vh - 260px)',
+                ...(previewMode === 'split'
+                  ? { overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start' }
+                  : {}),
+              }}
             >
               {currentResult?.copy && !currentResult.needsMoreInfo ? (() => {
                 // 페이지 콘텐츠 — 한번만 정의, 모드별로 다른 wrapper에 넣음
@@ -2732,10 +2736,21 @@ export default function App() {
 
                 if (previewMode === 'split') {
                   return (
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
-                      <PCFrame label="🖥 PC (780px) — 편집 가능">
-                        {renderPage(pageRefs[currentPage], 'pc')}
-                      </PCFrame>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 24, width: '100%' }}>
+                      <div
+                        ref={splitPreviewScrollRef}
+                        onScroll={handleSplitPreviewScroll}
+                        style={{
+                          maxHeight: 'calc(100vh - 300px)',
+                          overflowY: 'auto',
+                          overflowX: 'hidden',
+                          paddingRight: 6,
+                        }}
+                      >
+                        <PCFrame label="🖥 PC (780px) — 편집 가능">
+                          {renderPage(pageRefs[currentPage], 'pc')}
+                        </PCFrame>
+                      </div>
                       <MobileFrame label="📱 모바일 (360px)" viewportRef={splitMobileViewportRef} sticky>
                         <ScaledHeightWrap scale={SCALE}>
                           {/* split 의 모바일은 별도 ref 없음 — 시각 미리보기용 */}
