@@ -192,6 +192,22 @@ export async function cleanupOrphanImages(currentImages) {
 
 // ─── 메인 저장/복원 API ────────────────────────────────────
 
+function sanitizeReviewAnalyzerSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const safe = {
+    result: snapshot.result || null,
+    adopted: snapshot.adopted || {},
+    pastedText: typeof snapshot.pastedText === 'string' ? snapshot.pastedText.slice(0, 40000) : '',
+    inputMode: snapshot.inputMode || 'excel',
+    excelColumns: Array.isArray(snapshot.excelColumns) ? snapshot.excelColumns.slice(0, 50) : [],
+    excelRowCount: Number(snapshot.excelRowCount || 0),
+    reviewColumn: typeof snapshot.reviewColumn === 'string' ? snapshot.reviewColumn : '',
+    excelFileName: typeof snapshot.excelFileName === 'string' ? snapshot.excelFileName : '',
+    txtFileName: typeof snapshot.txtFileName === 'string' ? snapshot.txtFileName : '',
+  };
+  return safe;
+}
+
 /**
  * 프로젝트 전체 상태를 localStorage + IndexedDB에 저장
  *
@@ -218,7 +234,7 @@ export async function saveProject(state) {
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
     reviewInsights: state.reviewInsights || null,
-    reviewAnalyzerSnapshot: state.reviewAnalyzerSnapshot || null,
+    reviewAnalyzerSnapshot: sanitizeReviewAnalyzerSnapshot(state.reviewAnalyzerSnapshot),
     savedAt: Date.now(),
   };
   try {
@@ -309,7 +325,7 @@ export function exportProjectToJSON(state) {
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
     reviewInsights: state.reviewInsights || null,
-    reviewAnalyzerSnapshot: state.reviewAnalyzerSnapshot || null,
+    reviewAnalyzerSnapshot: sanitizeReviewAnalyzerSnapshot(state.reviewAnalyzerSnapshot),
   };
 }
 

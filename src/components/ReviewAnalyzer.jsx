@@ -75,7 +75,7 @@ export default function ReviewAnalyzer({
     if (saved.adopted) setAdopted(saved.adopted);
     if (typeof saved.pastedText === 'string') setPastedText(saved.pastedText);
     if (saved.inputMode) setInputMode(saved.inputMode);
-    if (Array.isArray(saved.excelRows)) setExcelRows(saved.excelRows);
+    // excelRows 전체를 저장하면 localStorage 용량 초과로 자동 저장 실패가 날 수 있어 복원 제외
     if (Array.isArray(saved.excelColumns)) setExcelColumns(saved.excelColumns);
     if (typeof saved.reviewColumn === 'string') setReviewColumn(saved.reviewColumn);
     if (typeof saved.excelFileName === 'string') setExcelFileName(saved.excelFileName);
@@ -112,10 +112,12 @@ export default function ReviewAnalyzer({
       const snapshot = {
         result,
         adopted,
-        pastedText,
+        // 지나치게 긴 붙여넣기 텍스트는 저장 크기 폭증 방지
+        pastedText: (pastedText || '').slice(0, 40000),
         inputMode,
-        excelRows,
+        // excelRows(원본 전체)는 저장하지 않음: 용량 초과/떨림 방지
         excelColumns,
+        excelRowCount: Array.isArray(excelRows) ? excelRows.length : 0,
         reviewColumn,
         excelFileName,
         txtFileName,
