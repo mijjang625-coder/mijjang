@@ -498,6 +498,8 @@ export default function EditableText({
       } else if (action.type === 'lineHeight') {
         const numericLineHeight = Number(action.value);
         if (Number.isFinite(numericLineHeight)) {
+          const range = sel.getRangeAt(0);
+          clearAncestorInlineLineHeight(range, ref.current);
           applySpanStyle(sel, { lineHeight: String(numericLineHeight) }, ['lineHeight']);
 
           // line box 최소 높이는 부모 line-height(strut) 영향을 받으므로,
@@ -723,6 +725,25 @@ function readSelectionFontSize(sel) {
   const cs = window.getComputedStyle(node);
   const px = parseInt(cs.fontSize, 10);
   return Number.isFinite(px) ? px : null;
+}
+
+function clearAncestorInlineLineHeight(range, rootEl) {
+  if (!range || !rootEl) return;
+
+  const clearPath = (startNode) => {
+    let node = startNode?.nodeType === Node.TEXT_NODE ? startNode.parentElement : startNode;
+    while (node && node !== rootEl) {
+      if (node.style && node.style.getPropertyValue('line-height')) {
+        node.style.removeProperty('line-height');
+        const rest = (node.getAttribute('style') || '').trim();
+        if (!rest) node.removeAttribute('style');
+      }
+      node = node.parentElement;
+    }
+  };
+
+  clearPath(range.startContainer);
+  clearPath(range.endContainer);
 }
 
 function readSelectionLineHeight(sel) {
