@@ -910,7 +910,7 @@ export default function App() {
   useEffect(() => {
     if (previewMode !== 'split') return;
     handleSplitPreviewScroll();
-  }, [previewMode, currentPage, currentResult?.copy, handleSplitPreviewScroll]);
+  }, [previewMode, currentPage, pages, handleSplitPreviewScroll]);
 
   // API 설정 로컬 저장소 hydration 완료 플래그
   const [aiSettingsHydrated, setAiSettingsHydrated] = useState(false);
