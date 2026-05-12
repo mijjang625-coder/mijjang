@@ -66,31 +66,47 @@ export default function ReviewAnalyzer({
   // 분석 결과
   const [result, setResult] = useState(null);
   const [adopted, setAdopted] = useState({}); // { h1: true, h2: false, ... }
+  const lastOutboundSnapshotRef = useRef('');
+  const lastInboundSnapshotRef = useRef('');
 
-  // localStorage + 외부 스냅샷 자동 저장/복원
+  const applySnapshot = (saved) => {
+    if (!saved || typeof saved !== 'object') return;
+    if (saved.result) setResult(saved.result);
+    if (saved.adopted) setAdopted(saved.adopted);
+    if (typeof saved.pastedText === 'string') setPastedText(saved.pastedText);
+    if (saved.inputMode) setInputMode(saved.inputMode);
+    if (Array.isArray(saved.excelRows)) setExcelRows(saved.excelRows);
+    if (Array.isArray(saved.excelColumns)) setExcelColumns(saved.excelColumns);
+    if (typeof saved.reviewColumn === 'string') setReviewColumn(saved.reviewColumn);
+    if (typeof saved.excelFileName === 'string') setExcelFileName(saved.excelFileName);
+    if (typeof saved.txtFileName === 'string') setTxtFileName(saved.txtFileName);
+  };
+
+  // 1) 첫 마운트 시 localStorage 복원 (기본값)
   useEffect(() => {
     try {
-      const saved =
-        (initialSnapshot && typeof initialSnapshot === 'object')
-          ? initialSnapshot
-          : (() => {
-              const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('reviewAnalyzer.v1');
-              if (!raw) return null;
-              return JSON.parse(raw);
-            })();
-      if (!saved) return;
-      if (saved.result) setResult(saved.result);
-      if (saved.adopted) setAdopted(saved.adopted);
-      if (typeof saved.pastedText === 'string') setPastedText(saved.pastedText);
-      if (saved.inputMode) setInputMode(saved.inputMode);
-      if (Array.isArray(saved.excelRows)) setExcelRows(saved.excelRows);
-      if (Array.isArray(saved.excelColumns)) setExcelColumns(saved.excelColumns);
-      if (typeof saved.reviewColumn === 'string') setReviewColumn(saved.reviewColumn);
-      if (typeof saved.excelFileName === 'string') setExcelFileName(saved.excelFileName);
-      if (typeof saved.txtFileName === 'string') setTxtFileName(saved.txtFileName);
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('reviewAnalyzer.v1');
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      applySnapshot(saved);
+      lastOutboundSnapshotRef.current = raw;
+      lastInboundSnapshotRef.current = raw;
+    } catch (_) {}
+  }, []);
+
+  // 2) 부모(App)에서 프로젝트 불러오기/복원으로 들어온 스냅샷 적용
+  useEffect(() => {
+    try {
+      if (!initialSnapshot || typeof initialSnapshot !== 'object') return;
+      const inbound = JSON.stringify(initialSnapshot);
+      // 내가 방금 부모로 보낸 동일 스냅샷은 다시 주입하지 않음 (루프/떨림 방지)
+      if (!inbound || inbound === lastOutboundSnapshotRef.current || inbound === lastInboundSnapshotRef.current) return;
+      applySnapshot(initialSnapshot);
+      lastInboundSnapshotRef.current = inbound;
     } catch (_) {}
   }, [initialSnapshot]);
 
+  // 3) 내부 상태 변경 시 localStorage + 부모 스냅샷 동기화
   useEffect(() => {
     try {
       const snapshot = {
@@ -105,10 +121,12 @@ export default function ReviewAnalyzer({
         txtFileName,
       };
       const data = JSON.stringify(snapshot);
+      if (data === lastOutboundSnapshotRef.current) return;
       localStorage.setItem(STORAGE_KEY, data);
       // 하위호환: 기존 키도 함께 갱신 (구버전에서 최신 상태 읽기 가능)
       localStorage.setItem('reviewAnalyzer.v1', data);
       onStateSnapshotChange(snapshot);
+      lastOutboundSnapshotRef.current = data;
     } catch (_) {}
   }, [result, adopted, pastedText, inputMode, excelRows, excelColumns, reviewColumn, excelFileName, txtFileName, onStateSnapshotChange]);
 
