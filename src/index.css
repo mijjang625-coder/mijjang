@@ -1,0 +1,163 @@
+@import url('https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f0ebe4;
+  color: #2F2A26;
+}
+
+/* 쿠팡 페이지 영역의 기본 폰트 — CSS 변수로 동적 변경 가능
+   사용자가 섹션 1에서 폰트 카드를 클릭하면 --app-font 변수가 바뀌어 즉시 반영됨.
+   inline style의 fontFamily가 명시되면 그걸 우선 (개별 텍스트 커스텀 가능). */
+.coupang-page {
+  font-family: var(--app-font, 'Pretendard Variable', 'Pretendard', 'NanumSquare', system-ui, sans-serif);
+}
+.coupang-page *:not([style*="font-family"]) {
+  font-family: inherit;
+}
+
+/* 편집모드: 콘텐츠 컨테이너 전체는 마우스 통과(뒤에 있는 자유이미지 선택 가능),
+   실제 인터랙션 요소(텍스트/이미지/버튼)만 이벤트 받음.
+   p1-content-layer 자체와 그 자손 div/section은 통과시키되,
+   단말 인터랙션 요소만 auto. */
+.p1-content-layer,
+.p1-content-layer * {
+  pointer-events: none;
+}
+.p1-content-layer h1,
+.p1-content-layer h2,
+.p1-content-layer h3,
+.p1-content-layer p,
+.p1-content-layer span,
+.p1-content-layer img,
+.p1-content-layer button,
+.p1-content-layer input,
+.p1-content-layer [contenteditable],
+.p1-content-layer [data-editable],
+.p1-content-layer [data-editable] *,
+.p1-content-layer [data-edit-image],
+.p1-content-layer [data-edit-image] *,
+.p1-content-layer [data-toolbar],
+.p1-content-layer [data-toolbar] *,
+.p1-content-layer [data-inline-toolbar],
+.p1-content-layer [data-inline-toolbar] *,
+.p1-content-layer [data-handle] {
+  pointer-events: auto;
+}
+
+/* 🆕 P1 강점카드: 타이틀+설명 두 EditableText의 기본 점선 outline 제거
+   (분리되어 두 박스로 보이는 현상 해결). hover/focus/edit 상태일 때만
+   해당 텍스트만 점선이 살아남 → 평소엔 한 덩어리로 보임.
+   🐛 (2026-04-28) 셀렉터 [data-edit-text] → [data-editable] 정정.
+        EditableText 컴포넌트는 실제로 data-editable="true" 만 출력함. */
+.p1-strength-text-group > [data-editable] {
+  outline: none !important;
+}
+.p1-strength-text-group > [data-editable]:hover,
+.p1-strength-text-group > [data-editable]:focus,
+.p1-strength-text-group > [data-editable]:focus-within {
+  outline: 2px dashed #3b82f6 !important;
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   🎯 캡처 모드 — html2canvas 직전 적용되어 라벨/배지 텍스트 정렬을 강제 통일
+   ─────────────────────────────────────────────────────────
+   문제: 화면에서는 STEP/POINT 라벨이 박스 정중앙에 보이지만,
+        html2canvas가 캡처할 때 한글 폰트(Pretendard, NanumSquare)의 ascent/descent
+        계산이 달라져서 텍스트가 박스 아래로 밀리거나 잘리는 현상 발생.
+   해결: .pre-capture 클래스를 캡처 직전에 .coupang-page에 추가하고,
+        라벨/배지 안의 텍스트에 line-height와 정렬을 명시적으로 강제.
+*/
+/* 🆕 캡처 모드 핵심 원리 (2026-05-02 변경):
+   이전: pre-capture 시 NanumSquare로 강제 통일 → 화면(Pretendard)과 폰트가 달라
+         글씨 너비/baseline 어긋남 → 페이지마다 수동 1px 보정 누적 → 본말전도.
+   현재: 화면과 PNG 모두 동일한 Pretendard Variable 사용 →
+         html2canvas가 같은 폰트로 렌더링하므로 화면과 PNG가 일치.
+   참고: document.fonts.ready로 폰트 로딩 완료를 기다린 후 캡처하므로 fallback 위험 낮음. */
+.coupang-page.pre-capture,
+.coupang-page.pre-capture * {
+  /* font-family는 화면과 동일하게 유지 — 강제 변경하지 않음.
+     inline style/CSS 변수(--app-font)를 그대로 따라감. */
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* font-feature-settings 통일 — 자간 계산 일관성 */
+  font-feature-settings: 'kern' 1;
+  /* font-variant-numeric 비활성화 — 숫자 폭 고정 */
+  font-variant-numeric: normal;
+}
+
+/* 🧹 (2026-05-02) 글씨 강제 보정 규칙 전면 초기화
+   ─────────────────────────────────────────────────────────
+   이전: NanumSquare 폰트 시대(폰트 다름 가정 하에)의 잔재로,
+        라벨/배지 line-height 강제, h1~h4 padding 강제, 알약 라벨 inline-flex 강제,
+        P10 표 셀 비대칭 padding 등 수많은 강제 보정 규칙이 누적되어 있었음.
+        그 결과 화면 != PNG가 되어, 화면을 일부러 위로 올려 보정해야 하는
+        본말전도 상태 발생.
+   현재: 폰트가 화면=PNG로 통일되었으므로 모든 강제 보정 규칙을 제거.
+        이제 화면에서 보이는 그대로 PNG가 출력됨.
+   참고: vertical-align: baseline 만 유지 (baseline shift 방지). */
+.coupang-page.pre-capture h1,
+.coupang-page.pre-capture h2,
+.coupang-page.pre-capture h3,
+.coupang-page.pre-capture h4,
+.coupang-page.pre-capture h5,
+.coupang-page.pre-capture h6,
+.coupang-page.pre-capture p,
+.coupang-page.pre-capture span,
+.coupang-page.pre-capture div {
+  vertical-align: baseline;
+}
+
+/* 🆕 (2026-05-03) 캡처 시 편집 가이드(점선/실선 테두리, outline) 모두 제거
+   ─────────────────────────────────────────────────────────
+   문제: 편집 모드에서 EditableText / EditableImage / FreeImage / ShapeLayer 가
+        inline style 로 outline/border (점선 빨강·파랑·노랑) 를 표시하는데,
+        PNG 캡처 시 그대로 찍혀 나옴.
+   해결: pre-capture 모드에서 inline style 보다 우선순위가 높은 !important 로
+        outline/border 를 강제 제거. 진짜 콘텐츠 테두리(이미지·도형 자체의
+        둥근 모서리/배경) 는 영향받지 않음 — 어차피 inline style은 outline 만 사용.
+   대상:
+     [data-edit-text]   — EditableText  (텍스트 셀)
+     [data-edit-image]  — EditableImage (메인 이미지 프레임)
+     [data-free-image]  — FreeImage     (자유 사진)
+     [data-shape]       — ShapeLayer    (도형 호버/선택 표시)
+     [data-handle]      — 리사이즈 핸들 (혹시 누락된 것 대비)
+     [data-toolbar], [data-inline-toolbar], [data-free-toolbar],
+     [data-shape-toolbar], [data-replace-panel]
+                        — 편집 툴바/패널 (filter 로 이미 제외되지만 안전망)
+*/
+.coupang-page.pre-capture [data-editable],
+.coupang-page.pre-capture [data-edit-text],
+.coupang-page.pre-capture [data-edit-image],
+.coupang-page.pre-capture [data-free-image],
+.coupang-page.pre-capture [data-shape] {
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+}
+
+/* 핸들 / 툴바 / 패널은 캡처에서 완전히 숨김 (filter 외 안전망) */
+.coupang-page.pre-capture [data-handle],
+.coupang-page.pre-capture [data-toolbar],
+.coupang-page.pre-capture [data-inline-toolbar],
+.coupang-page.pre-capture [data-free-toolbar],
+.coupang-page.pre-capture [data-shape-toolbar],
+.coupang-page.pre-capture [data-replace-panel] {
+  display: none !important;
+  visibility: hidden !important;
+}
