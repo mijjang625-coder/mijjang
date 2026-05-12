@@ -80,7 +80,7 @@ export default function P4Reviews({
             {...editPropsFor('P4.sectionTitle')}
             as="h2"
             defaultStyle={{
-              fontSize: 38, fontWeight: 800, color: BRAND.colors.text, margin: 0,
+              fontSize: 30, fontWeight: 800, color: BRAND.colors.text, margin: 0,
               textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.3,
             }}
           >

@@ -82,7 +82,7 @@ export default function P6Material({
           {...editPropsFor('P6.material.title')}
           as="h2"
           defaultStyle={{
-            fontSize: 38,
+            fontSize: 30,
             fontWeight: 800,
             color: BRAND.colors.text,
             margin: 0,
@@ -119,7 +119,7 @@ export default function P6Material({
             {...editPropsFor('P6.material.desc')}
             as="div"
             defaultStyle={{
-              fontSize: 19,
+              fontSize: 22,
               fontWeight: 500,
               color: BRAND.colors.text,
               lineHeight: 1.55,
@@ -189,7 +189,7 @@ export default function P6Material({
           {...editPropsFor('P6.size.title')}
           as="h2"
           defaultStyle={{
-            fontSize: 36,
+            fontSize: 30,
             fontWeight: 800,
             color: BRAND.colors.text,
             margin: 0,

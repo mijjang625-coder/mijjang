@@ -243,7 +243,7 @@ export default function P1Hero({
           {...editPropsFor('P1.mainHeadline')}
           as="h2"
           defaultStyle={{
-            fontSize: 48,
+            fontSize: 38,
             fontWeight: 900,
             color: BRAND.colors.text,
             textAlign: 'center',

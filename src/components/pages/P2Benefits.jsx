@@ -240,7 +240,7 @@ export default function P2Benefits({
                     {...editPropsFor(`P2.sections.${i}.title`)}
                     as="h3"
                     defaultStyle={{
-                      fontSize: 32,
+                      fontSize: 30,
                       fontWeight: 800,
                       color: BRAND.colors.text,
                       margin: 0,
@@ -258,7 +258,7 @@ export default function P2Benefits({
                       {...editPropsFor(`P2.sections.${i}.desc`)}
                       as="p"
                       defaultStyle={{
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: 500,
                         color: BRAND.colors.text,
                         margin: 0,

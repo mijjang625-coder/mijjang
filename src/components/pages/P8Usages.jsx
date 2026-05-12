@@ -72,7 +72,7 @@ export default function P8Usages({
             {...editPropsFor('P8.headline')}
             as="h2"
             defaultStyle={{
-              fontSize: 38, fontWeight: 800, color: BRAND.colors.text,
+              fontSize: 30, fontWeight: 800, color: BRAND.colors.text,
               margin: 0, textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.3,
             }}
           >

@@ -409,7 +409,7 @@ export default function P5Compare({
             {...editPropsFor('P5.headline')}
             as="h2"
             defaultStyle={{
-              fontSize: 38,
+              fontSize: 30,
               fontWeight: 900,
               color: '#1f1f1f',
               margin: 0,
@@ -426,7 +426,7 @@ export default function P5Compare({
                 {...editPropsFor('P5.sub')}
                 as="p"
                 defaultStyle={{
-                  fontSize: 13,
+                  fontSize: 22,
                   fontWeight: 500,
                   color: '#222222',
                   margin: 0,

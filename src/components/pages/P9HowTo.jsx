@@ -162,7 +162,7 @@ export default function P9HowTo({
             {...editPropsFor('P9.title')}
             as="h2"
             defaultStyle={{
-              fontSize: 38, fontWeight: 800, color: BRAND.colors.text,
+              fontSize: 30, fontWeight: 800, color: BRAND.colors.text,
               margin: 0, textAlign: 'center', letterSpacing: '-0.03em', lineHeight: 1.3,
             }}
           >
@@ -174,7 +174,7 @@ export default function P9HowTo({
                 {...editPropsFor('P9.subTitle')}
                 as="p"
                 defaultStyle={{
-                  fontSize: 24, fontWeight: 500, color: BRAND.colors.text,
+                  fontSize: 22, fontWeight: 500, color: BRAND.colors.text,
                   margin: 0, textAlign: 'center', lineHeight: 1.6,
                 }}
                 placeholder={editMode ? '(서브 카피)' : ''}

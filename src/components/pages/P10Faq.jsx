@@ -100,7 +100,7 @@ export default function P10Faq({
             {...editPropsFor('P10.components.title')}
             as="h2"
             defaultStyle={{
-              fontSize: 40,
+              fontSize: 30,
               fontWeight: 800,
               color: BRAND.colors.text,
               margin: 0,
@@ -117,7 +117,7 @@ export default function P10Faq({
             defaultStyle={{
               marginTop: 12,
               color: BRAND.colors.neutralText,
-              fontSize: 20,
+              fontSize: 22,
               fontWeight: 600,
               textAlign: 'center',
             }}
@@ -196,8 +196,8 @@ export default function P10Faq({
       {/* ─────────── 2. FAQ 5개 ─────────── */}
       <div style={{ padding: '30px 30px 60px' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <SectionTitle size={36}>자주 묻는 질문</SectionTitle>
-          <div style={{ marginTop: 10, color: BRAND.colors.neutralText, fontSize: 20, fontWeight: 600 }}>
+          <SectionTitle size={30}>자주 묻는 질문</SectionTitle>
+          <div style={{ marginTop: 10, color: BRAND.colors.neutralText, fontSize: 22, fontWeight: 600 }}>
             구매 전 궁금증을 모았어요
           </div>
         </div>
@@ -283,7 +283,7 @@ export default function P10Faq({
             {...editPropsFor('P10.compliance.title')}
             as="h2"
             defaultStyle={{
-              fontSize: 32,
+              fontSize: 30,
               fontWeight: 900,
               color: BRAND.colors.main,
               textAlign: 'center',
@@ -301,7 +301,7 @@ export default function P10Faq({
             defaultStyle={{
               marginTop: 8,
               color: BRAND.colors.neutralText,
-              fontSize: 16,
+              fontSize: 22,
               fontWeight: 500,
               letterSpacing: '-0.02em',
               textAlign: 'center',
