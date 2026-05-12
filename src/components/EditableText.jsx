@@ -487,6 +487,11 @@ export default function EditableText({
         const currentSize = readSelectionFontSize(sel) || (parseInt(mergedStyle.fontSize, 10) || 16);
         const next = Math.max(8, currentSize + action.delta);
         applySpanStyle(sel, { fontSize: next + 'px' }, ['fontSize']);
+      } else if (action.type === 'lineHeight') {
+        const numericLineHeight = Number(action.value);
+        if (Number.isFinite(numericLineHeight)) {
+          applySpanStyle(sel, { lineHeight: String(numericLineHeight) }, ['lineHeight']);
+        }
       } else if (action.type === 'reset') {
         // 선택 부분의 인라인 서식 제거 — execCommand 도 try/catch 로 보호
         try {
@@ -695,16 +700,31 @@ function readSelectionFontSize(sel) {
   return Number.isFinite(px) ? px : null;
 }
 
+function readSelectionLineHeight(sel) {
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  let node = range.startContainer;
+  if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+  if (!node || typeof window === 'undefined') return null;
+  const cs = window.getComputedStyle(node);
+  const raw = cs.lineHeight;
+  const parsed = parseFloat(raw);
+  const fontSize = parseFloat(cs.fontSize);
+
+  if (Number.isFinite(parsed)) {
+    // line-height가 px 단위면 배수값으로 환산
+    if (typeof raw === 'string' && raw.trim().toLowerCase().endsWith('px') && Number.isFinite(fontSize) && fontSize > 0) {
+      return Number((parsed / fontSize).toFixed(2));
+    }
+    return Number(parsed.toFixed(2));
+  }
+
+  return null;
+}
+
 // ─────────── 셀 전체 툴바 (기존) ───────────
 function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
-  const rawLineHeight = currentStyle?.lineHeight;
-  const currentLineHeight = Number.isFinite(Number(rawLineHeight)) ? Number(rawLineHeight) : 1.45;
-  const lineHeightLabel = currentLineHeight.toFixed(2).replace(/\.00$/, '');
-  const adjustLineHeight = (delta) => {
-    const next = Math.max(1, Math.min(2.2, Number((currentLineHeight + delta).toFixed(2))));
-    onApply({ lineHeight: next });
-  };
 
   return (
     <div
@@ -782,24 +802,6 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
         B
       </button>
 
-      {/* 행간 */}
-      <button
-        style={toolbarBtnStyle}
-        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); adjustLineHeight(-0.05); }}
-        title="행간 좁게"
-      >
-        LH−
-      </button>
-      <span style={{ padding: '4px 2px', minWidth: 36, textAlign: 'center', fontWeight: 700 }} title="현재 행간">
-        {lineHeightLabel}
-      </span>
-      <button
-        style={toolbarBtnStyle}
-        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); adjustLineHeight(0.05); }}
-        title="행간 넓게"
-      >
-        LH+
-      </button>
 
       {/* 색상 */}
       <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} title="글자 색">
@@ -849,6 +851,23 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
 // 🆕 인라인 툴바 — 선택한 부분만 서식 적용
 // 🆕 (2026-05-06) 컬러 피커(input[type=color]) 부활 — selection 백업/복원 방식으로 안전 처리
 function InlineToolbar({ pos, onApply }) {
+  // 🆕 선택 영역 단위 행간 조절 (세부 옵션바)
+  const [lineHeightValue, setLineHeightValue] = useState(() => {
+    const current = readSelectionLineHeight(window.getSelection());
+    return Number.isFinite(current) ? current : 1.45;
+  });
+
+  useEffect(() => {
+    const current = readSelectionLineHeight(window.getSelection());
+    if (Number.isFinite(current)) setLineHeightValue(current);
+  }, [pos.top, pos.left]);
+
+  const adjustInlineLineHeight = (delta) => {
+    const next = Math.max(1, Math.min(2.2, Number((lineHeightValue + delta).toFixed(2))));
+    setLineHeightValue(next);
+    onApply({ type: 'lineHeight', value: next });
+  };
+
   // 🆕 (2026-05-08) native <input type=color> 포기 — CSP / preventDefault / 외부 mousedown
   //   문제로 OS 다이얼로그가 안정적으로 열리지 않음. 사용자 요청대로 커스텀 색상 그리드
   //   팝업으로 변경. 팝업이 InlineToolbar 내부 (data-inline-toolbar) 에 렌더되므로
@@ -932,6 +951,25 @@ function InlineToolbar({ pos, onApply }) {
         title="선택 부분 글씨 크기 크게"
       >
         A+
+      </button>
+
+      {/* 🆕 선택 부분 행간 */}
+      <button
+        style={inlineBtnStyle}
+        onMouseDown={(e) => { e.preventDefault(); adjustInlineLineHeight(-0.05); }}
+        title="선택 부분 행간 좁게"
+      >
+        LH−
+      </button>
+      <span style={{ minWidth: 34, textAlign: 'center', fontWeight: 800, fontSize: 11 }} title="선택 부분 현재 행간">
+        {lineHeightValue.toFixed(2).replace(/\.00$/, '')}
+      </span>
+      <button
+        style={inlineBtnStyle}
+        onMouseDown={(e) => { e.preventDefault(); adjustInlineLineHeight(0.05); }}
+        title="선택 부분 행간 넓게"
+      >
+        LH+
       </button>
 
       {/* 🆕 (2026-05-08) 커스텀 색상 그리드 팝업 — native picker 대체
