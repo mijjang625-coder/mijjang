@@ -105,6 +105,13 @@ export default function EditableText({
     if (!hasLineBreak) return raw;
     if (!Number.isFinite(parsed)) return 1.45;
 
+    const hasExplicitUserLineHeight = !!(override?.style && Object.prototype.hasOwnProperty.call(override.style, 'lineHeight'));
+    if (hasExplicitUserLineHeight) {
+      // 사용자가 직접 조절한 값은 폭넓게 허용 (세부옵션바 LH-/LH+)
+      return Math.min(2.2, Math.max(1, parsed));
+    }
+
+    // 기본 자동 정규화는 과도한 들쭉날쭉만 완화
     return Math.min(1.55, Math.max(1.4, parsed));
   })();
   const normalizedStyle = resolvedLineHeight !== undefined
