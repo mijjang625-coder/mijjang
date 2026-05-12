@@ -908,8 +908,20 @@ function InlineToolbar({ pos, onApply }) {
     if (Number.isFinite(current)) setLineHeightValue(current);
   }, [pos.top, pos.left]);
 
+  useEffect(() => {
+    const syncFromSelection = () => {
+      const current = readSelectionLineHeight(window.getSelection());
+      if (Number.isFinite(current)) setLineHeightValue(current);
+    };
+
+    document.addEventListener('selectionchange', syncFromSelection);
+    return () => document.removeEventListener('selectionchange', syncFromSelection);
+  }, []);
+
   const adjustInlineLineHeight = (delta) => {
-    const next = Math.max(1, Math.min(2.2, Number((lineHeightValue + delta).toFixed(2))));
+    const currentFromSelection = readSelectionLineHeight(window.getSelection());
+    const base = Number.isFinite(currentFromSelection) ? currentFromSelection : lineHeightValue;
+    const next = Math.max(1, Math.min(2.2, Number((base + delta).toFixed(2))));
     setLineHeightValue(next);
     onApply({ type: 'lineHeight', value: next });
   };
