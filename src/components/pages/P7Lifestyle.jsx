@@ -180,7 +180,7 @@ export default function P7Lifestyle({
           )}
         </div>
 
-        <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
+        <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 0 }}>
           {/* 슬롯: 첫 모듈 위 */}
           {renderSlot('top')}
 
@@ -215,6 +215,7 @@ export default function P7Lifestyle({
                   style={{
                     pointerEvents: editMode ? 'auto' : 'inherit',
                     marginTop: 40,
+                    marginBottom: i < 2 ? 40 : 0,
                     minHeight: 44,
                     display: 'flex',
                     alignItems: 'center',
@@ -225,7 +226,6 @@ export default function P7Lifestyle({
                     {...editPropsFor(`P7.modules.${i}.caption`)}
                     as="div"
                     defaultStyle={{
-<<<<<<< HEAD
                       textAlign: 'center',
                       fontSize: 26,
                       lineHeight: 1.2,
@@ -233,10 +233,6 @@ export default function P7Lifestyle({
                       color: BRAND.colors.text,
                       letterSpacing: '-0.02em',
                       width: '100%',
-=======
-                      textAlign: 'center', fontSize: 26,
-                      fontWeight: 700, color: BRAND.colors.text, letterSpacing: '-0.02em',
->>>>>>> 30b3985 (fix(p7): keep caption vertically centered between image blocks)
                     }}
                   >
                     {m.caption}
