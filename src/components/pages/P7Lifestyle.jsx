@@ -214,7 +214,7 @@ export default function P7Lifestyle({
                 <div
                   style={{
                     pointerEvents: editMode ? 'auto' : 'inherit',
-                    marginTop: 18,
+                    marginTop: 40,
                     minHeight: 44,
                     display: 'flex',
                     alignItems: 'center',
