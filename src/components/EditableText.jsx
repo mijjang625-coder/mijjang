@@ -770,18 +770,30 @@ function readSelectionLineHeight(sel, rootEl = null) {
   if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
   if (!node || typeof window === 'undefined') return null;
 
-  const selectionLineHeight = normalizeComputedLineHeight(window.getComputedStyle(node));
+  const nodeStyle = window.getComputedStyle(node);
+  const selectionLineHeight = normalizeComputedLineHeight(nodeStyle);
   const rootLineHeight = rootEl ? normalizeComputedLineHeight(window.getComputedStyle(rootEl)) : null;
 
-  if (Number.isFinite(selectionLineHeight) && Number.isFinite(rootLineHeight)) {
-    // 실제 렌더링 line box는 부모 strut보다 작아질 수 없으므로,
-    // UI 표시/증감 기준은 둘 중 큰 값(실효값)을 사용한다.
-    return Number(Math.max(selectionLineHeight, rootLineHeight).toFixed(2));
+  // 선택된 실제 line box(rect) 기반으로 추정한 line-height 배수
+  // (legacy inline span 중첩으로 computed 값이 1로 튀는 케이스 보정)
+  const fontSize = parseFloat(nodeStyle.fontSize);
+  let renderedLineHeight = null;
+  if (Number.isFinite(fontSize) && fontSize > 0) {
+    const rects = Array.from(range.getClientRects() || []).filter((r) => r.height > 0);
+    if (rects.length > 0) {
+      const avgRectHeight = rects.reduce((acc, r) => acc + r.height, 0) / rects.length;
+      const ratio = avgRectHeight / fontSize;
+      if (Number.isFinite(ratio)) {
+        renderedLineHeight = Number(Math.max(1, Math.min(2.2, ratio)).toFixed(2));
+      }
+    }
   }
 
-  if (Number.isFinite(selectionLineHeight)) return selectionLineHeight;
-  if (Number.isFinite(rootLineHeight)) return rootLineHeight;
-  return null;
+  const candidates = [selectionLineHeight, rootLineHeight, renderedLineHeight].filter((v) => Number.isFinite(v));
+  if (!candidates.length) return null;
+
+  // UI 기준은 "실제로 보이는 간격" 쪽에 맞추기 위해 최대값 사용
+  return Number(Math.max(...candidates).toFixed(2));
 }
 
 // ─────────── 셀 전체 툴바 (기존) ───────────
