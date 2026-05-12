@@ -1151,6 +1151,14 @@ export default function App() {
     });
   };
 
+  // provider에 맞는 모델명 보정 (예: OpenAI 경로에 Claude 모델명이 들어가면 기본 OpenAI 모델로 폴백)
+  const pickModelForProvider = (providerId) => {
+    const current = String(model || '').trim();
+    if (providerId !== 'openai') return current || model;
+    // OpenAI 모델명이 아니면 안전 기본값으로 폴백
+    return /^(gpt-|o[1-9]|chatgpt)/i.test(current) ? current : 'gpt-4o-mini';
+  };
+
   // 참조 URL 또는 붙여넣은 텍스트에서 제품 정보 자동 추출
   const handleAutoFillFromUrl = async () => {
     setError('');
@@ -1183,14 +1191,14 @@ export default function App() {
         info = await extractProductInfoFromUrl({
           provider: providerForCall,
           apiKey: keyForCall.trim(),
-          model,
+          model: pickModelForProvider(providerForCall),
           url,
         });
       } else {
         info = await extractProductInfoFromText({
           provider: providerForCall,
           apiKey: keyForCall.trim(),
-          model,
+          model: pickModelForProvider(providerForCall),
           pastedText,
           userNotes,
           imageDataUrls: ocrImages, // OCR 전용 이미지 (1688 다운받은 그림)
@@ -1344,7 +1352,7 @@ export default function App() {
       const { keywords: kws } = await extractRecommendedKeywords({
         provider: providerForCall,
         apiKey: keyForCall.trim(),
-        model,
+        model: pickModelForProvider(providerForCall),
         pastedText,
         userNotes,
         imageDataUrls: ocrImages,
