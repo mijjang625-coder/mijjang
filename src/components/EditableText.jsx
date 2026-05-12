@@ -657,6 +657,7 @@ export default function EditableText({
       {isEditing && inlineToolbar.show && renderInPortal(
         <InlineToolbar
           pos={inlineToolbar}
+          rootRef={ref}
           onApply={applyInline}
         />
       )}
@@ -746,9 +747,10 @@ function clearAncestorInlineLineHeight(range, rootEl) {
   clearPath(range.endContainer);
 }
 
-function readSelectionLineHeight(sel) {
+function readSelectionLineHeight(sel, rootEl = null) {
   if (!sel || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
+  if (rootEl && !rootEl.contains(range.commonAncestorContainer)) return null;
   let node = range.startContainer;
   if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
   if (!node || typeof window === 'undefined') return null;
@@ -896,30 +898,30 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
 
 // 🆕 인라인 툴바 — 선택한 부분만 서식 적용
 // 🆕 (2026-05-06) 컬러 피커(input[type=color]) 부활 — selection 백업/복원 방식으로 안전 처리
-function InlineToolbar({ pos, onApply }) {
+function InlineToolbar({ pos, rootRef, onApply }) {
   // 🆕 선택 영역 단위 행간 조절 (세부 옵션바)
   const [lineHeightValue, setLineHeightValue] = useState(() => {
-    const current = readSelectionLineHeight(window.getSelection());
+    const current = readSelectionLineHeight(window.getSelection(), rootRef?.current);
     return Number.isFinite(current) ? current : 1.45;
   });
 
   useEffect(() => {
-    const current = readSelectionLineHeight(window.getSelection());
+    const current = readSelectionLineHeight(window.getSelection(), rootRef?.current);
     if (Number.isFinite(current)) setLineHeightValue(current);
-  }, [pos.top, pos.left]);
+  }, [pos.top, pos.left, rootRef]);
 
   useEffect(() => {
     const syncFromSelection = () => {
-      const current = readSelectionLineHeight(window.getSelection());
+      const current = readSelectionLineHeight(window.getSelection(), rootRef?.current);
       if (Number.isFinite(current)) setLineHeightValue(current);
     };
 
     document.addEventListener('selectionchange', syncFromSelection);
     return () => document.removeEventListener('selectionchange', syncFromSelection);
-  }, []);
+  }, [rootRef]);
 
   const adjustInlineLineHeight = (delta) => {
-    const currentFromSelection = readSelectionLineHeight(window.getSelection());
+    const currentFromSelection = readSelectionLineHeight(window.getSelection(), rootRef?.current);
     const base = Number.isFinite(currentFromSelection) ? currentFromSelection : lineHeightValue;
     const next = Math.max(1, Math.min(2.2, Number((base + delta).toFixed(2))));
     setLineHeightValue(next);
