@@ -3,6 +3,8 @@ import { analyzeReviews } from '../lib/openai.js';
 
 // 🚀 xlsx는 lazy load — 사용자가 엑셀 업로드할 때만 로드 (~250KB 절약)
 let _XLSX = null;
+const STORAGE_KEY = 'reviewAnalyzer.v2';
+const noop = () => {};
 async function getXLSX() {
   if (_XLSX) return _XLSX;
   _XLSX = await import('xlsx');
@@ -40,6 +42,9 @@ export default function ReviewAnalyzer({
   onAnalyzed = () => {},
   // 🆕 (2026-04-28) 채택된 문구를 "내 메모"에 자동 적용 (선택)
   onApplyAdoptedToNotes = null,
+  // 프로젝트 저장/불러오기와 연동되는 외부 스냅샷 (선택)
+  initialSnapshot = null,
+  onStateSnapshotChange = noop,
 }) {
   // 입력 모드: 'excel' | 'txt' | 'paste'
   const [inputMode, setInputMode] = useState('excel');
@@ -62,25 +67,50 @@ export default function ReviewAnalyzer({
   const [result, setResult] = useState(null);
   const [adopted, setAdopted] = useState({}); // { h1: true, h2: false, ... }
 
-  // localStorage 자동 저장/복원
+  // localStorage + 외부 스냅샷 자동 저장/복원
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('reviewAnalyzer.v1');
-      if (!raw) return;
-      const saved = JSON.parse(raw);
+      const saved =
+        (initialSnapshot && typeof initialSnapshot === 'object')
+          ? initialSnapshot
+          : (() => {
+              const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('reviewAnalyzer.v1');
+              if (!raw) return null;
+              return JSON.parse(raw);
+            })();
+      if (!saved) return;
       if (saved.result) setResult(saved.result);
       if (saved.adopted) setAdopted(saved.adopted);
-      if (saved.pastedText) setPastedText(saved.pastedText);
+      if (typeof saved.pastedText === 'string') setPastedText(saved.pastedText);
       if (saved.inputMode) setInputMode(saved.inputMode);
+      if (Array.isArray(saved.excelRows)) setExcelRows(saved.excelRows);
+      if (Array.isArray(saved.excelColumns)) setExcelColumns(saved.excelColumns);
+      if (typeof saved.reviewColumn === 'string') setReviewColumn(saved.reviewColumn);
+      if (typeof saved.excelFileName === 'string') setExcelFileName(saved.excelFileName);
+      if (typeof saved.txtFileName === 'string') setTxtFileName(saved.txtFileName);
     } catch (_) {}
-  }, []);
+  }, [initialSnapshot]);
 
   useEffect(() => {
     try {
-      const data = JSON.stringify({ result, adopted, pastedText, inputMode });
+      const snapshot = {
+        result,
+        adopted,
+        pastedText,
+        inputMode,
+        excelRows,
+        excelColumns,
+        reviewColumn,
+        excelFileName,
+        txtFileName,
+      };
+      const data = JSON.stringify(snapshot);
+      localStorage.setItem(STORAGE_KEY, data);
+      // 하위호환: 기존 키도 함께 갱신 (구버전에서 최신 상태 읽기 가능)
       localStorage.setItem('reviewAnalyzer.v1', data);
+      onStateSnapshotChange(snapshot);
     } catch (_) {}
-  }, [result, adopted, pastedText, inputMode]);
+  }, [result, adopted, pastedText, inputMode, excelRows, excelColumns, reviewColumn, excelFileName, txtFileName, onStateSnapshotChange]);
 
   // 채택된 문구가 바뀔 때 외부 알림 + 🆕 "내 메모"에 자동 동기화
   useEffect(() => {
@@ -225,7 +255,10 @@ export default function ReviewAnalyzer({
     setPastedText('');
     setTxtFileName('');
     setError('');
-    try { localStorage.removeItem('reviewAnalyzer.v1'); } catch (_) {}
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('reviewAnalyzer.v1');
+    } catch (_) {}
   };
 
   // 분석 초기화 (수동 버튼)

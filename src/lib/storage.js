@@ -217,6 +217,8 @@ export async function saveProject(state) {
     layerNames: state.layerNames || {},
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
+    reviewInsights: state.reviewInsights || null,
+    reviewAnalyzerSnapshot: state.reviewAnalyzerSnapshot || null,
     savedAt: Date.now(),
   };
   try {
@@ -306,6 +308,8 @@ export function exportProjectToJSON(state) {
     layerNames: state.layerNames || {},
     p5Version: state.p5Version || 'text',
     revisionHistory: state.revisionHistory || {},
+    reviewInsights: state.reviewInsights || null,
+    reviewAnalyzerSnapshot: state.reviewAnalyzerSnapshot || null,
   };
 }
 

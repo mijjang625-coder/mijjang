@@ -76,6 +76,8 @@ export default function App() {
 
   // 🆕 리뷰 분석 결과 (CompetitorAnalyzer 갭 매칭용)
   const [reviewInsights, setReviewInsights] = useState(null);
+  // 리뷰 분석기 UI/입력/결과 스냅샷 (프로젝트 저장/불러오기 포함)
+  const [reviewAnalyzerSnapshot, setReviewAnalyzerSnapshot] = useState(null);
   // 리뷰 분석기 내부 상태 강제 리셋 신호 (초기화 시 +1)
   const [reviewAnalyzerResetKey, setReviewAnalyzerResetKey] = useState(0);
 
@@ -957,6 +959,18 @@ export default function App() {
           if (saved.layerNames) setLayerNames(saved.layerNames);
           if (saved.p5Version) setP5Version(saved.p5Version);
           if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
+          if (Object.prototype.hasOwnProperty.call(saved, 'reviewInsights')) setReviewInsights(saved.reviewInsights || null);
+          if (Object.prototype.hasOwnProperty.call(saved, 'reviewAnalyzerSnapshot')) {
+            const snapshot = saved.reviewAnalyzerSnapshot || null;
+            setReviewAnalyzerSnapshot(snapshot);
+            try {
+              if (snapshot) {
+                const s = JSON.stringify(snapshot);
+                localStorage.setItem('reviewAnalyzer.v2', s);
+                localStorage.setItem('reviewAnalyzer.v1', s);
+              }
+            } catch {}
+          }
           setLastSavedAt(getLastSaved());
           // 🔄 복원된 상태를 히스토리 시작점으로
           undoHistory.reset({
@@ -1002,9 +1016,11 @@ export default function App() {
     debouncedSaveRef.current({
       brief, images, pages, currentPage, pageVariants,
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
+      reviewInsights, reviewAnalyzerSnapshot,
     });
   }, [hydrated, brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory]);
+      textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
+      reviewInsights, reviewAnalyzerSnapshot]);
 
   // 수동 내보내기 (JSON 파일로 다운로드)
   const handleExportProject = useCallback(() => {
@@ -1014,8 +1030,9 @@ export default function App() {
     downloadProjectJSON({
       brief, images, pages, currentPage, pageVariants,
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
+      reviewInsights, reviewAnalyzerSnapshot,
     }, filename);
-  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory]);
+  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory, reviewInsights, reviewAnalyzerSnapshot]);
 
   // 수동 불러오기 (JSON 파일 입력)
   const fileInputRef = useRef(null);
@@ -1037,6 +1054,15 @@ export default function App() {
       setLayerNames(data.layerNames || {});
       setP5Version(data.p5Version || 'text');
       setRevisionHistory(data.revisionHistory || {});
+      setReviewInsights(data.reviewInsights || null);
+      setReviewAnalyzerSnapshot(data.reviewAnalyzerSnapshot || null);
+      try {
+        if (data.reviewAnalyzerSnapshot) {
+          const s = JSON.stringify(data.reviewAnalyzerSnapshot);
+          localStorage.setItem('reviewAnalyzer.v2', s);
+          localStorage.setItem('reviewAnalyzer.v1', s);
+        }
+      } catch {}
       // 🔄 히스토리 초기화 (불러온 상태가 새 시작점)
       undoHistory.reset({
         pages: data.pages || {},
@@ -1074,6 +1100,7 @@ export default function App() {
     setP5Version('text');
     setRevisionHistory({});
     setReviewInsights(null);
+    setReviewAnalyzerSnapshot(null);
     setKeywords([]);
     setExtractResult(null);
     setReferenceUrl('');
@@ -1081,7 +1108,10 @@ export default function App() {
     setUserNotes('');
     setError('');
     setLastSavedAt(null);
-    try { localStorage.removeItem('reviewAnalyzer.v1'); } catch {}
+    try {
+      localStorage.removeItem('reviewAnalyzer.v1');
+      localStorage.removeItem('reviewAnalyzer.v2');
+    } catch {}
     setReviewAnalyzerResetKey((k) => k + 1);
     // 🔄 히스토리도 초기화
     undoHistory.reset({
@@ -1992,6 +2022,8 @@ export default function App() {
           handleImageUpload={handleImageUpload}
           reviewInsights={reviewInsights}
           setReviewInsights={setReviewInsights}
+          reviewAnalyzerSnapshot={reviewAnalyzerSnapshot}
+          setReviewAnalyzerSnapshot={setReviewAnalyzerSnapshot}
           reviewAnalyzerResetKey={reviewAnalyzerResetKey}
           referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
           isExtracting={isExtracting}
