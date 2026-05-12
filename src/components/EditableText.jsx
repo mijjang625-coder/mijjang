@@ -459,6 +459,7 @@ export default function EditableText({
   //   bold/removeFormat 도 try/catch 로 보호하여 실패 시 화면이 꺼지지 않도록 함.
   const applyInline = (action) => {
     if (!ref.current) return;
+    let baseLineHeightPatch;
     // 🆕 (2026-05-06) 가드 ON — selectionchange 로 인한 인라인 툴바 자동 닫힘 방지
     inlineApplyingRef.current = true;
     // 포커스 유지 + 선택 영역 보존
@@ -491,6 +492,15 @@ export default function EditableText({
         const numericLineHeight = Number(action.value);
         if (Number.isFinite(numericLineHeight)) {
           applySpanStyle(sel, { lineHeight: String(numericLineHeight) }, ['lineHeight']);
+
+          // line box 최소 높이는 부모 line-height(strut) 영향을 받으므로,
+          // 선택 영역을 줄일 때는 부모 기본 line-height도 낮춰야 실제로 줄어든다.
+          const currentBaseLineHeight = Number.isFinite(Number(mergedStyle?.lineHeight))
+            ? Number(mergedStyle.lineHeight)
+            : 1.45;
+          if (numericLineHeight < currentBaseLineHeight) {
+            baseLineHeightPatch = numericLineHeight;
+          }
         }
       } else if (action.type === 'reset') {
         // 선택 부분의 인라인 서식 제거 — execCommand 도 try/catch 로 보호
@@ -510,7 +520,15 @@ export default function EditableText({
       if (ref.current) {
         const newHtml = ref.current.innerHTML;
         const newText = ref.current.innerText;
-        onChange({ html: newHtml, text: newText });
+        if (baseLineHeightPatch !== undefined) {
+          onChange({
+            html: newHtml,
+            text: newText,
+            style: { ...(override?.style || {}), lineHeight: baseLineHeightPatch },
+          });
+        } else {
+          onChange({ html: newHtml, text: newText });
+        }
       }
     } catch (err) {
       if (typeof console !== 'undefined' && console.warn) {
