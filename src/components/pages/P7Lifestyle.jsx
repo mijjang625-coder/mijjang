@@ -180,7 +180,7 @@ export default function P7Lifestyle({
           )}
         </div>
 
-        <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
+        <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 0 }}>
           {/* 슬롯: 첫 모듈 위 */}
           {renderSlot('top')}
 
@@ -215,6 +215,7 @@ export default function P7Lifestyle({
                   style={{
                     pointerEvents: editMode ? 'auto' : 'inherit',
                     marginTop: 40,
+                    marginBottom: i < 2 ? 40 : 0,
                     minHeight: 44,
                     display: 'flex',
                     alignItems: 'center',
