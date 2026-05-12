@@ -762,6 +762,25 @@ function normalizeComputedLineHeight(cs) {
   return Number(parsed.toFixed(2));
 }
 
+function parseExplicitLineHeight(raw) {
+  if (raw == null) return null;
+  const parsed = parseFloat(String(raw).trim());
+  return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : null;
+}
+
+function findExplicitLineHeight(node, rootEl) {
+  let cur = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  while (cur) {
+    if (cur.style) {
+      const explicit = parseExplicitLineHeight(cur.style.lineHeight);
+      if (Number.isFinite(explicit)) return explicit;
+    }
+    if (rootEl && cur === rootEl) break;
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
 function readSelectionLineHeight(sel, rootEl = null) {
   if (!sel || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
@@ -770,29 +789,21 @@ function readSelectionLineHeight(sel, rootEl = null) {
   if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
   if (!node || typeof window === 'undefined') return null;
 
+  // 1) 사용자가 저장한 명시 line-height(style="line-height:...")를 최우선으로 사용
+  const explicitFromSelection = findExplicitLineHeight(node, rootEl || null);
+  if (Number.isFinite(explicitFromSelection)) return explicitFromSelection;
+
+  // 2) 루트 기본 style line-height (React inline style) 폴백
+  const explicitFromRoot = rootEl ? parseExplicitLineHeight(rootEl.style?.lineHeight) : null;
+  if (Number.isFinite(explicitFromRoot)) return explicitFromRoot;
+
+  // 3) 마지막 폴백: computed 기반
   const nodeStyle = window.getComputedStyle(node);
   const selectionLineHeight = normalizeComputedLineHeight(nodeStyle);
   const rootLineHeight = rootEl ? normalizeComputedLineHeight(window.getComputedStyle(rootEl)) : null;
 
-  // 선택된 실제 line box(rect) 기반으로 추정한 line-height 배수
-  // (legacy inline span 중첩으로 computed 값이 1로 튀는 케이스 보정)
-  const fontSize = parseFloat(nodeStyle.fontSize);
-  let renderedLineHeight = null;
-  if (Number.isFinite(fontSize) && fontSize > 0) {
-    const rects = Array.from(range.getClientRects() || []).filter((r) => r.height > 0);
-    if (rects.length > 0) {
-      const avgRectHeight = rects.reduce((acc, r) => acc + r.height, 0) / rects.length;
-      const ratio = avgRectHeight / fontSize;
-      if (Number.isFinite(ratio)) {
-        renderedLineHeight = Number(Math.max(1, Math.min(2.2, ratio)).toFixed(2));
-      }
-    }
-  }
-
-  const candidates = [selectionLineHeight, rootLineHeight, renderedLineHeight].filter((v) => Number.isFinite(v));
+  const candidates = [selectionLineHeight, rootLineHeight].filter((v) => Number.isFinite(v));
   if (!candidates.length) return null;
-
-  // UI 기준은 "실제로 보이는 간격" 쪽에 맞추기 위해 최대값 사용
   return Number(Math.max(...candidates).toFixed(2));
 }
 
