@@ -16,12 +16,11 @@ import {
   downloadAllAsHtml,
 } from './lib/exporters.js';
 import AISynthesisFloatingButton from './components/AISynthesisFloatingButton.jsx';
-import InfoCard from './components/ui/InfoCard.jsx';
 import ScaledHeightWrap from './components/ui/ScaledHeightWrap.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
 import OnboardingTour from './components/onboarding/OnboardingTour.jsx';
 import { DEFAULT_BRIEF } from './lib/briefDefaults.js';
-import { THEME_PRESETS, applyTheme, applyFont, applyCategoryPageSkin, getCategoryVisualPreset } from './lib/theme.js';
+import { applyTheme, applyFont, applyCategoryPageSkin, getCategoryVisualPreset } from './lib/theme.js';
 import {
   saveProject,
   loadProject,
@@ -781,7 +780,8 @@ export default function App() {
       pushHistoryDebounced(`text.${pageNum}.${textId}`, `${pageNum} 텍스트 수정`);
     }
 
-    const { __registerOnly, ...safePartial } = partial || {};
+    const safePartial = { ...(partial || {}) };
+    delete safePartial.__registerOnly;
 
     setTextOverrides((prev) => {
       const pagePrev = prev[pageNum] || {};
@@ -2028,6 +2028,7 @@ export default function App() {
           updateObjectArrayItem={updateObjectArrayItem}
           images={images}
           handleImageUpload={handleImageUpload}
+          removeImage={removeImage}
           reviewInsights={reviewInsights}
           setReviewInsights={setReviewInsights}
           reviewAnalyzerSnapshot={reviewAnalyzerSnapshot}

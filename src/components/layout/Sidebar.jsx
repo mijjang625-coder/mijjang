@@ -55,7 +55,7 @@ export default function Sidebar({
   brief, setBrief,
   updateBrief, updateArrayItem, updateObjectArrayItem,
   // 이미지
-  images, handleImageUpload,
+  images, handleImageUpload, removeImage,
   // 리뷰/경쟁사 분석
   reviewInsights, setReviewInsights,
   reviewAnalyzerSnapshot = null,

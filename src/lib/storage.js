@@ -254,7 +254,7 @@ export async function saveProject(state) {
  * @returns {Promise<Object|null>}
  */
 export async function loadProject() {
-  let raw = null;
+  let raw;
   try {
     raw = localStorage.getItem(LS_PROJECT_KEY);
   } catch {
