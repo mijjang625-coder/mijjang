@@ -225,6 +225,7 @@ export default function P7Lifestyle({
                     {...editPropsFor(`P7.modules.${i}.caption`)}
                     as="div"
                     defaultStyle={{
+<<<<<<< HEAD
                       textAlign: 'center',
                       fontSize: 26,
                       lineHeight: 1.2,
@@ -232,6 +233,10 @@ export default function P7Lifestyle({
                       color: BRAND.colors.text,
                       letterSpacing: '-0.02em',
                       width: '100%',
+=======
+                      textAlign: 'center', fontSize: 26,
+                      fontWeight: 700, color: BRAND.colors.text, letterSpacing: '-0.02em',
+>>>>>>> 30b3985 (fix(p7): keep caption vertically centered between image blocks)
                     }}
                   >
                     {m.caption}
