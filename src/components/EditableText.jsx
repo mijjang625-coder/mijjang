@@ -698,6 +698,13 @@ function readSelectionFontSize(sel) {
 // ─────────── 셀 전체 툴바 (기존) ───────────
 function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
+  const rawLineHeight = currentStyle?.lineHeight;
+  const currentLineHeight = Number.isFinite(Number(rawLineHeight)) ? Number(rawLineHeight) : 1.45;
+  const lineHeightLabel = currentLineHeight.toFixed(2).replace(/\.00$/, '');
+  const adjustLineHeight = (delta) => {
+    const next = Math.max(1, Math.min(2.2, Number((currentLineHeight + delta).toFixed(2))));
+    onApply({ lineHeight: next });
+  };
 
   return (
     <div
@@ -773,6 +780,25 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
         title="굵게"
       >
         B
+      </button>
+
+      {/* 행간 */}
+      <button
+        style={toolbarBtnStyle}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); adjustLineHeight(-0.05); }}
+        title="행간 좁게"
+      >
+        LH−
+      </button>
+      <span style={{ padding: '4px 2px', minWidth: 36, textAlign: 'center', fontWeight: 700 }} title="현재 행간">
+        {lineHeightLabel}
+      </span>
+      <button
+        style={toolbarBtnStyle}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); adjustLineHeight(0.05); }}
+        title="행간 넓게"
+      >
+        LH+
       </button>
 
       {/* 색상 */}
