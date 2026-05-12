@@ -173,6 +173,16 @@ function isAnthropicModelNotFound(res, text) {
   return !res.ok && [400, 404].includes(res.status) && /not_found_error|invalid_request_error|"model"|model/i.test(text || '');
 }
 
+function isAnthropicOverloaded(res, text) {
+  if (!res || res.ok) return false;
+  if (res.status === 529 || res.status === 503) return true;
+  return /overloaded_error|overloaded|temporarily unavailable|rate.?limit/i.test(String(text || ''));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 let anthropicModelCache = {
   at: 0,
   ids: [],
@@ -287,6 +297,22 @@ async function callAnthropic({ apiKey, model, systemPrompt, userPrompt, response
       }
     } catch (e) {
       console.warn('[callAnthropic] 모델 목록 조회 실패:', e);
+    }
+  }
+
+  // 3) Anthropic 과부하(529/503/overloaded_error)면 자동 재시도
+  //    - 짧은 백오프 후 최대 2회
+  //    - 모델 fallback 이후 확정된 modelUsed 기준으로 재호출
+  if (isAnthropicOverloaded(res, text)) {
+    const retryDelays = [1200, 2500];
+    for (let i = 0; i < retryDelays.length; i += 1) {
+      await sleep(retryDelays[i]);
+      const retry = await callWithModel(modelUsed || model);
+      res = retry.res;
+      text = retry.text;
+      modelUsed = retry.modelUsed;
+      if (!isAnthropicOverloaded(res, text)) break;
+      console.warn(`[callAnthropic] 과부하 자동 재시도 ${i + 1}/${retryDelays.length} 실패 (status=${res.status})`);
     }
   }
 

@@ -1183,9 +1183,41 @@ export default function App() {
   // provider에 맞는 모델명 보정 (예: OpenAI 경로에 Claude 모델명이 들어가면 기본 OpenAI 모델로 폴백)
   const pickModelForProvider = (providerId) => {
     const current = String(model || '').trim();
-    if (providerId !== 'openai') return current || model;
-    // OpenAI 모델명이 아니면 안전 기본값으로 폴백
-    return /^(gpt-|o[1-9]|chatgpt)/i.test(current) ? current : 'gpt-4o-mini';
+    if (providerId === 'openai') {
+      // OpenAI 모델명이 아니면 안전 기본값으로 폴백
+      return /^(gpt-|o[1-9]|chatgpt)/i.test(current) ? current : 'gpt-4o-mini';
+    }
+    if (providerId === 'google') {
+      return /^gemini-/i.test(current) ? current : 'gemini-2.0-flash-exp';
+    }
+    if (providerId === 'anthropic') {
+      return /^claude-/i.test(current) ? current : 'claude-3-5-haiku-latest';
+    }
+    return current || model;
+  };
+
+  const isTransientProviderOverload = (err, providerId) => {
+    const msg = String(err?.message || err || '');
+    if (providerId === 'anthropic') {
+      return /Anthropic API 오류 \((529|503)\)|overloaded_error|"Overloaded"|temporarily unavailable|rate.?limit/i.test(msg);
+    }
+    if (providerId === 'openai') {
+      return /OpenAI API 오류 \((429|500|502|503|504)\)|rate.?limit|server_error|temporarily unavailable/i.test(msg);
+    }
+    if (providerId === 'google') {
+      return /Gemini API 오류 \((429|500|502|503|504)\)|rate.?limit|resource exhausted|temporarily unavailable/i.test(msg);
+    }
+    return false;
+  };
+
+  const pickFallbackProviderContext = (sourceProvider) => {
+    const providerContexts = [
+      { providerId: 'openai', key: apiKey?.trim(), label: 'OpenAI' },
+      { providerId: 'google', key: geminiApiKey?.trim(), label: 'Gemini' },
+      { providerId: 'anthropic', key: claudeApiKey?.trim(), label: 'Claude' },
+    ];
+
+    return providerContexts.find((ctx) => ctx.providerId !== sourceProvider && !!ctx.key) || null;
   };
 
   // 참조 URL 또는 붙여넣은 텍스트에서 제품 정보 자동 추출
@@ -1505,29 +1537,68 @@ export default function App() {
         .map((p) => `${p}: ${pages[p]?.pagePurpose || ''}`)
         .join('\n');
 
-      console.log(`[handleGenerate] ${pageNumber} API 호출 시작 (provider=${provider}, model=${model})`);
-      const result = await generateCoupangPage({
-        provider,
+      const primaryContext = {
+        providerId: provider,
         apiKey: activeApiKey.trim(),
-        model,
-        pageNumber,
-        brief,
-        imageCount: images.length,
-        previousPagesSummary,
-        revisionRequest,
-        previousCopy,
-        revisionHistory: revisionHistory[pageNumber] || [], // 누적 수정 히스토리
-        revisionChats: revisionChatForPrompt, // 현재 페이지 대화 문맥
-      });
+        modelId: pickModelForProvider(provider),
+      };
+
+      console.log(`[handleGenerate] ${pageNumber} API 호출 시작 (provider=${primaryContext.providerId}, model=${primaryContext.modelId})`);
+
+      let result;
+      try {
+        result = await generateCoupangPage({
+          provider: primaryContext.providerId,
+          apiKey: primaryContext.apiKey,
+          model: primaryContext.modelId,
+          pageNumber,
+          brief,
+          imageCount: images.length,
+          previousPagesSummary,
+          revisionRequest,
+          previousCopy,
+          revisionHistory: revisionHistory[pageNumber] || [], // 누적 수정 히스토리
+          revisionChats: revisionChatForPrompt, // 현재 페이지 대화 문맥
+        });
+      } catch (primaryErr) {
+        const shouldTryProviderFallback = isTransientProviderOverload(primaryErr, primaryContext.providerId);
+        const fallbackContext = shouldTryProviderFallback
+          ? pickFallbackProviderContext(primaryContext.providerId)
+          : null;
+
+        if (!fallbackContext) throw primaryErr;
+
+        const fallbackModel = pickModelForProvider(fallbackContext.providerId);
+        setError(`⚠️ ${fallbackContext.label}로 자동 전환하여 재시도 중입니다...`);
+        console.warn(`[handleGenerate] ${pageNumber} 과부하 감지 — provider 자동 폴백: ${primaryContext.providerId} -> ${fallbackContext.providerId}`, primaryErr);
+
+        result = await generateCoupangPage({
+          provider: fallbackContext.providerId,
+          apiKey: fallbackContext.key,
+          model: fallbackModel,
+          pageNumber,
+          brief,
+          imageCount: images.length,
+          previousPagesSummary,
+          revisionRequest,
+          previousCopy,
+          revisionHistory: revisionHistory[pageNumber] || [],
+          revisionChats: revisionChatForPrompt,
+        });
+      }
+
       console.log(`[handleGenerate] ${pageNumber} 응답 수신`, {
         hasCopy: !!result?.copy,
         needsMoreInfo: result?.needsMoreInfo,
         missingItems: result?.missingItems,
+        providerUsed: result?._provider,
+        modelUsed: result?._model,
       });
 
       // 💰 비용 기록 (응답에 _usage가 있는 경우)
       if (result?._usage) {
-        const cost = costFromUsage(model, result._usage);
+        const usageModel = result?._model || model;
+        const cost = costFromUsage(usageModel, result._usage);
         if (cost) {
           recordCost({
             label: `${pageNumber} ${revisionRequest ? '수정' : '생성'}`,
