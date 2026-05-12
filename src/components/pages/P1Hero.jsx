@@ -355,7 +355,7 @@ export default function P1Hero({
                   as="div"
                   defaultStyle={{
                     width: '100%',
-                    fontSize: 20,
+                    fontSize: 24,
                     fontWeight: 900,
                     color: BRAND.colors.main,
                     lineHeight: 1.4,
