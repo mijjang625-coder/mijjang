@@ -2544,8 +2544,15 @@ export default function App() {
                 const MOBILE_W = 360;
                 const MOBILE_H = 720; // 실제 핸드폰 비율 (16:9, iPhone 14 Pro 정도)
                 const SCALE = MOBILE_W / 780;
-                const MobileFrame = ({ children, label, viewportRef }) => (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                const MobileFrame = ({ children, label, viewportRef, sticky = false }) => (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      ...(sticky ? { position: 'sticky', top: 8, alignSelf: 'flex-start' } : {}),
+                    }}
+                  >
                     {label && (
                       <div className="text-[11px] font-bold mb-2 px-2 py-0.5 rounded" style={{ backgroundColor: previewSkin.labelBg, color: previewSkin.labelText, border: '1px solid rgba(0,0,0,0.12)' }}>
                         {label}
@@ -2725,17 +2732,17 @@ export default function App() {
 
                 if (previewMode === 'split') {
                   return (
-                    <>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
                       <PCFrame label="🖥 PC (780px) — 편집 가능">
                         {renderPage(pageRefs[currentPage], 'pc')}
                       </PCFrame>
-                      <MobileFrame label="📱 모바일 (360px)" viewportRef={splitMobileViewportRef}>
+                      <MobileFrame label="📱 모바일 (360px)" viewportRef={splitMobileViewportRef} sticky>
                         <ScaledHeightWrap scale={SCALE}>
                           {/* split 의 모바일은 별도 ref 없음 — 시각 미리보기용 */}
                           {renderPage(null, 'mobile')}
                         </ScaledHeightWrap>
                       </MobileFrame>
-                    </>
+                    </div>
                   );
                 }
 
