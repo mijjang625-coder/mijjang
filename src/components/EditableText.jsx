@@ -936,19 +936,8 @@ function InlineToolbar({ pos, rootRef, onApply }) {
     if (Number.isFinite(current)) setLineHeightValue(current);
   }, [pos.top, pos.left, rootRef]);
 
-  useEffect(() => {
-    const syncFromSelection = () => {
-      const current = readSelectionLineHeight(window.getSelection(), rootRef?.current);
-      if (Number.isFinite(current)) setLineHeightValue(current);
-    };
-
-    document.addEventListener('selectionchange', syncFromSelection);
-    return () => document.removeEventListener('selectionchange', syncFromSelection);
-  }, [rootRef]);
-
   const adjustInlineLineHeight = (delta) => {
-    const currentFromSelection = readSelectionLineHeight(window.getSelection(), rootRef?.current);
-    const base = Number.isFinite(currentFromSelection) ? currentFromSelection : lineHeightValue;
+    const base = Number.isFinite(lineHeightValue) ? lineHeightValue : 1.45;
     const next = Math.max(1, Math.min(2.2, Number((base + delta).toFixed(2))));
     setLineHeightValue(next);
     onApply({ type: 'lineHeight', value: next });
