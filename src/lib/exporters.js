@@ -169,6 +169,18 @@ function stripEditingChrome(rootNode) {
     // 편집 보조 UI 완전 숨김
     const hideNodes = rootNode.querySelectorAll(hideSelectors.join(','));
     hideNodes.forEach((el) => {
+      // 슬롯 끼워넣기 버튼은 "공간 유지 + 텍스트만 숨김" 처리
+      // (display:none 으로 접으면 본문이 위로 당겨져 PNG 레이아웃이 달라질 수 있음)
+      if (el.hasAttribute('data-slot-insert-button')) {
+        const prevVisibility = el.style.visibility;
+        const prevPointerEvents = el.style.pointerEvents;
+        restored.push({ el, prop: 'visibility', value: prevVisibility });
+        restored.push({ el, prop: 'pointerEvents', value: prevPointerEvents });
+        el.style.visibility = 'hidden';
+        el.style.pointerEvents = 'none';
+        return;
+      }
+
       const prevDisplay = el.style.display;
       restored.push({ el, prop: 'display', value: prevDisplay });
       el.style.display = 'none';
