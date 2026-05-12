@@ -217,33 +217,40 @@ export default function P7Lifestyle({
                 <div
                   style={{
                     pointerEvents: editMode ? 'auto' : 'inherit',
-                    marginTop: 40,
-                    marginBottom: i < 2 ? 40 : 0,
-                    minHeight: 44,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    position: 'relative',
+                    height: i < 2 ? 124 : 84,
                   }}
                 >
-                  <EditableText
-                    id={captionId}
-                    editMode={editMode}
-                    override={captionOverride}
-                    onChange={(partial) => onOverrideChange(captionId, partial)}
-                    draggable={false}
-                    as="div"
-                    defaultStyle={{
-                      textAlign: 'center',
-                      fontSize: 26,
-                      lineHeight: 1.2,
-                      fontWeight: 700,
-                      color: BRAND.colors.text,
-                      letterSpacing: '-0.02em',
-                      width: '100%',
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: 0,
+                      right: 0,
+                      transform: 'translateY(-50%)',
                     }}
                   >
-                    {m.caption}
-                  </EditableText>
+                    <EditableText
+                      id={captionId}
+                      editMode={editMode}
+                      override={captionOverride}
+                      onChange={(partial) => onOverrideChange(captionId, partial)}
+                      draggable={false}
+                      as="div"
+                      defaultStyle={{
+                        textAlign: 'center',
+                        fontSize: 26,
+                        lineHeight: 1.2,
+                        fontWeight: 700,
+                        color: BRAND.colors.text,
+                        letterSpacing: '-0.02em',
+                        width: '100%',
+                        margin: 0,
+                      }}
+                    >
+                      {m.caption}
+                    </EditableText>
+                  </div>
                 </div>
                 {/* 모듈 사이 슬롯 */}
                 {i === 0 && renderSlot('between-0-1')}
