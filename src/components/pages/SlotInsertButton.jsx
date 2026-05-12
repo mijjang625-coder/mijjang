@@ -21,7 +21,7 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
   }, [open]);
 
   return (
-    <div ref={ref} style={{
+    <div ref={ref} data-edit-ui data-slot-insert-button style={{
       position: 'relative',
       width: '100%',
       pointerEvents: 'auto',
