@@ -773,6 +773,26 @@ function parseExplicitLineHeight(raw) {
   return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : null;
 }
 
+function firstFinite(...values) {
+  for (const v of values) {
+    if (Number.isFinite(v)) return v;
+  }
+  return null;
+}
+
+function rangeCoversNodeContents(range, node) {
+  if (!range || !node) return false;
+  try {
+    const full = document.createRange();
+    full.selectNodeContents(node);
+    const startsAtStart = range.compareBoundaryPoints(Range.START_TO_START, full) === 0;
+    const endsAtEnd = range.compareBoundaryPoints(Range.END_TO_END, full) === 0;
+    return startsAtStart && endsAtEnd;
+  } catch (_) {
+    return false;
+  }
+}
+
 function findExplicitLineHeight(node, rootEl) {
   let cur = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
   while (cur) {
@@ -794,21 +814,27 @@ function readSelectionLineHeight(sel, rootEl = null) {
   if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
   if (!node || typeof window === 'undefined') return null;
 
-  // 1) 사용자가 저장한 명시 line-height(style="line-height:...")를 최우선으로 사용
   const explicitFromSelection = findExplicitLineHeight(node, rootEl || null);
-  if (Number.isFinite(explicitFromSelection)) return explicitFromSelection;
-
-  // 2) 루트 기본 style line-height (React inline style) 폴백
   const explicitFromRoot = rootEl ? parseExplicitLineHeight(rootEl.style?.lineHeight) : null;
-  if (Number.isFinite(explicitFromRoot)) return explicitFromRoot;
-
-  // 3) 마지막 폴백: computed 기반
-  const nodeStyle = window.getComputedStyle(node);
-  const selectionLineHeight = normalizeComputedLineHeight(nodeStyle);
+  const selectionLineHeight = normalizeComputedLineHeight(window.getComputedStyle(node));
   const rootLineHeight = rootEl ? normalizeComputedLineHeight(window.getComputedStyle(rootEl)) : null;
 
-  const candidates = [selectionLineHeight, rootLineHeight].filter((v) => Number.isFinite(v));
+  // 전체 선택 상태(더블클릭 진입 기본동작)에서는 루트 값을 우선 사용해
+  // 과거 잘못 저장된 하위 span(line-height:1) 값에 UI가 끌려가지 않게 함.
+  if (rootEl && rangeCoversNodeContents(range, rootEl)) {
+    return firstFinite(explicitFromRoot, rootLineHeight, explicitFromSelection, selectionLineHeight);
+  }
+
+  const candidates = [
+    explicitFromSelection,
+    explicitFromRoot,
+    selectionLineHeight,
+    rootLineHeight,
+  ].filter((v) => Number.isFinite(v));
+
   if (!candidates.length) return null;
+
+  // 부분 선택의 경우 실제 보이는 line box 기준(큰 값)을 사용
   return Number(Math.max(...candidates).toFixed(2));
 }
 
