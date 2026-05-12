@@ -58,6 +58,30 @@ function stripInlineStylePropsFromHtml(html, styleKeys = []) {
   return root.innerHTML;
 }
 
+function normalizeLegacyInlineLineHeights(html, minAllowed = 1.05) {
+  if (!html) return html;
+  if (typeof document === 'undefined') return html;
+
+  const root = document.createElement('div');
+  root.innerHTML = html;
+
+  root.querySelectorAll('[style]').forEach((el) => {
+    const raw = el.style.getPropertyValue('line-height');
+    if (!raw) return;
+
+    const parsed = parseFloat(String(raw).trim());
+    if (!Number.isFinite(parsed)) return;
+
+    if (parsed <= minAllowed) {
+      el.style.removeProperty('line-height');
+      const rest = (el.getAttribute('style') || '').trim();
+      if (!rest) el.removeAttribute('style');
+    }
+  });
+
+  return root.innerHTML;
+}
+
 export default function EditableText({
   id,
   defaultStyle = {},
@@ -403,7 +427,12 @@ export default function EditableText({
   //    isEditing 시작 시점에 한 번만 innerHTML을 설정하고, 이후엔 사용자 입력에 맡김
   useEffect(() => {
     if (isEditing && ref.current) {
-      ref.current.innerHTML = mergedHtml || '';
+      const normalizedHtml = normalizeLegacyInlineLineHeights(mergedHtml || '');
+      ref.current.innerHTML = normalizedHtml;
+
+      if (normalizedHtml !== (mergedHtml || '')) {
+        onChange({ html: normalizedHtml, text: ref.current.innerText });
+      }
 
       // 더블클릭 진입 직후 포커스/선택이 브라우저 타이밍에 따라 풀리는 경우가 있어
       // 다음 프레임에서 강제로 전체 선택을 한 번 더 보장한다.
@@ -663,6 +692,7 @@ export default function EditableText({
         <InlineToolbar
           pos={inlineToolbar}
           rootRef={ref}
+          baselineLineHeight={Number.isFinite(Number(resolvedLineHeight)) ? Number(resolvedLineHeight) : 1.45}
           onApply={applyInline}
         />
       )}
@@ -793,6 +823,15 @@ function rangeCoversNodeContents(range, node) {
   }
 }
 
+function isEffectivelyFullSelection(range, rootEl) {
+  if (!range || !rootEl) return false;
+  if (rangeCoversNodeContents(range, rootEl)) return true;
+
+  const selected = String(range.toString() || '').replace(/\s+/g, ' ').trim();
+  const fullText = String(rootEl.innerText || '').replace(/\s+/g, ' ').trim();
+  return !!selected && !!fullText && selected === fullText;
+}
+
 function findExplicitLineHeight(node, rootEl) {
   let cur = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
   while (cur) {
@@ -806,23 +845,23 @@ function findExplicitLineHeight(node, rootEl) {
   return null;
 }
 
-function readSelectionLineHeight(sel, rootEl = null) {
-  if (!sel || sel.rangeCount === 0) return null;
+function readSelectionLineHeight(sel, rootEl = null, fallbackLineHeight = 1.45) {
+  if (!sel || sel.rangeCount === 0) return fallbackLineHeight;
   const range = sel.getRangeAt(0);
-  if (rootEl && !rootEl.contains(range.commonAncestorContainer)) return null;
+  if (rootEl && !rootEl.contains(range.commonAncestorContainer)) return fallbackLineHeight;
   let node = range.startContainer;
   if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
-  if (!node || typeof window === 'undefined') return null;
+  if (!node || typeof window === 'undefined') return fallbackLineHeight;
 
   const explicitFromSelection = findExplicitLineHeight(node, rootEl || null);
   const explicitFromRoot = rootEl ? parseExplicitLineHeight(rootEl.style?.lineHeight) : null;
   const selectionLineHeight = normalizeComputedLineHeight(window.getComputedStyle(node));
   const rootLineHeight = rootEl ? normalizeComputedLineHeight(window.getComputedStyle(rootEl)) : null;
 
-  // 전체 선택 상태(더블클릭 진입 기본동작)에서는 루트 값을 우선 사용해
+  // 전체 선택 상태(더블클릭 진입 기본동작)에서는 루트/기본 baseline 값을 우선 사용
   // 과거 잘못 저장된 하위 span(line-height:1) 값에 UI가 끌려가지 않게 함.
-  if (rootEl && rangeCoversNodeContents(range, rootEl)) {
-    return firstFinite(explicitFromRoot, rootLineHeight, explicitFromSelection, selectionLineHeight);
+  if (rootEl && isEffectivelyFullSelection(range, rootEl)) {
+    return firstFinite(explicitFromRoot, rootLineHeight, fallbackLineHeight, explicitFromSelection, selectionLineHeight);
   }
 
   const candidates = [
@@ -830,9 +869,10 @@ function readSelectionLineHeight(sel, rootEl = null) {
     explicitFromRoot,
     selectionLineHeight,
     rootLineHeight,
+    fallbackLineHeight,
   ].filter((v) => Number.isFinite(v));
 
-  if (!candidates.length) return null;
+  if (!candidates.length) return fallbackLineHeight;
 
   // 부분 선택의 경우 실제 보이는 line box 기준(큰 값)을 사용
   return Number(Math.max(...candidates).toFixed(2));
@@ -966,17 +1006,17 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
 
 // 🆕 인라인 툴바 — 선택한 부분만 서식 적용
 // 🆕 (2026-05-06) 컬러 피커(input[type=color]) 부활 — selection 백업/복원 방식으로 안전 처리
-function InlineToolbar({ pos, rootRef, onApply }) {
+function InlineToolbar({ pos, rootRef, baselineLineHeight = 1.45, onApply }) {
   // 🆕 선택 영역 단위 행간 조절 (세부 옵션바)
   const [lineHeightValue, setLineHeightValue] = useState(() => {
-    const current = readSelectionLineHeight(window.getSelection(), rootRef?.current);
-    return Number.isFinite(current) ? current : 1.45;
+    const current = readSelectionLineHeight(window.getSelection(), rootRef?.current, baselineLineHeight);
+    return Number.isFinite(current) ? current : baselineLineHeight;
   });
 
   useEffect(() => {
-    const current = readSelectionLineHeight(window.getSelection(), rootRef?.current);
+    const current = readSelectionLineHeight(window.getSelection(), rootRef?.current, baselineLineHeight);
     if (Number.isFinite(current)) setLineHeightValue(current);
-  }, [pos.top, pos.left, rootRef]);
+  }, [pos.top, pos.left, rootRef, baselineLineHeight]);
 
   const adjustInlineLineHeight = (delta) => {
     const base = Number.isFinite(lineHeightValue) ? lineHeightValue : 1.45;
