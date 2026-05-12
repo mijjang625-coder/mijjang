@@ -95,6 +95,22 @@ export default function EditableText({
   const offset = override?.offset || { x: 0, y: 0 };
   const isRegistered = !!override?.registered;
 
+  // 줄바꿈이 있는 텍스트는 행간을 일정 범위로 정규화해
+  // 섹션/컴포넌트별 기본값 차이로 "너무 좁거나 너무 넓어" 보이는 현상을 완화
+  const hasLineBreak = /\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>/i.test(mergedHtml || '') || String(mergedText || '').includes('\n');
+  const resolvedLineHeight = (() => {
+    const raw = mergedStyle?.lineHeight;
+    const parsed = typeof raw === 'number' ? raw : parseFloat(raw);
+
+    if (!hasLineBreak) return raw;
+    if (!Number.isFinite(parsed)) return 1.45;
+
+    return Math.min(1.55, Math.max(1.4, parsed));
+  })();
+  const normalizedStyle = resolvedLineHeight !== undefined
+    ? { ...mergedStyle, lineHeight: resolvedLineHeight }
+    : mergedStyle;
+
   // ⚠️ Hook 규칙 — useEffect는 early return 보다 먼저 호출되어야 함
   //    (editMode 토글 시 Hook 개수가 바뀌면 React가 크래시함)
   //    early return은 모든 Hook 호출 뒤로 이동.
@@ -400,10 +416,10 @@ export default function EditableText({
       <Tag
         className={className}
         style={{
-          ...mergedStyle,
+          ...normalizedStyle,
           ...style,
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
-          whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
+          whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
           ...visStyle,
         }}
         dangerouslySetInnerHTML={{ __html: displayHtml }}
@@ -574,10 +590,10 @@ export default function EditableText({
         }}
         title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료, 드래그 선택: 부분 서식)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}
         style={{
-          ...mergedStyle,
+          ...normalizedStyle,
           ...style,
           // 🆕 편집 모드에서도 줄바꿈(\n) 표시 유지
-          whiteSpace: mergedStyle.whiteSpace || 'pre-wrap',
+          whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
           transform: `translate(${offset.x}px, ${offset.y}px)`,
           outline: outlineStyle,
           outlineOffset: 2,
@@ -598,7 +614,7 @@ export default function EditableText({
       {showToolbar && renderInPortal(
         <MiniToolbar
           pos={toolbarPos}
-          currentStyle={mergedStyle}
+          currentStyle={normalizedStyle}
           onApply={applyStyle}
           onReset={resetStyle}
           onClose={() => setShowToolbar(false)}
