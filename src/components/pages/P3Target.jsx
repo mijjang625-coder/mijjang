@@ -20,9 +20,11 @@ export default function P3Target({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -35,6 +37,7 @@ export default function P3Target({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -51,7 +54,7 @@ export default function P3Target({
   } = copy;
 
   const mainImgId = 'P3.image';
-  const mainLayers = [{ id: mainImgId, defaultName: '🖼 메인 사진', defaultZ: 1 }];
+  const mainLayers = [{ id: mainImgId, defaultName: '🖼 메인 사진', defaultZ: 80 }];
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
     (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
@@ -60,10 +63,10 @@ export default function P3Target({
   const layer = useFreeImageLayer({
     pageKey: 'P3', mainLayers, image, allImages, baseHeight: Math.max(1200, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -75,7 +78,7 @@ export default function P3Target({
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
       <div style={{
         display: 'flex', flexDirection: 'column', minHeight: 1200, width: '100%',
-        position: 'relative', pointerEvents: 'auto',
+        position: 'relative', zIndex: 30, pointerEvents: 'none',
       }}>
         {/* 1) 상단 타이틀 박스 */}
         <div style={{ padding: '40px 40px 16px', textAlign: 'center', flexShrink: 0, pointerEvents: editMode ? 'auto' : 'inherit' }}>
@@ -116,8 +119,7 @@ export default function P3Target({
         >
           <div style={{
             position: 'relative', width: 560, height: 560,
-            pointerEvents: 'auto',
-            zIndex: mainZ,
+            pointerEvents: editMode ? 'auto' : 'none',
             // 편집모드일 때 툴바가 잘리지 않도록 visible
             overflow: editMode ? 'visible' : 'hidden',
           }}>
@@ -200,6 +202,7 @@ export default function P3Target({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

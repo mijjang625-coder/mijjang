@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * Section — 사이드바 접이식 섹션 카드
@@ -7,8 +7,11 @@ import { useState } from 'react';
  * @param {ReactNode} children 본문
  * @param {boolean} collapsible 접기 가능 여부
  * @param {boolean} defaultCollapsed 초기 접힘 상태
+ * @param {boolean|undefined} forceCollapsed 외부에서 일괄 접기/펼치기 신호 (전체 버튼용)
+ *   - undefined: 무시 (내부 state 독립 동작)
+ *   - true/false: 해당 값으로 강제 동기화 (단, 이후 개별 클릭은 내부 state로 독립)
  * @param {string|null} badge 우측 상단 작은 뱃지 (예: '5장')
- * @param {boolean} flat 그룹 내부에서 사용 시 개별 테두리/배경 제거 (그룹이 통합 카드 역할)
+ * @param {boolean} flat 그룹 내부에서 사용 시 개별 테두리/배경 제거
  */
 export default function Section({
   title,
@@ -16,10 +19,21 @@ export default function Section({
   children,
   collapsible = false,
   defaultCollapsed = false,
+  forceCollapsed = undefined,  // 전체 접기/펼치기 전용 — 개별 화살표와 독립
   badge = null,
   flat = false,
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  // forceCollapsed 가 바뀔 때만 내부 state 를 동기화
+  const prevForce = useRef(forceCollapsed);
+  useEffect(() => {
+    if (forceCollapsed === undefined) return;
+    if (forceCollapsed !== prevForce.current) {
+      prevForce.current = forceCollapsed;
+      setCollapsed(forceCollapsed);
+    }
+  }, [forceCollapsed]);
+
   const isCollapsible = collapsible;
   return (
     <div
@@ -30,6 +44,8 @@ export default function Section({
         className={`flex items-center gap-1.5 ${collapsed ? '' : 'pb-1.5 mb-2 border-b'}`}
         style={{ borderColor: '#f0ebe4', cursor: isCollapsible ? 'pointer' : 'default' }}
         onClick={isCollapsible ? () => setCollapsed((v) => !v) : undefined}
+        data-section-header
+        data-collapsed={collapsed ? 'true' : 'false'}
       >
         <span style={{ fontSize: '15px', lineHeight: 1 }}>{emoji}</span>
         <h3

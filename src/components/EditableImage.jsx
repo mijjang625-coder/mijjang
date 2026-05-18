@@ -344,7 +344,11 @@ export default function EditableImage({
     if (e.target.closest('[data-handle]')) return;
     if (e.target.closest('[data-toolbar]')) return;
     if (e.button !== 0) return;
-    e.preventDefault();
+    // ⚠️ Fix #18: e.preventDefault() 제거 — dblclick 발화 보장
+    //   mousedown에서 preventDefault()를 호출하면 브라우저가 dblclick 이벤트를
+    //   발화하지 않아 크롭 모드 진입(handleDoubleClick → setMode('cropping'))이
+    //   완전히 차단됨. FreeImage.jsx도 동일한 이유로 이미 제거되어 있음.
+    //   드래그(setDraggingFrame)는 mousemove/mouseup으로 제어하므로 영향 없음.
     e.stopPropagation();
     setDraggingFrame({
       startX: e.clientX,
@@ -507,13 +511,17 @@ export default function EditableImage({
   }, [isActive]);
 
   // 🆕 다른 요소가 활성화되면 자기 조정/교체 패널 + hover 상태 닫기
+  // ⚠️ editMode=false(모바일 미리보기 인스턴스)는 리스너 등록 안 함
+  //    — split 모드에서 같은 id로 두 인스턴스가 렌더링될 때
+  //      모바일쪽이 PC쪽 announce를 받아 closeOnOtherSelect → setMode('idle') 로
+  //      크롭/툴바가 꺼지는 버그 방지
   const closeOnOtherSelect = useCallback(() => {
     setShowAdjust(false);
     setShowSwapPanel(false);
     setHovering(false);
     setMode('idle');
   }, []);
-  useEditorSelectionListener(`edit-image:${id}`, closeOnOtherSelect);
+  useEditorSelectionListener(editMode ? `edit-image:${id}` : null, closeOnOtherSelect);
 
   // 핸들/툴바/사이즈 표시 가시성 — isActive 명시 시 hovering 변동 무시(깜빡임 방지)
   // ⚠️ Hook 규칙을 위해 editMode 분기 전에 계산/등록한다.
@@ -648,12 +656,19 @@ export default function EditableImage({
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseDown={(e) => {
+          // ⚠️ 크롭 모드 중에는 frameRef.onMouseDown 전체를 건너뜀
+          //   - 툴바/슬라이더 클릭이 frameRef까지 버블링되면
+          //     onActivate() → activeLayerId 변경 → re-render → mode='idle' 체인 발동
+          //   - data-toolbar closest 체크만으로는 <input type=range> 등
+          //     shadow DOM 요소나 top:-50 hit-test 엣지 케이스를 완전히 막지 못함
+          //   - 크롭 중 frameRef 자체 클릭(사진 드래그)은 img.onMouseDown이 처리하므로
+          //     frameRef.onMouseDown은 크롭 중 불필요
+          if (mode === 'cropping') return;
+          if (e.target.closest('[data-toolbar]')) return;
           if (editMode && typeof onActivate === 'function') {
-            // 현재 표시 중인 실제 이미지 src 를 콜백에 전달 (AI 합성 등에서 활용)
             const currentSrc = override?.src || src || null;
             onActivate(currentSrc);
           }
-          // 🆕 다른 요소 옵션바 닫기
           if (editMode) announceEditorSelection(`edit-image:${id}`);
           handleFrameDragStart(e);
         }}
@@ -668,6 +683,8 @@ export default function EditableImage({
           aspectRatio: hasFrame ? undefined : aspect,
           backgroundColor: '#e8e5e1',
           borderRadius: radius,
+          // overflow:hidden 은 항상 유지 — borderRadius(원형 클립 등) 작동에 필수
+          // 툴바는 wrapperRef 레벨에 absolute 배치되므로 frameRef overflow 영향 없음
           overflow: 'hidden',
           outline:
             mode === 'cropping'
@@ -942,6 +959,8 @@ export default function EditableImage({
       {mode === 'cropping' && (
         <div
           data-toolbar
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
             left: fx,
@@ -966,7 +985,7 @@ export default function EditableImage({
             value={currentScale}
             onChange={(e) => handleScaleChange(parseFloat(e.target.value))}
             style={{ width: 130, accentColor: '#f97316' }}
-            onMouseDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => { e.stopPropagation(); e.nativeEvent?.stopImmediatePropagation?.(); }}
           />
           <span style={{ color: '#fff', fontSize: 11, fontWeight: 700, minWidth: 40 }}>
             {Math.round(currentScale * 100)}%

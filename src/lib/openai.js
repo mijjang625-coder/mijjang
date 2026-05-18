@@ -1,4 +1,4 @@
-// AI 제공자(OpenAI / Anthropic / Google) 연동 — 쿠팡 상세페이지 시스템 프롬프트 v3.2 적용
+// AI 제공자(OpenAI / Anthropic / Google) 연동 — 쿠팡 상세페이지 시스템 프롬프트 v3.3 적용
 // 각 페이지(P1~P10)를 하나씩 생성하는 방식으로 동작합니다.
 //
 // 🆕 멀티 AI 지원: 모든 텍스트 호출은 src/lib/aiClient.js 의 callAI() 를 통과합니다.

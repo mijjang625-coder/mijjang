@@ -54,6 +54,9 @@ export default function FreeText({
   onUpdate = () => {},
   onDelete = () => {},
   onChangeLayer = () => {},
+  onDuplicate = () => {},  // Alt+드래그 / Ctrl+C→V 복제
+  onDragStart = () => {},  // 드래그/리사이즈 시작 직전 — 히스토리 스냅샷용
+  onActivate = () => {},   // 클릭 시 activeLayerId 세팅
   canvasWidth = 780,
 }) {
   const wrapperRef = useRef(null);
@@ -206,14 +209,17 @@ export default function FreeText({
     if (e.target.closest('[data-handle]')) return;
     if (e.target.closest('[data-toolbar]')) return;
     if (e.target.closest('[data-free-toolbar]')) return;
+    onActivate();  // activeLayerId 세팅 → Ctrl+C 복사 가능
     dragStart.current = {
       x: e.clientX, y: e.clientY,
       baseX: x, baseY: y,
       active: true, started: false,
+      isAlt: e.altKey,  // Alt 키 기억
     };
   };
 
   useEffect(() => {
+    let altDuplicated = false; // Alt+드래그: 복제 한 번만 실행
     const onMove = (e) => {
       if (!dragStart.current.active) return;
       const dx = e.clientX - dragStart.current.x;
@@ -222,6 +228,12 @@ export default function FreeText({
         if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
         dragStart.current.started = true;
         setDragging(true);
+        onDragStart(); // ← 드래그 확정 시점에 히스토리 스냅샷
+        // ✨ Alt+드래그: 드래그 시작 시점에 복제본 생성 → 원본이 이동
+        if (dragStart.current.isAlt && !altDuplicated) {
+          altDuplicated = true;
+          onDuplicate(0, 0); // 원본 위치 그대로 복제
+        }
       }
       let newX = dragStart.current.baseX + dx;
       let newY = dragStart.current.baseY + dy;
@@ -255,6 +267,7 @@ export default function FreeText({
   const handleResizeStart = (e, handleId) => {
     e.preventDefault();
     e.stopPropagation();
+    onDragStart(); // ← 리사이즈 시작 시점에 히스토리 스냅샷
     setResizing({
       handle: handleId,
       startX: e.clientX, startY: e.clientY,
@@ -321,13 +334,37 @@ export default function FreeText({
       if (!sel || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
       range.deleteContents();
+
       const br = document.createElement('br');
       range.insertNode(br);
-      // 커서를 br 뒤로 이동
-      range.setStartAfter(br);
-      range.setEndAfter(br);
-      sel.removeAllRanges();
-      sel.addRange(range);
+
+      // 마지막 <br> 뒤에 빈 텍스트 노드가 없으면 커서가 다음 줄에 실제로 놓이지 않음
+      const parent = br.parentNode;
+      let afterNode = br.nextSibling;
+      if (!afterNode || (afterNode.nodeType === Node.TEXT_NODE && afterNode.textContent === '')) {
+        const empty = document.createTextNode('');
+        if (afterNode) {
+          parent.replaceChild(empty, afterNode);
+        } else {
+          parent.appendChild(empty);
+        }
+        afterNode = empty;
+      }
+
+      const newRange = document.createRange();
+      try {
+        newRange.setStart(afterNode, 0);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      } catch (_) {
+        try {
+          newRange.setStartAfter(br);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        } catch (__) { /* noop */ }
+      }
     }
   };
 

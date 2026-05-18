@@ -9,9 +9,11 @@
  *   3. beforeAfter   — Before / After 한 쌍 생성 (더러운→깨끗한)
  *   4. handHeld      — 손에 쥔 모습 (그립감/사이즈감 강조)
  *
- * OpenAI Images API 사용:
- *   - 단품 사진이 있을 때: /v1/images/edits (gpt-image-1)
- *   - 단품 사진이 없을 때: /v1/images/generations (gpt-image-1)
+ * 지원 모델:
+ *   - nano-banana-2  : fal.ai Nano Banana 2 (추천, 가성비)
+ *   - nano-banana-pro: fal.ai Nano Banana Pro (최고 품질)
+ *   - gpt-image-2    : OpenAI GPT Image 2 via fal.ai (최신, 고품질)
+ *   - openai         : OpenAI gpt-image-1 직접 호출 (저렴)
  *
  * Returns: { url: 'data:image/png;base64,...', prompt: '...' }
  */
@@ -23,26 +25,42 @@ const OPENAI_IMAGE_GEN_URL = 'https://api.openai.com/v1/images/generations';
 // queue.fal.run/{model-id} 로 POST 후 status_url / response_url 폴링
 const FAL_QUEUE_BASE = 'https://queue.fal.run';
 const FAL_MODELS = {
+  'gpt-image-2': {
+    edit: 'openai/gpt-image-2/edit',
+    generate: 'fal-ai/gpt-image-2',     // text-to-image (사진 없을 때)
+    label: '🆕 GPT Image 2 (최신 · 최고)',
+    cost: '약 160~300원/장',
+    quality: '⭐⭐⭐⭐⭐',
+    badge: 'NEW',
+    keyType: 'fal',                     // fal.ai 키 사용 (BYOK 방식)
+    description: 'OpenAI 최신 모델. fal.ai 키 + OpenAI 키 둘 다 필요 (BYOK)',
+  },
   'nano-banana-2': {
     edit: 'fal-ai/nano-banana-2/edit',
     generate: 'fal-ai/nano-banana-2',
     label: '🍌 Nano Banana 2 (추천)',
     cost: '약 110원/장',
     quality: '⭐⭐⭐⭐½',
+    keyType: 'fal',
+    description: '빠르고 가성비 최고. 제품 배경 교체에 최적',
   },
   'nano-banana-pro': {
     edit: 'fal-ai/nano-banana-pro/edit',
     generate: 'fal-ai/nano-banana-pro',
-    label: '🍌 Nano Banana Pro (최고 품질)',
+    label: '🍌 Nano Banana Pro (고품질)',
     cost: '약 195원/장',
     quality: '⭐⭐⭐⭐⭐',
+    keyType: 'fal',
+    description: '제품 디테일 보존 우수. 프리미엄 연출에 적합',
   },
   'openai': {
-    edit: null, // OpenAI는 별도 함수 사용
+    edit: null, // OpenAI 직접 호출 — 별도 함수 사용
     generate: null,
-    label: '🤖 OpenAI gpt-image-1 (저렴)',
+    label: '🤖 GPT Image 1 (저렴)',
     cost: '약 55원/장',
     quality: '⭐⭐⭐',
+    keyType: 'openai',
+    description: 'OpenAI gpt-image-1 직접 호출. 가장 저렴',
   },
 };
 
@@ -97,25 +115,28 @@ export const MOOD_PRESETS = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// 제품 일관성을 강제하는 공통 가드 문구
-// (gpt-image-1 이 reference image 의 디테일을 최대한 보존하도록)
+// 제품 일관성 가드 — 범용 버전 (모든 제품 카테고리 대응)
 // ─────────────────────────────────────────────────────────────
 const IDENTITY_GUARD = [
-  'CRITICAL: The product in the output MUST be IDENTICAL to the reference image.',
-  'Preserve the exact shape, silhouette, color hue, surface texture, material, bristle pattern, handle design, logo, label text, and proportions of the reference product — pixel-faithful, no modification, no redesign, no stylization.',
-  'Do NOT invent new colors, do NOT redesign the bristles or handle, do NOT change the brand markings.',
-  'The reference image shows the EXACT product to be used — only the surrounding environment, lighting, and pose may change.',
+  'CRITICAL: The product in the output MUST be VISUALLY IDENTICAL to the product shown in the reference image.',
+  'Preserve the EXACT shape, silhouette, color, surface texture, material finish, design details, logo, label, and proportions — do NOT redesign, replace, or reinterpret the product in any way.',
+  'Do NOT substitute the product with a different object. Do NOT change the product category.',
+  'The reference image defines the product precisely — only the background, environment, lighting, and staging may change.',
 ].join(' ');
 
 const QUALITY_TAIL = [
-  'Photorealistic, commercial-grade product photography, sharp focus on the product, fine surface detail, accurate color reproduction, soft realistic shadow grounding the product, 4K detail, no text overlays, no watermarks, no fake brand logos.',
+  'Photorealistic, commercial-grade product photography, sharp focus on the product, fine surface detail, accurate color reproduction, soft realistic shadow grounding the product, 4K detail, no text overlays, no watermarks.',
 ].join(' ');
 
 // ─────────────────────────────────────────────────────────────
 // 모드별 프롬프트 빌더
 // ─────────────────────────────────────────────────────────────
 function buildPrompt({ mode, productName, backgroundKey, customBackground, moodKey, extraNote }) {
-  const product = productName?.trim() || 'the product shown in the reference image';
+  // productName이 없거나 너무 일반적이면 "reference image의 제품"으로 처리
+  // → 모델이 productName을 상상해서 엉뚱한 제품을 만드는 것을 방지
+  const product = productName?.trim()
+    ? `the product shown in the reference image (${productName.trim()})`
+    : 'the product shown in the reference image';
   const bg = backgroundKey === 'custom'
     ? (customBackground?.trim() || 'a clean neutral background')
     : (BACKGROUND_PRESETS[backgroundKey]?.description || BACKGROUND_PRESETS.studio.description);
@@ -125,21 +146,19 @@ function buildPrompt({ mode, productName, backgroundKey, customBackground, moodK
   switch (mode) {
     case 'background':
       return [
-        `Task: Replace ONLY the background of the reference image. Keep ${product} completely unchanged.`,
+        `Task: This is an image editing task. Keep the product EXACTLY as it appears in the reference image — do NOT replace or change the product in any way.`,
+        `ONLY change the background environment to: ${bg}.`,
         IDENTITY_GUARD,
-        `New environment: ${bg}.`,
-        `Keep the product centered with realistic ground shadow that matches the new lighting direction.`,
-        `Mood: ${mood}.`,
+        `Position the product naturally in the new environment with a realistic shadow. Mood: ${mood}.`,
         QUALITY_TAIL,
         extra,
       ].filter(Boolean).join(' ');
 
     case 'usage':
       return [
-        `Task: Generate a photorealistic in-use lifestyle photo of ${product} being actively used by realistic human hands in ${bg}.`,
+        `Task: Create a lifestyle photo showing ${product} being actively used in ${bg}.`,
         IDENTITY_GUARD,
-        `The hands should be holding the product naturally and using it for its intended purpose (e.g., scrubbing tiles, cleaning sink, wiping a surface). Show a visible cleaning interaction or contact with a surface.`,
-        `Hands should look clean, natural, and well-lit. Realistic skin tone and texture.`,
+        `Add realistic human hands holding and using the product naturally. The hands should look clean, natural, and well-lit with realistic skin tone.`,
         `Mood: ${mood}.`,
         QUALITY_TAIL,
         extra,
@@ -147,41 +166,39 @@ function buildPrompt({ mode, productName, backgroundKey, customBackground, moodK
 
     case 'handHeld':
       return [
-        `Task: A photorealistic close-up of a human hand holding ${product}, set in ${bg}.`,
+        `Task: Create a close-up photo of a human hand holding ${product} in ${bg}.`,
         IDENTITY_GUARD,
-        `Show a clean, natural-looking hand with a confident grip that emphasizes the product's size, ergonomics, and how it feels to hold. Soft shallow depth of field with the product in razor-sharp focus.`,
+        `Show a confident, natural grip. Shallow depth of field with the product in sharp focus. Emphasize the product's size and ergonomics.`,
         `Mood: ${mood}.`,
         QUALITY_TAIL,
         extra,
       ].filter(Boolean).join(' ');
 
     case 'beforeBefore':
-      // Before 컷: 더러운 표면 (제품은 옆에 놓이거나 부분적으로 보임)
       return [
-        `Task: A realistic "BEFORE cleaning" photo set in ${bg}. The dominant subject is a visibly dirty surface — show realistic grime, soap scum, water stains, mildew, dust, or buildup that genuinely looks like it needs to be cleaned.`,
-        `${product} is placed neatly nearby (e.g., on the counter, in the corner) — ready to be used but NOT in active use yet.`,
+        `Task: Create a "BEFORE cleaning" lifestyle photo set in ${bg}.`,
+        `Show a visibly dirty surface with realistic grime or buildup. ${product} is placed nearby, ready to be used.`,
         IDENTITY_GUARD,
-        `Lighting should be clear and slightly cool, showing the dirt honestly.`,
+        `Lighting should be clear and honest, showing the dirt realistically.`,
         QUALITY_TAIL,
         extra,
       ].filter(Boolean).join(' ');
 
     case 'beforeAfter':
-      // After 컷: 깨끗하게 청소된 표면 + 제품
       return [
-        `Task: A satisfying "AFTER cleaning" photo set in ${bg}. The surface is sparkling clean, shiny, and reflective — with subtle highlights and a fresh, bright atmosphere that conveys "wow, so clean".`,
-        `${product} is proudly placed in the scene as the tool that delivered this result.`,
+        `Task: Create an "AFTER cleaning" lifestyle photo set in ${bg}.`,
+        `The surface is sparkling clean and shiny. ${product} is featured prominently as the tool that achieved this result.`,
         IDENTITY_GUARD,
-        `Mood: ${mood}, with fresh and bright lighting.`,
+        `Mood: ${mood}, fresh and bright lighting.`,
         QUALITY_TAIL,
         extra,
       ].filter(Boolean).join(' ');
 
     case 'multiAngle':
       return [
-        `Task: Product photography showing ${product} from a different camera angle than the reference image, set in ${bg}.`,
+        `Task: Show ${product} from a different camera angle than the reference image, in ${bg}.`,
         IDENTITY_GUARD,
-        `Only the camera angle and pose of the product changes — the product itself (color, material, design, proportions) must remain identical.`,
+        `Only the camera angle changes. The product itself must remain identical in every detail.`,
         `Mood: ${mood}.`,
         QUALITY_TAIL,
         extra,
@@ -349,54 +366,161 @@ async function urlToDataUrl(url) {
   });
 }
 
-async function callFalEdit({ apiKey, modelKey, prompt, sourceImageDataUrl, size = '1024x1024' }) {
+// ─────────────────────────────────────────────────────────────
+// size 문자열 → 각 모델용 파라미터 변환 헬퍼
+// ─────────────────────────────────────────────────────────────
+
+/** Nano Banana 계열: aspect_ratio 문자열 */
+function sizeToAspectRatio(size) {
+  if (size === '1024x1536') return '2:3';
+  if (size === '1536x1024') return '3:2';
+  return '1:1';
+}
+
+/** GPT Image 2: image_size 프리셋 or { width, height } */
+function sizeToGptImage2Size(size) {
+  if (size === '1024x1536') return 'portrait_4_3';   // 768×1024 (세로형)
+  if (size === '1536x1024') return 'landscape_4_3';  // 1024×768 (가로형)
+  return 'square_hd';                                // 1024×1024
+}
+
+// ─────────────────────────────────────────────────────────────
+// fal.ai 이미지 편집 호출
+// ─────────────────────────────────────────────────────────────
+//
+// GPT Image 2 (openai/gpt-image-2/edit) 특이사항:
+//   - BYOK 방식: openai_api_key 파라미터 필수 (fal 키 + OpenAI 키 둘 다 필요)
+//   - sync_mode: true → 즉시 data URI 반환, 폴링 불필요 (훨씬 빠름)
+//   - image_size: 'auto' → 입력 이미지 크기 자동 유지
+// ─────────────────────────────────────────────────────────────
+async function callFalEdit({ falApiKey, openaiApiKey, modelKey, prompt, sourceImageDataUrl, size = '1024x1024' }) {
   const modelPath = FAL_MODELS[modelKey]?.edit;
   if (!modelPath) throw new Error(`fal.ai 모델 경로 없음: ${modelKey}`);
 
-  // size → aspect_ratio 변환
-  const aspectRatio = size === '1024x1536' ? '2:3' : size === '1536x1024' ? '3:2' : '1:1';
+  if (modelKey === 'gpt-image-2') {
+    // ── GPT Image 2: sync_mode로 즉시 응답 (폴링 없음) ──
+    if (!openaiApiKey?.trim()) {
+      throw new Error('GPT Image 2는 OpenAI API 키도 필요합니다. 사이드바에서 OpenAI API Key를 입력해 주세요.');
+    }
 
+    const input = {
+      prompt,
+      image_urls: [sourceImageDataUrl],
+      image_size: sizeToGptImage2Size(size),
+      quality: 'high',
+      num_images: 1,
+      output_format: 'png',
+      sync_mode: true,           // 즉시 data URI 반환 → 폴링 불필요
+      openai_api_key: openaiApiKey.trim(), // BYOK 필수
+    };
+
+    // sync_mode=true → queue 아닌 직접 호출 (fal.run)
+    const res = await fetch(`https://fal.run/${modelPath}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Key ${falApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      let msg = errText;
+      try {
+        const j = JSON.parse(errText);
+        msg = j?.detail || j?.error?.message || j?.error || errText;
+      } catch (_) {}
+      throw new Error(`GPT Image 2 오류 (${res.status}): ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
+    }
+
+    const data = await res.json();
+    const imgUrl = data?.images?.[0]?.url;
+    if (!imgUrl) throw new Error('GPT Image 2 응답이 비어 있습니다.');
+
+    // sync_mode=true → url이 이미 data URI 또는 fal CDN URL
+    return imgUrl.startsWith('data:') ? imgUrl : urlToDataUrl(imgUrl);
+  }
+
+  // ── Nano Banana 계열: queue 기반 폴링 ──
   const input = {
     prompt,
-    image_urls: [sourceImageDataUrl], // base64 data URL 그대로 전달 가능
+    image_urls: [sourceImageDataUrl],
     num_images: 1,
-    aspect_ratio: aspectRatio,
+    aspect_ratio: sizeToAspectRatio(size),
     output_format: 'png',
     resolution: '1K',
   };
 
-  const submitted = await falSubmit({ apiKey, modelPath, input });
+  const submitted = await falSubmit({ apiKey: falApiKey, modelPath, input });
   const result = await falPollResult({
-    apiKey,
+    apiKey: falApiKey,
     statusUrl: submitted.status_url,
     responseUrl: submitted.response_url,
+    maxWaitMs: 120000,
   });
 
   const imgUrl = result?.images?.[0]?.url;
   if (!imgUrl) throw new Error('fal.ai 이미지 응답이 비어 있습니다.');
-  // 외부 URL을 data URL로 변환해서 일관된 인터페이스 유지
   return urlToDataUrl(imgUrl);
 }
 
-async function callFalGen({ apiKey, modelKey, prompt, size = '1024x1024' }) {
+// ─────────────────────────────────────────────────────────────
+// fal.ai 이미지 생성 (기준 사진 없을 때 — 폴백)
+// ─────────────────────────────────────────────────────────────
+async function callFalGen({ falApiKey, openaiApiKey, modelKey, prompt, size = '1024x1024' }) {
   const modelPath = FAL_MODELS[modelKey]?.generate;
   if (!modelPath) throw new Error(`fal.ai 모델 경로 없음: ${modelKey}`);
 
-  const aspectRatio = size === '1024x1536' ? '2:3' : size === '1536x1024' ? '3:2' : '1:1';
+  if (modelKey === 'gpt-image-2') {
+    // sync_mode로 즉시 응답
+    if (!openaiApiKey?.trim()) {
+      throw new Error('GPT Image 2는 OpenAI API 키도 필요합니다.');
+    }
+    const input = {
+      prompt,
+      image_size: sizeToGptImage2Size(size),
+      quality: 'high',
+      num_images: 1,
+      output_format: 'png',
+      sync_mode: true,
+      openai_api_key: openaiApiKey.trim(),
+    };
+    const res = await fetch(`https://fal.run/${modelPath}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Key ${falApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      let msg = errText;
+      try { const j = JSON.parse(errText); msg = j?.detail || j?.error?.message || errText; } catch (_) {}
+      throw new Error(`GPT Image 2 생성 오류 (${res.status}): ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
+    }
+    const data = await res.json();
+    const imgUrl = data?.images?.[0]?.url;
+    if (!imgUrl) throw new Error('GPT Image 2 응답이 비어 있습니다.');
+    return imgUrl.startsWith('data:') ? imgUrl : urlToDataUrl(imgUrl);
+  }
 
+  // Nano Banana 계열
   const input = {
-    prompt,
-    num_images: 1,
-    aspect_ratio: aspectRatio,
-    output_format: 'png',
-    resolution: '1K',
-  };
+      prompt,
+      num_images: 1,
+      aspect_ratio: sizeToAspectRatio(size),
+      output_format: 'png',
+      resolution: '1K',
+    };
 
-  const submitted = await falSubmit({ apiKey, modelPath, input });
+  const submitted = await falSubmit({ apiKey: falApiKey, modelPath, input });
   const result = await falPollResult({
-    apiKey,
+    apiKey: falApiKey,
     statusUrl: submitted.status_url,
     responseUrl: submitted.response_url,
+    maxWaitMs: 120000,
   });
 
   const imgUrl = result?.images?.[0]?.url;
@@ -440,31 +564,33 @@ export async function synthesizeImage(opts) {
     extraNote,
     sourceImageDataUrl,
     size = '1024x1024',
+    directPrompt,   // ← 이 값이 있으면 buildPrompt 없이 그대로 사용
   } = opts;
 
-  if (!mode) throw new Error('합성 모드를 선택해 주세요.');
-
-  const prompt = buildPrompt({
-    mode,
-    productName,
-    backgroundKey,
-    customBackground,
-    moodKey,
-    extraNote,
-  });
+  // directPrompt가 있으면 프롬프트 변환 없이 사용자 입력을 그대로 전달
+  // (GPT Image 2 자유 모드 — ChatGPT처럼 자연어 직접 전달)
+  const prompt = directPrompt?.trim()
+    ? directPrompt.trim()
+    : (() => {
+        if (!mode) throw new Error('합성 모드를 선택해 주세요.');
+        return buildPrompt({ mode, productName, backgroundKey, customBackground, moodKey, extraNote });
+      })();
 
   let url;
 
-  // fal.ai 모델 (nano-banana-2, nano-banana-pro)
-  if (provider === 'fal' && (modelKey === 'nano-banana-2' || modelKey === 'nano-banana-pro')) {
+  const modelInfo = FAL_MODELS[modelKey];
+  const isFalModel = modelInfo?.keyType === 'fal'; // gpt-image-2, nano-banana-2, nano-banana-pro
+
+  if (isFalModel) {
+    // ── fal.ai 경유 모델 (GPT Image 2 포함) ──
     if (!falApiKey) throw new Error('fal.ai API 키가 필요합니다. 사이드바에서 입력해 주세요.');
     if (sourceImageDataUrl) {
-      url = await callFalEdit({ apiKey: falApiKey, modelKey, prompt, sourceImageDataUrl, size });
+      url = await callFalEdit({ falApiKey, openaiApiKey: apiKey, modelKey, prompt, sourceImageDataUrl, size });
     } else {
-      url = await callFalGen({ apiKey: falApiKey, modelKey, prompt, size });
+      url = await callFalGen({ falApiKey, openaiApiKey: apiKey, modelKey, prompt, size });
     }
   } else {
-    // OpenAI gpt-image-1
+    // ── OpenAI 직접 호출 (gpt-image-1) ──
     if (!apiKey) throw new Error('OpenAI API 키가 필요합니다.');
     if (sourceImageDataUrl) {
       url = await callImageEdit({ apiKey, prompt, sourceImageDataUrl, size });

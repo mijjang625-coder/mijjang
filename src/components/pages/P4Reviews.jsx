@@ -19,9 +19,11 @@ export default function P4Reviews({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -34,6 +36,7 @@ export default function P4Reviews({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -48,7 +51,7 @@ export default function P4Reviews({
   });
 
   const mainLayers = reviews.slice(0, 4).map((_, i) => ({
-    id: `P4.reviews.${i}.image`, defaultName: `🖼 리뷰 ${i + 1} 사진`, defaultZ: i + 1,
+    id: `P4.reviews.${i}.image`, defaultName: `🖼 리뷰 ${i + 1} 사진`, defaultZ: 80,
   }));
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
@@ -58,10 +61,10 @@ export default function P4Reviews({
   const layer = useFreeImageLayer({
     pageKey: 'P4', mainLayers, image: images[0], allImages, baseHeight: Math.max(1700, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -73,7 +76,7 @@ export default function P4Reviews({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+      <div style={{ position: 'relative', zIndex: 30, pointerEvents: 'none' }}>
         {/* 섹션 타이틀 — "고객님들의 생생한 후기" */}
         <div style={{ padding: '40px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
@@ -127,8 +130,7 @@ export default function P4Reviews({
                 </div>
                 <div style={{
                   backgroundColor: BRAND.colors.sub, position: 'relative',
-                  pointerEvents: 'auto',
-                  zIndex: z,
+                  pointerEvents: editMode ? 'auto' : 'none',
                 }}>
                   <EditableImage
                     id={imgId}
@@ -161,6 +163,7 @@ export default function P4Reviews({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

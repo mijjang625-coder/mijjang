@@ -43,6 +43,10 @@ export function announceEditorSelection(id) {
  */
 export function useEditorSelectionListener(myId, onOther) {
   useEffect(() => {
+    // myId가 null/undefined/빈 문자열이면 리스너 등록 안 함
+    // → editMode=false 인 미리보기 인스턴스(split 모바일 등)가
+    //   PC 편집 인스턴스의 announce 를 받아 크롭/툴바를 강제로 닫는 버그 방지
+    if (!myId) return;
     if (typeof window === 'undefined') return;
     const handler = (e) => {
       const otherId = e?.detail?.id;

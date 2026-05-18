@@ -23,16 +23,19 @@ export default function P1Hero({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   // 📝 자유 글박스 props
   freeTexts = [],
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   // 🟦 도형 레이어 props
   shapes = [],
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null, // (kind, id, action, mainLayers) => void
   onReorderLayers = () => {},
@@ -88,7 +91,7 @@ export default function P1Hero({
   const validImages = (allImages || []).filter(Boolean);
 
   // P1의 메인 레이어 정의 — 다른 페이지에서 재활용 시 변경 가능
-  const MAIN_LAYERS = [{ id: 'P1.heroImage', defaultName: '🖼 메인 사진', defaultZ: 1 }];
+  const MAIN_LAYERS = [{ id: 'P1.heroImage', defaultName: '🖼 메인 사진', defaultZ: 80 }];
 
   // 메인사진의 z-index (override가 없으면 기본 1)
   const mainZ = imageOverrides['P1.heroImage']?.zIndex ?? 1;
@@ -236,8 +239,9 @@ export default function P1Hero({
       {/* 상단 70% — 기존 콘텐츠 */}
       <div className={editMode ? 'p1-content-layer' : ''} style={{
         position: 'relative',
+        zIndex: 30,
         padding: '60px 50px 30px', textAlign: 'center',
-        pointerEvents: 'auto',
+        pointerEvents: 'none',
       }}>
         <EditableText
           {...editPropsFor('P1.mainHeadline')}
@@ -277,11 +281,9 @@ export default function P1Hero({
           data-edit-image
           style={{
             marginTop: 36,
-            // wrapper는 항상 통과 (실제 사진 영역만 EditableImage 내부에서 클릭 받음)
-            pointerEvents: 'auto',
+            pointerEvents: editMode ? 'auto' : 'none',
             position: 'relative',
-            zIndex: mainZ,
-            borderRadius: 22,
+            borderRadius: 0,  // 모서리 제거
             // 🆕 (2026-05-03) 메인 이미지 가시성 토글 (PNG 캡처에도 반영)
             visibility: imageOverrides['P1.heroImage']?.hidden ? 'hidden' : 'visible',
           }}
@@ -290,7 +292,7 @@ export default function P1Hero({
             id="P1.heroImage"
             src={image}
             aspect="1 / 1"
-            radius={20}
+            radius={0}
             editMode={editMode}
             override={imageOverrides['P1.heroImage'] || {}}
             onChange={(partial) => onImageOverrideChange('P1.heroImage', partial)}
@@ -303,11 +305,12 @@ export default function P1Hero({
         </div>
       </div>
 
-      {/* 하단 30% — 강점 카드 3개 (z-index 500 고정) */}
+      {/* 하단 30% — 강점 카드 3개 */}
       <div className={editMode ? 'p1-content-layer' : ''} style={{
         position: 'relative',
+        zIndex: 30,
         backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20,
-        pointerEvents: 'auto',
+        pointerEvents: 'none',
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: cardCfg.cardGap }}>
           {strengthCards.slice(0, 3).map((c, i) => (
@@ -495,7 +498,7 @@ export default function P1Hero({
             onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
             style={{
               position: 'fixed',
-              right: 24,
+              right: 8,
               top: 168,
               zIndex: 100000,
               backgroundColor: '#3b82f6',
@@ -510,28 +513,24 @@ export default function P1Hero({
               boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              width: 105,
               justifyContent: 'center',
+              width: 96,
+              height: 44,
             }}
             title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
           >
-            <span>사진 추가</span>
-            {(freeImages || []).length > 0 && (
-              <span
-                style={{
-                  backgroundColor: '#fff',
-                  color: '#3b82f6',
-                  borderRadius: 999,
-                  padding: '1px 5px',
-                  fontSize: 11,
-                  fontWeight: 900,
-                  lineHeight: 1,
-                }}
-              >
-                {freeImages.length}
-              </span>
-            )}
+            <span style={{ position: 'relative' }}>
+              사진 추가
+              {(freeImages || []).length > 0 && (
+                <span style={{
+                  position: 'absolute', top: -10, right: -14,
+                  backgroundColor: '#fff', color: '#3b82f6',
+                  borderRadius: 999, padding: '1px 5px',
+                  fontSize: 10, fontWeight: 900, lineHeight: 1,
+                  pointerEvents: 'none',
+                }}>{freeImages.length}</span>
+              )}
+            </span>
           </button>
 
           {/* 📝 글박스 추가 — top:268 */}
@@ -539,7 +538,7 @@ export default function P1Hero({
             onClick={() => onAddFreeText()}
             style={{
               position: 'fixed',
-              right: 24,
+              right: 8,
               top: 268,
               zIndex: 100000,
               backgroundColor: '#f59e0b',
@@ -554,28 +553,24 @@ export default function P1Hero({
               boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              width: 105,
               justifyContent: 'center',
+              width: 96,
+              height: 44,
             }}
             title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
           >
-            <span style={{ whiteSpace: 'nowrap' }}>글박스 추가</span>
-            {(freeTexts || []).length > 0 && (
-              <span
-                style={{
-                  backgroundColor: '#fff',
-                  color: '#f59e0b',
-                  borderRadius: 999,
-                  padding: '1px 5px',
-                  fontSize: 11,
-                  fontWeight: 900,
-                  lineHeight: 1,
-                }}
-              >
-                {freeTexts.length}
-              </span>
-            )}
+            <span style={{ position: 'relative', whiteSpace: 'nowrap' }}>
+              글박스 추가
+              {(freeTexts || []).length > 0 && (
+                <span style={{
+                  position: 'absolute', top: -10, right: -14,
+                  backgroundColor: '#fff', color: '#f59e0b',
+                  borderRadius: 999, padding: '1px 5px',
+                  fontSize: 10, fontWeight: 900, lineHeight: 1,
+                  pointerEvents: 'none',
+                }}>{freeTexts.length}</span>
+              )}
+            </span>
           </button>
 
           {/* 레이어 패널 토글 버튼 — top:318 */}
@@ -583,7 +578,7 @@ export default function P1Hero({
             onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
             style={{
               position: 'fixed',
-              right: 24,
+              right: 8,
               top: 318,
               zIndex: 100000,
               backgroundColor: showLayers ? '#1e293b' : '#475569',
@@ -598,19 +593,24 @@ export default function P1Hero({
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              width: 105,
               justifyContent: 'center',
+              width: 96,
+              height: 44,
             }}
             title="모든 레이어 목록 (스크롤해도 따라다님)"
           >
-            <span>레이어</span>
-            <span style={{
-              backgroundColor: '#fbbf24', color: '#1e293b',
-              borderRadius: 999, padding: '1px 5px',
-              fontSize: 11, fontWeight: 900,
-              lineHeight: 1,
-            }}>{allLayers.length}</span>
+            <span style={{ position: 'relative' }}>
+              레이어
+              {allLayers.length > 0 && (
+                <span style={{
+                  position: 'absolute', top: -10, right: -14,
+                  backgroundColor: '#fbbf24', color: '#1e293b',
+                  borderRadius: 999, padding: '1px 5px',
+                  fontSize: 10, fontWeight: 900, lineHeight: 1,
+                  pointerEvents: 'none',
+                }}>{allLayers.length}</span>
+              )}
+            </span>
           </button>
 
           {/* 레이어 패널 */}
@@ -618,7 +618,7 @@ export default function P1Hero({
             <div
               style={{
                 position: 'fixed',
-                right: 180,
+                right: 104,
                 top: 168,
                 zIndex: 100001,
                 width: 320,
@@ -833,7 +833,7 @@ export default function P1Hero({
             <div
               style={{
                 position: 'fixed',
-                right: 180,
+                right: 104,
                 top: 168,
                 zIndex: 100001,
                 width: 340,
@@ -953,6 +953,7 @@ export default function P1Hero({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

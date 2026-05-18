@@ -37,13 +37,16 @@ export default function P2Benefits({
   onAddFreeImageToSlot = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   shapes = [],
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -66,7 +69,7 @@ export default function P2Benefits({
   const mainLayers = sections.slice(0, 3).map((_, i) => ({
     id: `P2.images.${i}`,
     defaultName: `🖼 사진 ${i + 1}`,
-    defaultZ: i + 1,
+    defaultZ: 80,
   }));
 
   // 자유 위치 사진(slot=null)만 freeImageLayer 에 넘겨 absolute 로 그리기
@@ -90,15 +93,15 @@ export default function P2Benefits({
     freeImages: freePositioned,
     inlineImages: inlineImagesAll,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     imageOverrides,
     layerNames,
     onAddFreeImage,
     onUpdateFreeImage,
-    onDeleteFreeImage,
+    onDeleteFreeImage, onDuplicateFreeImage,
     onAddFreeText,
     onUpdateFreeText,
-    onDeleteFreeText,
+    onDeleteFreeText, onDuplicateFreeText,
     onChangeLayer,
     onChangeLayerKind,
     onReorderLayers,
@@ -210,7 +213,8 @@ export default function P2Benefits({
       <div style={{
         padding: '50px 40px',
         position: 'relative',
-        pointerEvents: editMode ? 'none' : 'auto',
+        zIndex: 30,
+        pointerEvents: 'none',
       }}>
         {/* 슬롯: 첫 섹션 위 */}
         {renderSlot('top')}
@@ -278,17 +282,16 @@ export default function P2Benefits({
                 </div>
                 <div
                   style={{
-                    pointerEvents: editMode ? 'none' : 'auto',
+                    pointerEvents: editMode ? 'auto' : 'none',
                     position: 'relative',
-                    zIndex: z,
-                    borderRadius: 18,
+                    borderRadius: 0,  // 모서리 제거
                   }}
                 >
                   <EditableImage
                     id={imgId}
                     src={images[i]}
                     aspect="4 / 3"
-                    radius={16}
+                    radius={0}
                     editMode={editMode}
                     override={imageOverrides[imgId] || {}}
                     onChange={(partial) => onImageOverrideChange(imgId, partial)}
@@ -323,6 +326,7 @@ export default function P2Benefits({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

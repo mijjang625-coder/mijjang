@@ -50,7 +50,7 @@ export default function AISynthesisFloatingButton({
         title="단품 사진 → AI 합성으로 다양한 연출컷 생성 (배경교체 / 사용장면 / Before/After / 손에쥔컷)"
         style={{
           position: 'fixed',
-          right: 24, top: 368,
+          right: 8, top: 368,
           zIndex: 100000,
           backgroundColor: open ? '#C2410C' : '#E87A2B',
           color: '#fff',
@@ -63,9 +63,9 @@ export default function AISynthesisFloatingButton({
           boxShadow: '0 4px 12px rgba(232,122,43,0.45)',
           display: 'flex',
           alignItems: 'center',
-          gap: 4,
-          width: 105,
           justifyContent: 'center',
+          width: 96,
+          height: 44,
         }}
       >
         <span>AI 이미지</span>
@@ -91,7 +91,8 @@ export default function AISynthesisFloatingButton({
             style={{
               width: '100%',
               maxWidth: 720,
-              maxHeight: '92vh',
+              height: '88vh',
+              maxHeight: '88vh',
               backgroundColor: '#fff',
               borderRadius: 16,
               boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
@@ -100,28 +101,17 @@ export default function AISynthesisFloatingButton({
               overflow: 'hidden',
             }}
           >
-            {/* 헤더 */}
+            {/* 닫기 버튼만 — 채팅형 UI라 제목은 패널 내부 헤더로 이동 */}
             <div style={{
-              padding: '14px 20px',
-              borderBottom: '1px solid #e2ddd4',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: '#FFF8F0',
+              position: 'absolute',
+              top: 10, right: 12,
+              zIndex: 10,
             }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>
-                  🎨 AI 사진 합성
-                </div>
-                <div style={{ fontSize: 11, color: '#7C6F65', marginTop: 2 }}>
-                  단품 사진 한 장 → 배경교체 · 사용장면 · Before/After · 손에쥔컷 자동 생성
-                </div>
-              </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 style={{
-                  width: 32, height: 32,
+                  width: 30, height: 30,
                   borderRadius: 8,
                   border: '1px solid #e2ddd4',
                   backgroundColor: '#fff',
@@ -129,6 +119,7 @@ export default function AISynthesisFloatingButton({
                   fontSize: 16,
                   fontWeight: 800,
                   color: '#7C6F65',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
                 title="닫기 (ESC)"
               >
@@ -136,11 +127,14 @@ export default function AISynthesisFloatingButton({
               </button>
             </div>
 
-            {/* 본문 (스크롤) */}
+            {/* 본문 — 채팅 패널이 flex 스스로 높이를 관리 */}
             <div style={{
               flex: 1,
-              overflowY: 'auto',
-              padding: 16,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              position: 'relative',
             }}>
               <Suspense fallback={
                 <div style={{ padding: 40, textAlign: 'center', color: '#6b635c' }}>

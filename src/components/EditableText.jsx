@@ -619,6 +619,7 @@ export default function EditableText({
       <Tag
         ref={ref}
         data-editable="true"
+        data-editable-id={id}
         className={className}
         contentEditable={isEditing}
         suppressContentEditableWarning
@@ -634,24 +635,53 @@ export default function EditableText({
             ref.current?.blur();
             return;
           }
-          // 🆕 Enter 키 → 줄바꿈 허용 (Shift+Enter는 단락, Enter도 단순 줄바꿈)
-          //   기본 contentEditable의 Enter 동작이 브라우저마다 다름(<div>/<br>/<p>)
-          //   → 일관성을 위해 \n 문자를 직접 삽입해 innerText에 \n 으로 저장되게 함
-          //   (PNG 캡처/화면 표시 시 whiteSpace: pre-wrap 으로 줄바꿈됨)
+          // Enter 키 → <br> 삽입으로 줄바꿈
+          //   contentEditable 에서 \n 텍스트노드는 브라우저가 공백으로 처리(collapse)하여
+          //   실제 커서가 다음 줄로 이동하지 않는 문제가 있음.
+          //   표준 방식인 <br> 을 삽입하면 편집 중에도 즉시 줄바꿈이 보이고,
+          //   innerHTML 저장 시 <br> 이 그대로 보존 → 비편집 모드 dangerouslySetInnerHTML 에서도 정상 표시.
+          //   innerText 저장 시에는 브라우저가 <br>→\n 으로 자동 변환하므로 하위 호환 유지.
           if (e.key === 'Enter') {
             e.preventDefault();
-            // 현재 선택 영역에 \n 삽입
             const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0) return;
             const range = sel.getRangeAt(0);
             range.deleteContents();
-            const textNode = document.createTextNode('\n');
-            range.insertNode(textNode);
-            // 커서를 \n 뒤로 이동
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            sel.removeAllRanges();
-            sel.addRange(range);
+
+            const br = document.createElement('br');
+            range.insertNode(br);
+
+            // 브라우저는 마지막 <br> 바로 뒤에 커서를 놓으면 다음 줄을 표시하지 않는 경우가 있음.
+            // <br> 다음에 아무 노드도 없거나(= 부모의 마지막 자식) 형제가 없을 때,
+            // 빈 텍스트 노드를 하나 더 추가해 커서가 실제로 보이는 빈 줄을 확보한다.
+            const parent = br.parentNode;
+            let afterNode = br.nextSibling;
+            if (!afterNode || (afterNode.nodeType === Node.TEXT_NODE && afterNode.textContent === '')) {
+              const empty = document.createTextNode('');
+              if (afterNode) {
+                parent.replaceChild(empty, afterNode);
+              } else {
+                parent.appendChild(empty);
+              }
+              afterNode = empty;
+            }
+
+            // 커서를 <br> 바로 다음 노드의 맨 앞으로 이동
+            const newRange = document.createRange();
+            try {
+              newRange.setStart(afterNode, 0);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            } catch (_) {
+              // 위치 설정 실패 시 <br> 뒤로 fallback
+              try {
+                newRange.setStartAfter(br);
+                newRange.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+              } catch (__) { /* noop */ }
+            }
           }
         }}
         title={isEditing ? '편집 중 (Enter: 줄바꿈, ESC: 종료, 드래그 선택: 부분 서식)' : '더블클릭: 글자 수정 · 클릭: 툴바 · 드래그: 이동'}

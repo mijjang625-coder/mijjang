@@ -48,6 +48,8 @@ export default function FreeImage({
   onUpdate = () => {},
   onDelete = () => {},
   onChangeLayer = () => {},
+  onDuplicate = () => {},  // Alt+드래그 / Ctrl+C→V 복제
+  onDragStart = () => {},  // 드래그/리사이즈 시작 직전 — 히스토리 스냅샷용
   canvasWidth = 780,
   isActive = false,
   onActivate = () => {},
@@ -121,14 +123,13 @@ export default function FreeImage({
     if (e.target.closest('[data-replace-panel]')) return;
     if (e.button !== 0) return;
     e.stopPropagation();
-    // preventDefault 제거 — dblclick 발화 보장
-    // 🆕 다른 요소 옵션바 닫기
     announceEditorSelection(`free-image:${id}`);
     setSelected(true);
     if (typeof onActivate === 'function') onActivate();
     setDraggingPos({
       startX: e.clientX, startY: e.clientY, sx: x, sy: y,
-      active: false,  // 임계값 넘기 전: 아직 실제 드래그 아님
+      active: false,
+      isAlt: e.altKey,  // Alt 키 눌렸는지 기억
     });
   };
 
@@ -143,6 +144,7 @@ export default function FreeImage({
   useEffect(() => {
     if (!draggingPos) return;
     const DRAG_THRESHOLD = 3; // 3px 이상 움직여야 실제 드래그로 인식
+    let altDuplicated = false; // Alt+드래그: 복제 한 번만 실행
     const onMove = (e) => {
       const dx = e.clientX - draggingPos.startX;
       const dy = e.clientY - draggingPos.startY;
@@ -150,6 +152,12 @@ export default function FreeImage({
       if (!draggingPos.active && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       if (!draggingPos.active) {
         setDraggingPos((p) => ({ ...p, active: true }));
+        onDragStart(); // ← 드래그 확정 시점에 히스토리 스냅샷
+        // ✨ Alt+드래그: 드래그 시작 시점에 복제본 생성 → 원본은 제자리 유지
+        if (draggingPos.isAlt && !altDuplicated) {
+          altDuplicated = true;
+          onDuplicate(0, 0); // 원본 위치 그대로 복제 (이후 원본이 이동)
+        }
       }
       let nx = draggingPos.sx + dx;
       let ny = draggingPos.sy + dy;
@@ -177,6 +185,7 @@ export default function FreeImage({
     e.preventDefault();
     e.stopPropagation();
     setSelected(true);
+    onDragStart(); // ← 리사이즈 시작 시점에 히스토리 스냅샷
     // 🆕 (2026-05-03) 리사이즈 시작 시점의 사진 절대 크기/오프셋 기억
     // → Shift 단방향 리사이즈 시 사진 위치/크기를 유지하기 위해 사용
     const startCover = coverSize(w, h, imgNatural.w, imgNatural.h);

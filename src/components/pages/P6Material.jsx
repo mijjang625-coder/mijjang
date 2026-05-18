@@ -20,9 +20,11 @@ export default function P6Material({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -35,6 +37,7 @@ export default function P6Material({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -51,8 +54,8 @@ export default function P6Material({
   const matId = 'P6.materialImage';
   const sizeId = 'P6.sizeImage';
   const mainLayers = [
-    { id: matId, defaultName: '🖼 소재 사진', defaultZ: 1 },
-    { id: sizeId, defaultName: '🖼 사이즈 사진', defaultZ: 2 },
+    { id: matId, defaultName: '🖼 소재 사진', defaultZ: 80 },
+    { id: sizeId, defaultName: '🖼 사이즈 사진', defaultZ: 81 },
   ];
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
@@ -62,10 +65,10 @@ export default function P6Material({
   const layer = useFreeImageLayer({
     pageKey: 'P6', mainLayers, image: materialImage, allImages, baseHeight: Math.max(1150, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -75,7 +78,7 @@ export default function P6Material({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-    <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+    <div style={{ position: 'relative', zIndex: 30, pointerEvents: 'none' }}>
       {/* 상단 — 소재 */}
       <div style={{ padding: '50px 40px 30px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <EditableText
@@ -95,14 +98,13 @@ export default function P6Material({
         </EditableText>
         <div style={{
           marginTop: 24, position: 'relative',
-          pointerEvents: 'auto',
-          zIndex: imageOverrides[matId]?.zIndex ?? 1,
+          pointerEvents: editMode ? 'auto' : 'none',
         }}>
           <EditableImage
             id={matId}
             src={materialImage}
             aspect="16 / 10"
-            radius={14}
+            radius={0}
             editMode={editMode}
             override={imageOverrides[matId] || {}}
             onChange={(partial) => onImageOverrideChange(matId, partial)}
@@ -202,14 +204,13 @@ export default function P6Material({
         </EditableText>
         <div style={{
           marginTop: 22, position: 'relative',
-          pointerEvents: 'auto',
-          zIndex: imageOverrides[sizeId]?.zIndex ?? 2,
+          pointerEvents: editMode ? 'auto' : 'none',
         }}>
           <EditableImage
             id={sizeId}
             src={sizeImage}
             aspect="16 / 10"
-            radius={14}
+            radius={0}
             editMode={editMode}
             override={imageOverrides[sizeId] || {}}
             onChange={(partial) => onImageOverrideChange(sizeId, partial)}
@@ -296,6 +297,7 @@ export default function P6Material({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

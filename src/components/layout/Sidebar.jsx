@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef, useState, useEffect } from 'react';
 import Section from '../ui/Section.jsx';
 import Field from '../ui/Field.jsx';
 import InfoCard from '../ui/InfoCard.jsx';
@@ -22,6 +22,127 @@ function AnalyzerFallback({ icon = '🔍', label = '도구 로딩 중...' }) {
     <div style={{ padding: 24, textAlign: 'center', color: '#6b635c' }}>
       <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
       <div style={{ fontSize: 12, fontWeight: 'bold' }}>{label}</div>
+    </div>
+  );
+}
+
+/**
+ * StartGuide — 사이드바 최상단 "시작하기 3단계" 가이드 박스
+ * 처음 방문한 사용자가 워크플로우를 빠르게 파악할 수 있도록 안내
+ */
+function StartGuide({ sidebarRef }) {
+  const steps = [
+    { num: 1, emoji: '🔑', text: 'AI 모델 설정', sub: 'API 키 입력', anchor: 'api-key', highlight: false },
+    { num: 2, emoji: '📝', text: '제품 기본 정보', sub: '제품명·강점·고객층 입력', anchor: 'product-info', highlight: false },
+    { num: 3, emoji: '📸', text: '사진 업로드 → 생성 시작!', sub: '23장 권장', anchor: 'image-upload', highlight: true },
+  ];
+
+  const scrollTo = (anchor) => {
+    const el = document.querySelector(`[data-tour="${anchor}"]`);
+    if (!el) return;
+
+    // aside 독립 스크롤 컨테이너 기준 — 위쪽 16px 여백 확보
+    const scrollToEl = () => {
+      const container = sidebarRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const target = container.scrollTop + elRect.top - containerRect.top - 16;
+      container.scrollTo({ top: target, behavior: 'smooth' });
+    };
+
+    // 접힌 Section이 있으면 먼저 펼치기
+    const header = el.querySelector('[data-section-header]');
+    if (header && header.getAttribute('data-collapsed') === 'true') {
+      header.click(); // Section 내부 setCollapsed 토글
+      // 펼치는 렌더 후 스크롤 (2 rAF로 DOM 업데이트 보장)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToEl();
+        });
+      });
+    } else {
+      scrollToEl();
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: 'linear-gradient(135deg, #2F2A26 0%, #4a3f36 100%)',
+        borderRadius: 10,
+        padding: '13px 13px 11px',
+        marginBottom: 8,
+        boxShadow: '0 2px 10px rgba(47,42,38,0.18)',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 장식용 원 */}
+      <div style={{
+        position: 'absolute', top: -18, right: -18,
+        width: 80, height: 80, borderRadius: '50%',
+        background: 'rgba(200,182,166,0.10)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* 타이틀 */}
+      <div style={{
+        fontSize: 12, fontWeight: 800, color: '#F7F3EE',
+        marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6,
+        letterSpacing: '0.02em',
+      }}>
+        <span style={{ fontSize: 15 }}>🚀</span>
+        <span>시작하기 3단계</span>
+      </div>
+
+      {/* 스텝 목록 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {steps.map((s) => (
+          <button
+            key={s.num}
+            type="button"
+            onClick={() => scrollTo(s.anchor)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 10px',
+              borderRadius: 7,
+              border: s.highlight ? '1px solid rgba(200,182,166,0.35)' : '1px solid transparent',
+              background: s.highlight ? 'rgba(200,182,166,0.16)' : 'transparent',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => { if (!s.highlight) e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+            onMouseLeave={(e) => { if (!s.highlight) e.currentTarget.style.background = 'transparent'; }}
+          >
+            {/* 번호 뱃지 */}
+            <span style={{
+              width: 20, height: 20, borderRadius: '50%',
+              background: s.highlight ? '#E87A2B' : '#C8B6A6',
+              color: s.highlight ? '#fff' : '#2F2A26',
+              fontSize: 10, fontWeight: 800,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              {s.num}
+            </span>
+
+            {/* 텍스트 */}
+            <span style={{ flex: 1 }}>
+              <span style={{ fontSize: 11, color: '#F7F3EE', fontWeight: 600 }}>
+                {s.emoji} {s.text}
+              </span>
+              <span style={{ display: 'block', fontSize: 9.5, color: 'rgba(247,243,238,0.55)', marginTop: 1 }}>
+                {s.sub}
+              </span>
+            </span>
+
+            {/* 화살표 */}
+            <span style={{ fontSize: 11, color: '#C8B6A6', opacity: 0.7 }}>›</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -93,13 +214,57 @@ export default function Sidebar({
     provider === 'google' ? setGeminiApiKey :
     setApiKey;
   const currentModelList = AI_MODELS[provider] || AI_MODELS.openai;
+  const sidebarRef = useRef(null);
+  const [showTopBtn, setShowTopBtn] = useState(false);
+  const [allCollapsed, setAllCollapsed] = useState(true);
+
+  // 맨 위로 버튼: aside 독립 스크롤 감지
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+    const onScroll = () => setShowTopBtn(el.scrollTop > 200);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
         <aside
-          className="xl:sticky xl:overflow-y-auto xl:pr-1"
-          style={{ top: '72px', maxHeight: 'calc(100vh - 88px)' }}
+          ref={sidebarRef}
+          className="xl:pr-1"
+          style={{
+            position: 'sticky',
+            top: 0,
+            maxHeight: '100vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+          }}
         >
+          {/* ─────────── 시작하기 3단계 가이드 ─────────── */}
+          <StartGuide sidebarRef={sidebarRef} />
+          {/* ─────────── 모두 접기 / 펼치기 버튼 ─────────── */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+            <button
+              type="button"
+              onClick={() => setAllCollapsed((v) => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px',
+                borderRadius: 6,
+                border: '1px solid #e2ddd4',
+                background: '#F7F3EE',
+                color: '#6b635c',
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 10 }}>{allCollapsed ? '▶▶' : '▼▼'}</span>
+              {allCollapsed ? '모두 펼치기' : '모두 접기'}
+            </button>
+          </div>
+          {/* ─────────────────────────────────────────── */}
           <div data-tour="api-key">
-          <Section title="AI 모델 설정" emoji="🔑" collapsible defaultCollapsed={!!currentApiKey}>
+          <Section title="AI 모델 설정" emoji="🔑" collapsible defaultCollapsed forceCollapsed={allCollapsed}>
             {/* AI 제공자 선택 (라디오) */}
             <Field label="AI 제공자">
               <div className="grid grid-cols-3 gap-1">
@@ -209,9 +374,13 @@ export default function Sidebar({
           </Section>
           </div>
 
-          {/* ─────────── 그룹 1: 디자인 설정 (톤앤매너 / 폰트 / P1 강점 카드) ─────────── */}
-          <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
-          <Section title="톤앤매너 (색상 테마)" emoji="🎨" collapsible defaultCollapsed flat>
+          {/* ─────────── 그룹 1: 디자인 설정 ─────────── */}
+          <div className="mt-3 mb-1 px-1 flex items-center gap-2">
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#C8B6A6', letterSpacing: '0.08em', textTransform: 'uppercase' }}>🎨 디자인 설정</span>
+            <div style={{ flex: 1, height: 1, backgroundColor: '#e2ddd4' }} />
+          </div>
+          <div className="bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          <Section title="톤앤매너 (색상 테마)" emoji="🎨" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               상품 분위기에 맞는 컬러 팔레트를 선택하세요.
               <br />모든 P1~P10 페이지에 즉시 적용됩니다.
@@ -253,7 +422,7 @@ export default function Sidebar({
           </Section>
 
           {/* ─────────── 폰트 선택 (전체 페이지 일괄 적용) ─────────── */}
-          <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤" collapsible defaultCollapsed flat>
+          <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               선택한 폰트가 P1~P10 모든 페이지에 즉시 적용됩니다.
               <br />5종 무료 상업용 한글 폰트 제공.
@@ -293,7 +462,7 @@ export default function Sidebar({
           </Section>
 
           {/* ─────────── P1 강점 카드 디자인 (체크아이콘 모양 + 박스 크기) ─────────── */}
-          <Section title="P1 강점 카드 디자인" emoji="✨" collapsible defaultCollapsed flat>
+          <Section title="P1 강점 카드 디자인" emoji="✨" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               P1 페이지의 3개 강점 카드(체크 아이콘 + 박스)를 직접 조정합니다.
             </div>
@@ -458,9 +627,13 @@ export default function Sidebar({
           </div>
           {/* ─────────── 그룹 1 끝 ─────────── */}
 
-          {/* ─────────── 그룹 2: AI 분석 도구 (리뷰 분석 / 경쟁사 분석 / 참조 자료) ─────────── */}
-          <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
-          <Section title="리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed flat>
+          {/* ─────────── 그룹 2: AI 분석 도구 ─────────── */}
+          <div className="mt-3 mb-1 px-1 flex items-center gap-2">
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#C8B6A6', letterSpacing: '0.08em', textTransform: 'uppercase' }}>🤖 AI 분석 도구</span>
+            <div style={{ flex: 1, height: 1, backgroundColor: '#e2ddd4' }} />
+          </div>
+          <div className="bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          <Section title="리뷰 분석 & 마케팅 문구 자동생성" emoji="🧠" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <Suspense fallback={<AnalyzerFallback icon="🔍" label="리뷰 분석 도구 로딩 중..." />}>
             <ReviewAnalyzer
               provider={provider}
@@ -516,7 +689,7 @@ export default function Sidebar({
             </Suspense>
           </Section>
 
-          <Section title="경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed flat>
+          <Section title="경쟁사 상세페이지 AI 분석" emoji="🔬" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <Suspense fallback={<AnalyzerFallback icon="🕵️" label="경쟁사 분석 도구 로딩 중..." />}>
             <CompetitorAnalyzer
               apiKey={apiKey}
@@ -559,7 +732,7 @@ export default function Sidebar({
             </Suspense>
           </Section>
 
-          <Section title="참조 자료로 자동 채우기" emoji="🔗" collapsible flat>
+          <Section title="참조 자료로 자동 채우기" emoji="🔗" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             {/* 모드 탭 */}
             <div className="flex gap-1 mb-2 p-1 rounded-lg" style={{ backgroundColor: '#F7F3EE' }}>
               <button
@@ -1068,10 +1241,14 @@ Q5. / A5.
           </div>
           {/* ─────────── 그룹 2 끝 ─────────── */}
 
-          {/* ─────────── 그룹 3: 콘텐츠 입력 (제품 정보 ~ FAQ) ─────────── */}
-          <div className="mt-2 bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
+          {/* ─────────── 그룹 3: 콘텐츠 입력 ─────────── */}
+          <div className="mt-3 mb-1 px-1 flex items-center gap-2">
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#C8B6A6', letterSpacing: '0.08em', textTransform: 'uppercase' }}>📝 콘텐츠 입력</span>
+            <div style={{ flex: 1, height: 1, backgroundColor: '#e2ddd4' }} />
+          </div>
+          <div className="bg-white rounded-lg border" style={{ borderColor: '#e2ddd4' }}>
           <div data-tour="product-info">
-          <Section title="제품 기본 정보" emoji="🛍️" collapsible flat>
+          <Section title="제품 기본 정보" emoji="🛍️" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <Field label="제품명" required>
               <input value={brief.productName} onChange={(e) => updateBrief({ productName: e.target.value })} className="input" placeholder="예) 욕실용 실리콘 미끄럼방지 매트" />
             </Field>
@@ -1219,82 +1396,104 @@ Q5. / A5.
           </div>
 
           <div data-tour="image-upload">
-          <Section title="제품 사진 업로드" emoji="📸" collapsible defaultCollapsed={images.length > 0} badge={images.length > 0 ? `${images.length}장` : null} flat>
-            {/* 사진 개수 가이드 */}
-            <div className="mb-2 p-2 rounded-lg text-[11px]" style={{
-              backgroundColor: images.length >= 23 ? '#ECFDF5' : images.length >= 10 ? '#FFF8F0' : '#FEF2F2',
-              borderLeft: `3px solid ${images.length >= 23 ? '#10B981' : images.length >= 10 ? '#E87A2B' : '#EF4444'}`,
-            }}>
-              <div className="font-bold mb-0.5">
-                📸 현재 <span style={{ color: images.length >= 23 ? '#059669' : images.length >= 10 ? '#C2410C' : '#991B1B' }}>
-                  {images.length}장
-                </span> 업로드됨 {images.length >= 23 ? '✓ 모든 페이지에 다른 사진 배치 가능!' : `(이상적 23장, ${Math.max(0, 23 - images.length)}장 더 추가하면 완벽)`}
-              </div>
-              <div className="text-slate-600 leading-relaxed">
-                각 페이지별 사진 할당: P1(1장)·P2(3장)·P3(1장)·P4(4장)·P5(1장)·P6(2장)·P7(3장)·P8(4장)·P9(3장)·P10(1장) = <b>총 23장</b>.
-                {images.length < 23 && <span className="block mt-0.5">부족하면 처음부터 순환해서 재사용됩니다 (중복 발생).</span>}
-              </div>
-            </div>
+          <Section title="제품 사진 업로드" emoji="📸" collapsible defaultCollapsed badge={images.length > 0 ? `${images.length}장` : null} flat forceCollapsed={allCollapsed}>
 
-            <label className="block">
-              <div className="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition" style={{ borderColor: '#C8B6A6' }}>
-                <div className="text-xl mb-1">⬆️</div>
-                <div className="text-sm font-semibold" style={{ color: '#2F2A26' }}>클릭해서 이미지 추가</div>
-                <div className="text-[11px] text-slate-500 mt-1">여러 장 한번에 추가 가능 · 우측 상단 × 버튼으로 삭제</div>
+            {/* ── 프로그레스바 ── */}
+            {(() => {
+              const total = 23;
+              const count = images.length;
+              const pct = Math.min(100, Math.round((count / total) * 100));
+              const color = count >= 23 ? '#10B981' : count >= 10 ? '#E87A2B' : '#C8B6A6';
+              const msg = count === 0
+                ? '사진을 추가해주세요 (최소 1장)'
+                : count >= 23
+                ? '✓ 완벽해요! 모든 페이지에 다른 사진이 들어갑니다'
+                : `${Math.max(0, 23 - count)}장 더 추가하면 중복 없이 완벽해요`;
+              return (
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold" style={{ color: '#2F2A26' }}>
+                      📸 {count} / 23장
+                    </span>
+                    <span className="text-[10px]" style={{ color }}>{pct}%</span>
+                  </div>
+                  {/* 트랙 */}
+                  <div className="rounded-full overflow-hidden" style={{ height: 8, backgroundColor: '#e2ddd4' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{ width: `${pct}%`, backgroundColor: color }}
+                    />
+                  </div>
+                  <div className="mt-1 text-[10px]" style={{ color: count >= 23 ? '#059669' : '#9a9087' }}>
+                    {msg}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── 업로드 버튼 ── */}
+            <label className="block mb-2">
+              <div
+                className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors"
+                style={{ borderColor: '#C8B6A6' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#faf8f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <div className="text-lg mb-0.5">⬆️</div>
+                <div className="text-sm font-bold" style={{ color: '#2F2A26' }}>클릭해서 사진 추가</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">여러 장 동시 선택 가능</div>
                 <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
               </div>
             </label>
+
+            {/* ── 썸네일 그리드 ── */}
             {images.length > 0 && (
-              <div className="grid grid-cols-3 gap-2 mt-3">
+              <div className="grid grid-cols-4 gap-1.5">
                 {images.map((src, idx) => {
-                  // 사진 인덱스에 따른 페이지 할당 라벨
                   const pageLabel = (() => {
                     if (idx === 0) return 'P1';
-                    if (idx >= 1 && idx <= 3) return 'P2';
+                    if (idx <= 3) return 'P2';
                     if (idx === 4) return 'P3';
-                    if (idx >= 5 && idx <= 8) return 'P4';
+                    if (idx <= 8) return 'P4';
                     if (idx === 9) return 'P5';
-                    if (idx >= 10 && idx <= 11) return 'P6';
-                    if (idx >= 12 && idx <= 14) return 'P7';
-                    if (idx >= 15 && idx <= 18) return 'P8';
-                    if (idx >= 19 && idx <= 21) return 'P9';
+                    if (idx <= 11) return 'P6';
+                    if (idx <= 14) return 'P7';
+                    if (idx <= 18) return 'P8';
+                    if (idx <= 21) return 'P9';
                     if (idx === 22) return 'P10';
-                    return '순환';
+                    return '↺';
                   })();
                   return (
-                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 border-2" style={{ borderColor: '#e2ddd4' }}>
+                    <div key={idx} className="relative rounded overflow-hidden bg-slate-100" style={{ aspectRatio: '1', borderRadius: 6 }}>
                       <img src={src} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute top-1 left-1 bg-black/80 text-white text-[11px] font-bold px-1.5 py-0.5 rounded">
-                        #{idx + 1}
-                      </div>
-                      {/* 페이지 할당 라벨 */}
-                      <div className="absolute top-1 right-8 text-white text-[10px] font-bold px-1.5 py-0.5 rounded" style={{
-                        backgroundColor: pageLabel === '순환' ? '#9CA3AF' : '#E87A2B',
-                      }}>
+                      {/* 페이지 라벨 */}
+                      <div
+                        className="absolute bottom-0 left-0 right-0 text-center text-white font-bold"
+                        style={{
+                          fontSize: 9, padding: '2px 0',
+                          backgroundColor: pageLabel === '↺' ? 'rgba(156,163,175,0.85)' : 'rgba(232,122,43,0.88)',
+                        }}
+                      >
                         {pageLabel}
                       </div>
-                      {/* 항상 보이는 삭제 버튼 */}
+                      {/* 삭제 버튼 */}
                       <button
                         onClick={() => removeImage(idx)}
-                        title="이 사진 삭제"
-                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm font-bold shadow-md flex items-center justify-center"
+                        title="삭제"
+                        className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center"
+                        style={{ fontSize: 9, fontWeight: 800, lineHeight: 1 }}
                       >
                         ×
                       </button>
-
                     </div>
                   );
                 })}
               </div>
             )}
-            <div className="mt-2 text-[11px] text-slate-500">
-              💡 각 사진의 오렌지 라벨은 <b>해당 페이지에 배치될 순서</b>를 뜻합니다 (P1→P2→…→P10).
-              23장 넘으면 "순환"으로 재사용됩니다.
-            </div>
           </Section>
           </div>
 
-          <Section title="리뷰 4개 (P4 필수)" emoji="⭐" collapsible flat>
+          <Section title="리뷰 4개 (P4 필수)" emoji="⭐" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             {brief.reviews.map((r, i) => (
               <div key={i} className="space-y-1.5 mb-3 pb-3 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <div className="text-[11px] font-bold text-slate-500">리뷰 {i + 1}</div>
@@ -1307,7 +1506,7 @@ Q5. / A5.
             ))}
           </Section>
 
-          <Section title="P5 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible flat>
+          <Section title="P5 비교표 (내 제품 vs 일반 제품)" emoji="⚖️" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               각 행에 <b>내 제품의 차별점</b>과 <b>일반 제품의 모습</b>을 함께 입력하세요.
               <br />비워두면 AI가 "일반적인 모습"을 추측해서 채웁니다.
@@ -1353,19 +1552,19 @@ Q5. / A5.
             </label>
           </Section>
 
-          <Section title="활용법 4가지 (P8 필수)" emoji="💡" collapsible flat>
+          <Section title="활용법 4가지 (P8 필수)" emoji="💡" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             {brief.usages.map((u, i) => (
               <input key={i} value={u} onChange={(e) => updateArrayItem('usages', i, e.target.value)} placeholder={`활용법 ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="사용 순서 3단계 (P9 필수)" emoji="🔢" collapsible flat>
+          <Section title="사용 순서 3단계 (P9 필수)" emoji="🔢" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             {brief.usageSteps.map((s, i) => (
               <input key={i} value={s} onChange={(e) => updateArrayItem('usageSteps', i, e.target.value)} placeholder={`STEP ${i + 1}`} className="input mb-1.5" />
             ))}
           </Section>
 
-          <Section title="FAQ 5개 (P10 필수)" emoji="❓" collapsible flat>
+          <Section title="FAQ 5개 (P10 필수)" emoji="❓" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             {brief.faqs.map((f, i) => (
               <div key={i} className="space-y-1.5 mb-2 pb-2 border-b last:border-b-0" style={{ borderColor: '#e2ddd4' }}>
                 <input placeholder={`Q${i + 1}`} value={f.q} onChange={(e) => updateObjectArrayItem('faqs', i, 'q', e.target.value)} className="input" />
@@ -1375,6 +1574,35 @@ Q5. / A5.
           </Section>
           </div>
           {/* ─────────── 그룹 3 끝 ─────────── */}
+
+          {/* ─────────── 맨 위로 버튼 ─────────── */}
+          {showTopBtn && (
+            <div style={{ position: 'sticky', bottom: 16, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+              <button
+                type="button"
+                onClick={() => sidebarRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+                style={{
+                  pointerEvents: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '6px 10px',
+                  borderRadius: 50,
+                  background: '#2F2A26',
+                  color: '#F7F3EE',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 10px rgba(47,42,38,0.35)',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#4a3f36'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#2F2A26'}
+              >
+                ↑ 맨 위로
+              </button>
+            </div>
+          )}
         </aside>
   );
 }

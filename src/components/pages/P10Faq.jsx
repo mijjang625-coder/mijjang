@@ -21,9 +21,11 @@ export default function P10Faq({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -36,6 +38,7 @@ export default function P10Faq({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -71,7 +74,7 @@ export default function P10Faq({
   }));
 
   const mainImgId = 'P10.componentImage';
-  const mainLayers = [{ id: mainImgId, defaultName: '🖼 구성품 사진', defaultZ: 1 }];
+  const mainLayers = [{ id: mainImgId, defaultName: '🖼 구성품 사진', defaultZ: 80 }];
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
     (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
@@ -80,10 +83,10 @@ export default function P10Faq({
   const layer = useFreeImageLayer({
     pageKey: 'P10', mainLayers, image: componentImage, allImages, baseHeight: Math.max(2200, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -92,9 +95,9 @@ export default function P10Faq({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', zIndex: 30, pointerEvents: 'none' }}>
       {/* ─────────── 1. 구성품 안내 (강조) ─────────── */}
-      <div style={{ padding: '50px 40px 30px' }}>
+      <div style={{ padding: '50px 40px 30px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <div style={{ textAlign: 'center' }}>
           <EditableText
             {...editPropsFor('P10.components.title')}
@@ -128,14 +131,13 @@ export default function P10Faq({
 
         <div style={{
           marginTop: 26, position: 'relative',
-          pointerEvents: 'auto',
-          zIndex: imageOverrides[mainImgId]?.zIndex ?? 1,
+          pointerEvents: editMode ? 'auto' : 'none',
         }}>
           <EditableImage
             id={mainImgId}
             src={componentImage}
             aspect="16 / 10"
-            radius={16}
+            radius={0}
             editMode={editMode}
             override={imageOverrides[mainImgId] || {}}
             onChange={(partial) => onImageOverrideChange(mainImgId, partial)}
@@ -175,7 +177,7 @@ export default function P10Faq({
                 {...editPropsFor(`P10.components.bullets.${i}`)}
                 as="span"
                 defaultStyle={{
-                  fontSize: 23,
+                  fontSize: 24,
                   fontWeight: 700,
                   color: BRAND.colors.text,
                   letterSpacing: '-0.02em',
@@ -189,12 +191,12 @@ export default function P10Faq({
         </div>
       </div>
 
-      <div style={{ padding: '10px 40px' }}>
+      <div style={{ padding: '10px 40px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <Divider color={BRAND.colors.main} />
       </div>
 
       {/* ─────────── 2. FAQ 5개 ─────────── */}
-      <div style={{ padding: '30px 30px 60px' }}>
+      <div style={{ padding: '30px 30px 60px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <SectionTitle size={30}>자주 묻는 질문</SectionTitle>
           <div style={{ marginTop: 10, color: BRAND.colors.neutralText, fontSize: 22, fontWeight: 600 }}>
@@ -233,7 +235,7 @@ export default function P10Faq({
                   {...editPropsFor(`P10.faq.${i}.q`)}
                   as="span"
                   defaultStyle={{
-                    fontSize: 25,
+                    fontSize: 26,
                     fontWeight: 800,
                     color: BRAND.colors.text,
                     lineHeight: 1.4,
@@ -257,7 +259,7 @@ export default function P10Faq({
                   {...editPropsFor(`P10.faq.${i}.a`)}
                   as="p"
                   defaultStyle={{
-                    fontSize: 23,
+                    fontSize: 24,
                     fontWeight: 500,
                     color: BRAND.colors.text,
                     margin: 0,
@@ -272,12 +274,12 @@ export default function P10Faq({
         </div>
       </div>
 
-      <div style={{ padding: '10px 40px' }}>
+      <div style={{ padding: '10px 40px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <Divider color={BRAND.colors.main} dashed />
       </div>
 
       {/* ─────────── 4. 상품 필수표기사항 (전자상거래법) ─────────── */}
-      <div style={{ padding: '30px 40px 20px' }}>
+      <div style={{ padding: '30px 40px 20px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <EditableText
             {...editPropsFor('P10.compliance.title')}
@@ -393,7 +395,7 @@ export default function P10Faq({
 
       {/* ─────────── 5. 마감 CTA 영역 ─────────── */}
       {/* 하단 여백 — 페이지 끝 부분 자연스러운 마무리 */}
-      <div style={{ padding: '0 0 60px' }}>
+      <div style={{ padding: '0 0 60px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
       <div
         style={{
           margin: '20px 40px 0',
@@ -448,6 +450,7 @@ export default function P10Faq({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {
