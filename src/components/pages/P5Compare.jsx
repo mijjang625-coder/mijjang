@@ -407,7 +407,7 @@ export default function P5Compare({
           padding: '36px 28px 34px',
         }}
       >
-        <div style={{ padding: '0 12px 10px', marginBottom: 20, textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        <div style={{ padding: '0 12px 10px', marginBottom: 36, textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P5.headline')}
             as="h2"
@@ -445,7 +445,7 @@ export default function P5Compare({
         </div>
 
         {/* 비교표 컨테이너 — 헤더 카피와 표 사이 간격 추가 확장 */}
-        <div style={{ padding: '48px 10px 8px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        <div style={{ padding: '72px 10px 8px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           {/* Grid 표 + POP-OUT 배경 레이어 동시 보유하기 위해 position: relative */}
           <div
             style={{
