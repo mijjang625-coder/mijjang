@@ -45,6 +45,7 @@ export default function P6Material({
     id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
   const {
     material = { title: '', desc: '', safetyPoints: [], certifications: [] },

@@ -76,6 +76,7 @@ export default function P1Hero({
     editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
 
   // 사진 추가 패널 (썸네일 그리드 + 파일 업로드)

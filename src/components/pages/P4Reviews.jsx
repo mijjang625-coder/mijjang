@@ -48,6 +48,7 @@ export default function P4Reviews({
     id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
 
   const mainLayers = reviews.slice(0, 4).map((_, i) => ({

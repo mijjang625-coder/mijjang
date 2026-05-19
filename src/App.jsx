@@ -1070,9 +1070,29 @@ export default function App() {
 
   // 전역 폰트 적용 — fontId 바뀔 때마다 BRAND.fontFamily 스왑
   useEffect(() => {
-    applyFont(brief.fontId || 'pretendard');
+    const preset = applyFont(brief.fontId || 'pretendard');
     setPages((prev) => ({ ...prev }));
-  }, [brief.fontId]);
+
+    // ── 개별 글박스에 저장된 fontFamily도 일괄 덮어쓰기 ──────────────────
+    // 사용자가 툴바에서 개별 폰트를 바꾼 경우 textOverrides.style.fontFamily에
+    // 값이 박혀 CSS 변수(--app-font)를 무시하게 됨.
+    // 전체 폰트 변경 시 모든 페이지·글박스의 fontFamily를 새 폰트로 덮어씀.
+    setTextOverrides((prev) => {
+      const next = {};
+      for (const [pageKey, pageOverrides] of Object.entries(prev)) {
+        const nextPage = {};
+        for (const [textId, override] of Object.entries(pageOverrides)) {
+          // fontFamily 유무 상관없이 모든 override에 새 폰트 강제 적용
+          nextPage[textId] = {
+            ...override,
+            style: { ...(override?.style || {}), fontFamily: preset.family },
+          };
+        }
+        next[pageKey] = nextPage;
+      }
+      return next;
+    });
+  }, [brief.fontId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pageRefs = {
     P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),

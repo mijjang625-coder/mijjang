@@ -45,6 +45,7 @@ export default function P3Target({
     id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
   const {
     badge = '',

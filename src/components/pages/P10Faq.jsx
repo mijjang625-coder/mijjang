@@ -47,6 +47,7 @@ export default function P10Faq({
     editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
   const {
     components = { title: '구성품 안내', bullets: [] },

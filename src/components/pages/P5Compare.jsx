@@ -105,6 +105,7 @@ export default function P5Compare({
     editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
 
   const mainImgId = 'P5.ourImage';

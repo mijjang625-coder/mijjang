@@ -54,6 +54,7 @@ export default function P7Lifestyle({
     id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
 
   const mainLayers = modules.slice(0, 3).map((_, i) => ({
