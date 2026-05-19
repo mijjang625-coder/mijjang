@@ -444,9 +444,8 @@ export default function P5Compare({
           )}
         </div>
 
-        {/* 비교표 컨테이너 — POP-OUT 이 위/아래로 14px 튀어나오므로
-            바깥 padding 충분히 확보 (상하 30px) */}
-        <div style={{ padding: '16px 10px 8px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        {/* 비교표 컨테이너 — 헤더 카피와 표 사이 간격 확장 */}
+        <div style={{ padding: '30px 10px 8px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           {/* Grid 표 + POP-OUT 배경 레이어 동시 보유하기 위해 position: relative */}
           <div
             style={{
