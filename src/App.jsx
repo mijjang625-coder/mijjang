@@ -2944,12 +2944,15 @@ export default function App() {
                         position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
                         width: 80, height: 16, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 999,
                       }} />
-                      {/* 📱 화면 영역 — 높이 자동, 내부 스크롤 없음 (바깥 페이지가 스크롤) */}
+                      {/* 📱 화면 영역 — 실제 폰처럼 고정 높이 + 내부 스크롤 */}
                       <div ref={viewportRef} style={{
                         width: MOBILE_W,
+                        height: MOBILE_H,
                         backgroundColor: previewSkin.shellInner,
                         borderRadius: 6,
-                        overflow: 'hidden',
+                        overflowX: 'hidden',
+                        overflowY: 'auto',
+                        WebkitOverflowScrolling: 'touch',
                       }}>
                         {/* children 은 ScaledHeightWrap 으로 감싼 상태 — 안에서 scale 처리 */}
                         {children}
