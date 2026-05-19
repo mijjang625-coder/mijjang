@@ -2915,7 +2915,7 @@ export default function App() {
                 // 실제 콘텐츠는 780px이지만, 모바일에서는 360/780 = 0.4615 배율로 축소
                 // 🆕 폰 화면 높이는 고정 (실제 핸드폰처럼) → 내부 콘텐츠가 길면 스크롤
                 const MOBILE_W = 360;
-                const MOBILE_H = 720; // 실제 핸드폰 비율 (16:9, iPhone 14 Pro 정도)
+                const MOBILE_H = 620; // 스크롤 체감 강화를 위해 화면 높이를 낮춤
                 const SCALE = MOBILE_W / 780;
                 const MobileFrame = ({ children, label, viewportRef, sticky = false }) => (
                   <div
