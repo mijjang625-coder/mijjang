@@ -45,6 +45,7 @@ export default function P8Usages({
     id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
 
   const mainLayers = usages.slice(0, 4).map((_, i) => ({

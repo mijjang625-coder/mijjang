@@ -59,6 +59,7 @@ export default function P9HowTo({
     id, editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
 
   const mainLayers = steps.slice(0, 3).map((_, i) => ({

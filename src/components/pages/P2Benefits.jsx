@@ -63,6 +63,7 @@ export default function P2Benefits({
     editMode,
     override: overrides[id] || {},
     onChange: (partial) => onOverrideChange(id, partial),
+    onHide: () => onToggleLayerVisibility('text', id),
   });
 
   // 메인 레이어 = 3개의 섹션 사진 (자유 위치 freeImages 와 충돌 방지를 위해 main 만 등록)

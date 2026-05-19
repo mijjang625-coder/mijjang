@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { FONT_PRESETS } from '../lib/theme.js';
+import { FONT_PRESETS, BRAND } from '../lib/theme.js';
 import { announceEditorSelection, useEditorSelectionListener } from '../lib/editorSelection.js';
 
 /**
@@ -89,6 +89,7 @@ export default function EditableText({
   editMode = false,
   override = {},
   onChange = () => {},
+  onHide = null,   // 선택적 — 제공시 툴바에 '클리어' 버튼 표시 (hidden 토글)
   as: Tag = 'div',
   className = '',
   style = {},
@@ -115,7 +116,18 @@ export default function EditableText({
   // 현재 적용할 값 (override가 있으면 우선)
   const mergedHtml = resolveInitialHtml(override, children);
   const mergedText = override?.text !== undefined ? override.text : (typeof children === 'string' ? children : '');
-  const mergedStyle = { ...defaultStyle, ...(override?.style || {}) };
+  // defaultStyle에 fontFamily가 없으면 전역 BRAND.fontFamily 사용
+  // → 사이드바 전체 폰트 변경이 즉시 반영됨
+  const effectiveDefaultStyle = defaultStyle.fontFamily
+    ? defaultStyle
+    : { fontFamily: BRAND.fontFamily, ...defaultStyle };
+  // override.style.fontFamily가 없을 때는 effectiveDefaultStyle.fontFamily(= BRAND)가 항상 이김
+  const overrideStyle = override?.style || {};
+  const mergedStyle = {
+    ...effectiveDefaultStyle,
+    ...overrideStyle,
+    fontFamily: overrideStyle.fontFamily || effectiveDefaultStyle.fontFamily || BRAND.fontFamily,
+  };
   const offset = override?.offset || { x: 0, y: 0 };
   const isRegistered = !!override?.registered;
 
@@ -711,8 +723,10 @@ export default function EditableText({
         <MiniToolbar
           pos={toolbarPos}
           currentStyle={normalizedStyle}
+          isHidden={isHidden}
           onApply={applyStyle}
           onReset={resetStyle}
+          onHide={onHide}
           onClose={() => setShowToolbar(false)}
         />
       )}
@@ -909,7 +923,7 @@ function readSelectionLineHeight(sel, rootEl = null, fallbackLineHeight = 1.45) 
 }
 
 // ─────────── 셀 전체 툴바 (기존) ───────────
-function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
+function MiniToolbar({ pos, currentStyle, isHidden, onApply, onReset, onHide, onClose }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
 
   return (
@@ -1025,6 +1039,26 @@ function MiniToolbar({ pos, currentStyle, onApply, onReset, onClose }) {
       >
         ↺
       </button>
+
+      {/* 클리어(숨기기) — onHide prop이 있을 때만 표시 */}
+      {typeof onHide === 'function' && (
+        <button
+          style={{
+            ...toolbarBtnStyle,
+            backgroundColor: isHidden ? '#16a34a' : '#475569',
+            minWidth: 46,
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onHide();
+            onClose();
+          }}
+          title={isHidden ? '텍스트 다시 보이기' : '텍스트 숨기기 (폰토샵에는 출력 안 됨)'}
+        >
+          {isHidden ? '👁️ 보이기' : '🚭 숨기기'}
+        </button>
+      )}
 
       {/* 닫기 */}
       <button style={toolbarBtnStyle} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} title="툴바 닫기">
