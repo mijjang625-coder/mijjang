@@ -28,9 +28,11 @@ export default function P9HowTo({
   onAddFreeImageToSlot = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -43,6 +45,7 @@ export default function P9HowTo({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -59,7 +62,7 @@ export default function P9HowTo({
   });
 
   const mainLayers = steps.slice(0, 3).map((_, i) => ({
-    id: `P9.steps.${i}.image`, defaultName: `🖼 STEP ${i + 1} 사진`, defaultZ: i + 1,
+    id: `P9.steps.${i}.image`, defaultName: `🖼 STEP ${i + 1} 사진`, defaultZ: 80,
   }));
 
   // 자유 위치 사진(slot=null) vs 인라인(slot != null)
@@ -77,10 +80,10 @@ export default function P9HowTo({
     freeImages: freePositioned,
     inlineImages: inlineImagesAll,
     imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -156,7 +159,7 @@ export default function P9HowTo({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+      <div style={{ position: 'relative', zIndex: 30, pointerEvents: 'none' }}>
         <div style={{ padding: '50px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P9.title')}
@@ -219,14 +222,13 @@ export default function P9HowTo({
                   </div>
                   <div style={{
                     position: 'relative',
-                    pointerEvents: 'auto',
-                    zIndex: z,
+                    pointerEvents: editMode ? 'auto' : 'none',
                   }}>
                     <EditableImage
                       id={imgId}
                       src={images[i]}
                       aspect="4 / 3"
-                      radius={12}
+                      radius={0}
                       editMode={editMode}
                       override={imageOverrides[imgId] || {}}
                       onChange={(partial) => onImageOverrideChange(imgId, partial)}
@@ -308,6 +310,7 @@ export default function P9HowTo({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

@@ -90,7 +90,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('P1');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [p5Version, setP5Version] = useState('text');
+  const [p5Version, setP5Version] = useState('photo');  // 기본값: 사진 버전
   // (pageVariants는 아래에서 한 번만 선언)
 
   // 💰 비용 추적 — recordCost 호출 시 +1 → 위젯 리렌더 트리거
@@ -212,6 +212,10 @@ export default function App() {
   // null = 비활성 (편집모드 OFF 또는 아무것도 선택 안 됨)
   const [activeLayerId, setActiveLayerId] = useState(null);
 
+  // ─── 📋 복사/붙여넣기 클립보드 (Ctrl+C / Ctrl+V / Alt+드래그용) ───
+  // { kind: 'freeImage'|'freeText'|'shape', data: {...item} }
+  const [elemClipboard, setElemClipboard] = useState(null);
+
   // 편집 모드가 꺼지거나 페이지 전환 시 활성 레이어 해제
   useEffect(() => {
     setActiveLayerId(null);
@@ -282,6 +286,97 @@ export default function App() {
 
   // 키보드 단축키 등록 (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z)
   useUndoRedoKeyboard(undoHistory.undo, undoHistory.redo);
+
+  // ─── 📋 Ctrl+C / Ctrl+V 복사·붙여넣기 ─────────────────────────────
+  // activeLayerId 기준으로 현재 선택 요소를 복사 → 붙여넣기 시 +20,+20 오프셋으로 추가
+  useEffect(() => {
+    const handler = (e) => {
+      if (!editMode) return;
+      const tag = e.target?.tagName?.toLowerCase();
+      // EditableText(기본 템플릿 텍스트) 안에서 실제 편집 중이면 차단
+      // 단순 클릭(선택)한 경우는 Ctrl+C 허용 → FreeText로 복제
+      const editableEl = e.target?.closest?.('[data-editable="true"]');
+      const inFreeText = !!e.target?.closest?.('[data-free-text="true"]');
+      const inToolbar  = !!e.target?.closest?.('[data-toolbar]');
+      if (editableEl && !inFreeText) {
+        // EditableText: 더블클릭해서 실제 편집 중(contentEditable=true)이면 차단
+        if (editableEl.contentEditable === 'true') return;
+      } else if (inFreeText) {
+        // FreeText 글박스: 더블클릭 편집 중이면 차단
+        if (e.target?.contentEditable === 'true') return;
+      } else if (!inToolbar) {
+        // 일반 input/textarea/contentEditable은 차단
+        const isEditable = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable;
+        if (isEditable) return;
+      }
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const ctrl = isMac ? e.metaKey : e.ctrlKey;
+      if (!ctrl) return;
+
+      // Ctrl+C — EditableText(템플릿 기본 글박스) 클릭 후 복사 → elemClipboard에 저장
+      if (e.key === 'c' || e.key === 'C') {
+        // EditableText를 클릭한 상태에서 Ctrl+C → FreeText 클립보드로 저장
+        if (editableEl && !inFreeText) {
+          e.preventDefault();
+          const elemId = editableEl.getAttribute('data-editable-id') || '';
+          const html = editableEl.innerHTML || '';
+          const text = editableEl.innerText || '';
+          // 현재 적용된 computed 스타일에서 폰트 정보 추출
+          const cs = window.getComputedStyle(editableEl);
+          const freeTextItem = {
+            id: '__clipboard__',
+            x: 50, y: 50,
+            width: Math.min(editableEl.offsetWidth || 300, 700),
+            height: Math.max(editableEl.offsetHeight || 60, 40),
+            html, text,
+            style: {
+              fontSize: parseInt(cs.fontSize, 10) || 16,
+              fontWeight: parseInt(cs.fontWeight, 10) || 400,
+              color: cs.color || '#111827',
+              fontFamily: cs.fontFamily || '',
+              textAlign: cs.textAlign || 'left',
+              lineHeight: cs.lineHeight || 'normal',
+            },
+            zIndex: 200,
+            _sourceEditableId: elemId,
+          };
+          setElemClipboard({ kind: 'freeText', data: freeTextItem });
+          return;
+        }
+        if (!activeLayerId) return;
+        e.preventDefault();
+        const [kind, ...rest] = activeLayerId.split(':');
+        const elemId = rest.join(':');
+        if (kind === 'free') {
+          const item = (freeImages[currentPage] || []).find((it) => it.id === elemId);
+          if (item) setElemClipboard({ kind: 'freeImage', data: item });
+        } else if (kind === 'freetext') {
+          const item = (freeTexts[currentPage] || []).find((it) => it.id === elemId);
+          if (item) setElemClipboard({ kind: 'freeText', data: item });
+        } else if (kind === 'shape') {
+          const item = (shapes[currentPage] || []).find((it) => it.id === elemId);
+          if (item) setElemClipboard({ kind: 'shape', data: item });
+        }
+        return;
+      }
+
+      // Ctrl+V — 클립보드 내용을 +20,+20 오프셋으로 붙여넣기
+      if (e.key === 'v' || e.key === 'V') {
+        if (!elemClipboard) return;
+        e.preventDefault();
+        if (elemClipboard.kind === 'freeImage') {
+          duplicateFreeImage(currentPage, elemClipboard.data);
+        } else if (elemClipboard.kind === 'freeText') {
+          duplicateFreeText(currentPage, elemClipboard.data);
+        } else if (elemClipboard.kind === 'shape') {
+          duplicateShape(currentPage, elemClipboard.data);
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode, activeLayerId, elemClipboard, currentPage, freeImages, freeTexts, shapes]);
 
   // 편집 액션 직전에 호출 — 변경 후 자동으로 그 상태가 다음 history 항목이 됨
   // pattern: pushHistory('라벨'); 그 다음 setState(...)
@@ -395,7 +490,7 @@ export default function App() {
         id, src,
         x: x + xOffset,
         y, w: NEW_W, h: NEW_H,
-        crop: null, zIndex: 501 + list.length,
+        crop: null, zIndex: 80 + list.length,
         slot: null, // 자유 위치
       };
       return { ...prev, [pageNum]: [...list, newItem] };
@@ -417,16 +512,20 @@ export default function App() {
       const newItem = {
         id, src, x, y: 0, w: NEW_W, h: NEW_H,
         crop: null,
-        zIndex: 100 + list.length,
+        zIndex: 70 + list.length,
         slot, // 인라인 끼워넣기
       };
       return { ...prev, [pageNum]: [...list, newItem] };
     });
   };
 
+  // 자유 이미지 드래그/리사이즈 시작 시 히스토리 스냅샷
+  const onDragStartFreeImage = useCallback((pageNum, id) => {
+    pushHistory(`${pageNum} 사진 이동`);
+  }, [pushHistory]);
+
   // 자유 이미지 업데이트 — 자유사진끼리는 서로 절대 밀어내지 않음 (자유로운 겹침/배치 허용)
   const updateFreeImage = (pageNum, id, partial) => {
-    pushHistoryDebounced(`free.${pageNum}.${id}`, `${pageNum} 사진 편집`);
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       return {
@@ -479,15 +578,19 @@ export default function App() {
           textAlign: 'center',
           fontFamily: "'NanumSquare','나눔스퀘어',system-ui,-apple-system,sans-serif",
         },
-        zIndex: 10000 + list.length, // 모든 이미지/도형보다 앞
+        zIndex: 100 + list.length, // 콘텐츠(z:30) 앞
       };
       return { ...prev, [pageNum]: [...list, newItem] };
     });
   };
 
+  // 자유 글박스 드래그/리사이즈 시작 시 히스토리 스냅샷
+  const onDragStartFreeText = useCallback((pageNum, id) => {
+    pushHistory(`${pageNum} 글박스 이동`);
+  }, [pushHistory]);
+
   // 자유 글박스 업데이트 (위치/크기/내용/스타일/z-index)
   const updateFreeText = (pageNum, id, partial) => {
-    pushHistoryDebounced(`freetext.${pageNum}.${id}`, `${pageNum} 글박스 편집`);
     setFreeTexts((prev) => {
       const list = prev[pageNum] || [];
       return {
@@ -568,14 +671,18 @@ export default function App() {
       const newShape = {
         id, type, x, y, w, h,
         ...styleP,
-        zIndex: 700 + list.length,
+        zIndex: 90 + list.length,
       };
       return { ...prev, [pageNum]: [...list, newShape] };
     });
   };
 
+  // 도형 드래그/리사이즈 시작 시 히스토리 스냅샷
+  const onDragStartShape = useCallback((pageNum, id) => {
+    pushHistory(`${pageNum} 도형 이동`);
+  }, [pushHistory]);
+
   const updateShape = (pageNum, id, partial) => {
-    pushHistoryDebounced(`shape.${pageNum}.${id}`, `${pageNum} 도형 편집`);
     setShapes((prev) => {
       const list = prev[pageNum] || [];
       return {
@@ -596,6 +703,55 @@ export default function App() {
     });
   };
 
+  // ─── 📋 요소 복제 (Ctrl+C→V / Alt+드래그 공통 로직) ─────────────────
+  const newId = (prefix) =>
+    prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+
+  const duplicateFreeImage = (pageNum, item, offsetX = 20, offsetY = 20) => {
+    pushHistory(`${pageNum} 사진 복제`);
+    setFreeImages((prev) => {
+      const list = prev[pageNum] || [];
+      const copy = {
+        ...item,
+        id: newId('free'),
+        x: (item.x ?? 0) + offsetX,
+        y: (item.y ?? 0) + offsetY,
+        zIndex: (item.zIndex ?? 80) + 1,
+      };
+      return { ...prev, [pageNum]: [...list, copy] };
+    });
+  };
+
+  const duplicateFreeText = (pageNum, item, offsetX = 20, offsetY = 20) => {
+    pushHistory(`${pageNum} 글박스 복제`);
+    setFreeTexts((prev) => {
+      const list = prev[pageNum] || [];
+      const copy = {
+        ...item,
+        id: newId('freetext'),
+        x: (item.x ?? 0) + offsetX,
+        y: (item.y ?? 0) + offsetY,
+        zIndex: (item.zIndex ?? 100) + 1,
+      };
+      return { ...prev, [pageNum]: [...list, copy] };
+    });
+  };
+
+  const duplicateShape = (pageNum, item, offsetX = 20, offsetY = 20) => {
+    pushHistory(`${pageNum} 도형 복제`);
+    setShapes((prev) => {
+      const list = prev[pageNum] || [];
+      const copy = {
+        ...item,
+        id: newId('shape'),
+        x: (item.x ?? 0) + offsetX,
+        y: (item.y ?? 0) + offsetY,
+        zIndex: (item.zIndex ?? 50) + 1,
+      };
+      return { ...prev, [pageNum]: [...list, copy] };
+    });
+  };
+
   // 레이어 관리 정책 (정규화):
   //   모든 레이어(메인사진 + 자유이미지)는 1..N 의 연속된 정수 z-index 사용
   //   N = 전체 레이어 수, 큰 숫자 = 앞쪽
@@ -605,12 +761,39 @@ export default function App() {
   // orderedFromTop: [{ kind: 'main'|'free', id }, ...]  맨 앞 → 맨 뒤
   const applyNormalizedZ = (pageNum, orderedFromTop) => {
     if (!Array.isArray(orderedFromTop) || orderedFromTop.length === 0) return;
-    const N = orderedFromTop.length;
-    // 위에서부터: index 0 → z=N, index 1 → z=N-1, ..., 마지막 → z=1
+    // ── z-index 체계 ─────────────────────────────────────────────────────
+    //  콘텐츠 div(글씨/레이아웃) = CONTENT_Z:30 고정
+    //  orderedFromTop 배열에 {kind:'content'} 가상 항목이 포함될 수 있음.
+    //  content 항목 위치(index)를 기준으로:
+    //    content 앞(index < contentIdx) → z = 31 + (contentIdx - 1 - i)
+    //    content 뒤(index > contentIdx) → z = 29 - (i - contentIdx - 1)
+    //  content 항목 자체는 z 배정 없이 건너뜀.
+    //  content 항목이 없으면 전부 31+로 배정 (기존 동작 유지).
+    // ─────────────────────────────────────────────────────────────────────
+    const CONTENT_Z = 30;
+    const contentIdx = orderedFromTop.findIndex((l) => l.kind === 'content');
     const zMap = {};
-    orderedFromTop.forEach((l, i) => {
-      zMap[`${l.kind}:${l.id}`] = N - i;
-    });
+
+    if (contentIdx === -1) {
+      // content 가상 항목 없음 → 전부 31+ (콘텐츠 앞)
+      orderedFromTop.forEach((l, i) => {
+        zMap[`${l.kind}:${l.id}`] = CONTENT_Z + 1 + (orderedFromTop.length - 1 - i);
+      });
+    } else {
+      // content 앞쪽: 31, 32, ... (content에 가까울수록 낮음)
+      for (let i = 0; i < contentIdx; i++) {
+        const l = orderedFromTop[i];
+        // i=0(맨앞)이 제일 높음: CONTENT_Z + contentIdx - i
+        zMap[`${l.kind}:${l.id}`] = CONTENT_Z + (contentIdx - i);
+      }
+      // content 뒤쪽: 29, 28, ... (content에서 멀수록 낮음)
+      for (let i = contentIdx + 1; i < orderedFromTop.length; i++) {
+        const l = orderedFromTop[i];
+        // i=contentIdx+1(바로 뒤)이 29: CONTENT_Z - (i - contentIdx)
+        const z = CONTENT_Z - (i - contentIdx);
+        zMap[`${l.kind}:${l.id}`] = Math.max(1, z);
+      }
+    }
 
     // 자유이미지(free) + 인라인사진(inline) z-index 일괄 적용
     // 둘 다 freeImages 배열에 있으므로 함께 처리
@@ -649,58 +832,48 @@ export default function App() {
   };
 
   // 페이지의 현재 모든 레이어를 z-index 내림차순(앞→뒤) 으로 반환
-  // mainLayers: [{ id, zIndex }, ...] - P1의 경우 'P1.heroImage'
-  // 호출 측에서 어떤 메인 이미지들이 있는지 알려줘야 함 (P1Hero에서 전달)
+  // {kind:'content', id:'__content__', zIndex:30} 가상 항목 포함
+  // → changeLayerNormalized 에서 content 앞/뒤로 자연스럽게 이동 가능
+  const CONTENT_LAYER = { kind: 'content', id: '__content__', zIndex: 30 };
+
   const getOrderedLayers = (pageNum, mainLayers = []) => {
-    // 자유 위치 사진 (slot 없음)
     const free = (freeImages[pageNum] || [])
       .filter((it) => !it.slot)
-      .map((it) => ({
-        kind: 'free',
-        id: it.id,
-        zIndex: it.zIndex ?? 1,
-      }));
-    // 인라인 사진 (slot 있음)
+      .map((it) => ({ kind: 'free', id: it.id, zIndex: it.zIndex ?? 80 }));
     const inlineList = (freeImages[pageNum] || [])
       .filter((it) => !!it.slot)
-      .map((it, i) => ({
-        kind: 'inline',
-        id: it.id,
-        zIndex: it.zIndex ?? (500 + i),
-      }));
+      .map((it, i) => ({ kind: 'inline', id: it.id, zIndex: it.zIndex ?? (70 + i) }));
     const mains = mainLayers.map((m) => ({
-      kind: 'main',
-      id: m.id,
-      zIndex: imageOverrides[pageNum]?.[m.id]?.zIndex ?? m.defaultZ ?? 1,
+      kind: 'main', id: m.id,
+      zIndex: imageOverrides[pageNum]?.[m.id]?.zIndex ?? m.defaultZ ?? 80,
     }));
     const shapeList = (shapes[pageNum] || []).map((s) => ({
-      kind: 'shape',
-      id: s.id,
-      zIndex: s.zIndex ?? 700,
+      kind: 'shape', id: s.id, zIndex: s.zIndex ?? 90,
     }));
-    // 🆕 (2026-05-03) 자유 글박스(freetext) — 기본 z-index 10000 (모든 이미지/도형보다 위)
     const freeTextList = (freeTexts[pageNum] || []).map((it) => ({
-      kind: 'freetext',
-      id: it.id,
-      zIndex: it.zIndex ?? 10000,
+      kind: 'freetext', id: it.id, zIndex: it.zIndex ?? 100,
     }));
-    return [...mains, ...free, ...inlineList, ...shapeList, ...freeTextList].sort((a, b) => b.zIndex - a.zIndex);
+    // content 가상 항목(z:30) 포함 → 정렬하면 앞/뒤 구분 가능
+    return [
+      ...mains, ...free, ...inlineList, ...shapeList, ...freeTextList,
+      CONTENT_LAYER,
+    ].sort((a, b) => b.zIndex - a.zIndex);
   };
 
-  // 단건 레이어 액션: front/back/forward/backward
-  // mainLayers를 받아서 전체 정규화 후 1..N 으로 재할당
+  // 단건 레이어 액션: front / back / forward / backward
+  // content 가상 레이어(z:30)를 경계로 앞/뒤 자연스럽게 이동
   const changeLayerNormalized = (pageNum, kind, id, action, mainLayers = []) => {
-    const ordered = getOrderedLayers(pageNum, mainLayers);
+    const ordered = getOrderedLayers(pageNum, mainLayers); // content 포함
     const idx = ordered.findIndex((l) => l.kind === kind && l.id === id);
-    console.log('[App] changeLayerNormalized:', pageNum, kind, id, action, 'idx=', idx, 'ordered=', ordered);
     if (idx < 0) return;
     const next = ordered.slice();
     const [target] = next.splice(idx, 1);
-    let newIdx = idx;
-    if (action === 'front') newIdx = 0;
-    else if (action === 'back') newIdx = next.length;
-    else if (action === 'forward') newIdx = Math.max(0, idx - 1);
-    else if (action === 'backward') newIdx = Math.min(next.length, idx + 1);
+    let newIdx;
+    if (action === 'front')    newIdx = 0;                          // 맨 앞
+    else if (action === 'back') newIdx = next.length;               // 맨 뒤
+    else if (action === 'forward')  newIdx = Math.max(0, idx - 1);  // 한 단계 앞
+    else if (action === 'backward') newIdx = Math.min(next.length, idx + 1); // 한 단계 뒤
+    else newIdx = idx;
     next.splice(newIdx, 0, target);
     applyNormalizedZ(pageNum, next);
   };
@@ -714,9 +887,32 @@ export default function App() {
 
   // 드래그앤드롭 결과 적용 — newOrder는 위(앞)→아래(뒤) 순서
   // newOrder: [{ kind, id }, ...]
-  const reorderLayers = (pageNum, newOrder) => {
+  // ※ freeImageLayer 패널은 content 가상 레이어를 표시하지 않으므로
+  //   newOrder에 content가 없을 수 있음 → 현재 위치 기준으로 자동 삽입
+  const reorderLayers = (pageNum, newOrder, mainLayers = []) => {
     if (!Array.isArray(newOrder) || newOrder.length === 0) return;
-    applyNormalizedZ(pageNum, newOrder);
+    const hasContent = newOrder.some((l) => l.kind === 'content');
+    if (hasContent) {
+      applyNormalizedZ(pageNum, newOrder);
+      return;
+    }
+    // content 가상 레이어가 없으면 현재 순서에서 content 위치를 파악해 삽입
+    const current = getOrderedLayers(pageNum, mainLayers);
+    const currentContentIdx = current.findIndex((l) => l.kind === 'content');
+    const totalReal = current.filter((l) => l.kind !== 'content').length;
+    // content가 현재 몇 번째 실제 레이어 뒤에 있는지 비율로 계산
+    // → newOrder에서 같은 상대 위치에 삽입
+    let insertAt;
+    if (currentContentIdx <= 0) {
+      insertAt = 0; // 맨 앞
+    } else {
+      // content 앞에 있는 실제 레이어 수 기준으로 삽입 위치 결정
+      const realBeforeContent = currentContentIdx; // content 앞 실제 레이어 수
+      insertAt = Math.min(realBeforeContent, newOrder.length);
+    }
+    const withContent = newOrder.slice();
+    withContent.splice(insertAt, 0, CONTENT_LAYER);
+    applyNormalizedZ(pageNum, withContent);
   };
 
   // 🆕 (2026-05-03) 레이어 가시성 토글 — 포토샵 방식 눈 아이콘
@@ -988,6 +1184,8 @@ export default function App() {
           if (saved.layerNames) setLayerNames(saved.layerNames);
           if (saved.p5Version) setP5Version(saved.p5Version);
           if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
+          if (saved.userNotes !== undefined) setUserNotes(saved.userNotes);
+          if (saved.pastedText !== undefined) setPastedText(saved.pastedText);
           if (Object.prototype.hasOwnProperty.call(saved, 'reviewInsights')) setReviewInsights(saved.reviewInsights || null);
           if (Object.prototype.hasOwnProperty.call(saved, 'reviewAnalyzerSnapshot')) {
             const snapshot = saved.reviewAnalyzerSnapshot || null;
@@ -1046,10 +1244,11 @@ export default function App() {
       brief, images, pages, currentPage, pageVariants,
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
       reviewInsights, reviewAnalyzerSnapshot,
+      userNotes, pastedText,
     });
   }, [hydrated, brief, images, pages, currentPage, pageVariants,
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
-      reviewInsights, reviewAnalyzerSnapshot]);
+      reviewInsights, reviewAnalyzerSnapshot, userNotes, pastedText]);
 
   // 수동 내보내기 (JSON 파일로 다운로드)
   const handleExportProject = useCallback(() => {
@@ -1081,7 +1280,7 @@ export default function App() {
       setFreeTexts(data.freeTexts || {});
       setShapes(data.shapes || {});
       setLayerNames(data.layerNames || {});
-      setP5Version(data.p5Version || 'text');
+      setP5Version(data.p5Version || 'photo');  // 기본값: 사진 버전
       setRevisionHistory(data.revisionHistory || {});
       setReviewInsights(data.reviewInsights || null);
       setReviewAnalyzerSnapshot(data.reviewAnalyzerSnapshot || null);
@@ -1126,7 +1325,7 @@ export default function App() {
     setFreeImages({});
     setFreeTexts({});
     setLayerNames({});
-    setP5Version('text');
+    setP5Version('photo');  // 기본값: 사진 버전
     setRevisionHistory({});
     setReviewInsights(null);
     setReviewAnalyzerSnapshot(null);
@@ -1858,7 +2057,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-base font-extrabold" style={{ color: '#2F2A26' }}>
-                쿠팡 상세페이지 제작 에이전트 v3.2
+                쿠팡 상세페이지 제작 에이전트 v3.3
               </h1>
               <p className="text-[11px] text-slate-500">
                 생활용품/인테리어용품 · P1~P10 순차 제작 · 브랜드 고정값 적용
@@ -2032,11 +2231,38 @@ export default function App() {
         </div>
         {/* 페이지 탭 + 현재 페이지 액션 (한 줄) — P1 버튼 좌측이 우측 메인 영역 시작점과 일직선 */}
         <div className="max-w-[1700px] mx-auto px-6 pb-2 flex items-center gap-2 flex-wrap">
-          {/* P1~P10 페이지 탭 — 좌측 사이드바(420px) + gap(20px) = 440px 만큼 좌측 패딩으로 우측 메인 영역과 정렬 */}
+          {/* 📦 제품명 입력 — 사이드바(420px)+gap(20px) 너비에 맞춰 P1 탭 왼쪽 자리에 배치 */}
           <div
-            className="flex gap-1 items-center flex-wrap"
-            style={{ paddingLeft: '440px' }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2 transition-all shrink-0"
+            style={{
+              width: '440px',
+              backgroundColor: brief.productName?.trim() ? '#F7F3EE' : '#FFF8F0',
+              borderColor: brief.productName?.trim() ? '#C8B6A6' : '#e8c9a0',
+              boxShadow: brief.productName?.trim() ? 'none' : '0 0 0 3px rgba(200,182,166,0.15)',
+            }}
           >
+            <span className="text-sm shrink-0">📦</span>
+            <input
+              type="text"
+              value={brief.productName || ''}
+              onChange={(e) => updateBrief({ productName: e.target.value })}
+              placeholder="제품명을 입력하세요"
+              className="flex-1 outline-none text-[12px] font-semibold placeholder:font-normal"
+              style={{
+                color: '#2F2A26',
+                minWidth: 0,
+                backgroundColor: 'transparent',
+                placeholderColor: '#b8a090',
+              }}
+            />
+            {brief.productName?.trim() && (
+              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: '#C8B6A6', color: '#fff' }}>✓</span>
+            )}
+          </div>
+
+          {/* P1~P10 페이지 탭 */}
+          <div className="flex gap-1 items-center flex-wrap">
             {PAGE_LIST.map((p) => {
               const done = pages[p] && !pages[p].needsMoreInfo;
               const active = currentPage === p;
@@ -2113,7 +2339,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-[1700px] mx-auto px-6 py-5 grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5 items-start">
+      <main className="max-w-[1700px] mx-auto px-6 py-5 grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5 items-stretch">
         {/* 좌측: 입력 + 페이지 컨트롤 (Sidebar 컴포넌트로 분리됨) */}
         <Sidebar
           provider={provider} setProvider={setProvider}
@@ -2562,16 +2788,16 @@ export default function App() {
               </div>
             )}
             <div
-              className="rounded-xl overflow-auto flex justify-center py-4 gap-6"
+              className="rounded-xl overflow-hidden flex justify-center py-4 gap-6"
               style={{
                 backgroundColor: previewSkin.surface,
-                maxHeight: 'calc(100vh - 260px)',
+                minHeight: 'calc(100vh - 260px)',
                 ...(previewMode === 'split'
                   ? { overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start' }
                   : {}),
               }}
             >
-              {currentResult?.copy && !currentResult.needsMoreInfo ? (() => {
+              {(currentResult?.copy && !currentResult.needsMoreInfo) || previewMode === 'mobileFull' ? (() => {
                 // 페이지 콘텐츠 — 한번만 정의, 모드별로 다른 wrapper에 넣음
                 const renderPage = (refToUse, deviceMode) => (
                   <PageRenderer
@@ -2591,20 +2817,26 @@ export default function App() {
                     onAddFreeImage={(src) => addFreeImage(currentPage, src)}
                     onAddFreeImageToSlot={(slot, src) => addFreeImageToSlot(currentPage, slot, src)}
                     onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
+                    onDragStartFreeImage={(id) => onDragStartFreeImage(currentPage, id)}
                     onDeleteFreeImage={(id) => deleteFreeImage(currentPage, id)}
+                    onDuplicateFreeImage={(item, ox, oy) => duplicateFreeImage(currentPage, item, ox, oy)}
                     freeTexts={freeTexts[currentPage] || []}
                     onAddFreeText={() => addFreeText(currentPage)}
                     onUpdateFreeText={(id, partial) => updateFreeText(currentPage, id, partial)}
+                    onDragStartFreeText={(id) => onDragStartFreeText(currentPage, id)}
                     onDeleteFreeText={(id) => deleteFreeText(currentPage, id)}
+                    onDuplicateFreeText={(item, ox, oy) => duplicateFreeText(currentPage, item, ox, oy)}
                     shapes={shapes[currentPage] || []}
                     onAddShape={(type, geometry) => addShape(currentPage, type, geometry)}
                     onUpdateShape={(id, partial) => updateShape(currentPage, id, partial)}
+                    onDragStartShape={(id) => onDragStartShape(currentPage, id)}
                     onDeleteShape={(id) => deleteShape(currentPage, id)}
+                    onDuplicateShape={(item, ox, oy) => duplicateShape(currentPage, item, ox, oy)}
                     onChangeLayer={(id, action) => changeLayer(currentPage, id, action)}
                     onChangeLayerKind={(kind, id, action, mainLayers) =>
                       changeLayerNormalized(currentPage, kind, id, action, mainLayers)
                     }
-                    onReorderLayers={(newOrder) => reorderLayers(currentPage, newOrder)}
+                    onReorderLayers={(newOrder, mainLayers) => reorderLayers(currentPage, newOrder, mainLayers)}
                     onToggleLayerVisibility={(kind, id) => toggleLayerVisibility(currentPage, kind, id)}
                     layerNames={layerNames[currentPage] || {}}
                     onSetLayerName={(layerId, name) => setLayerName(currentPage, layerId, name)}
@@ -2646,18 +2878,12 @@ export default function App() {
                         position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
                         width: 80, height: 16, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 999,
                       }} />
-                      {/* 📱 화면 영역 — 고정 높이로 안에서만 스크롤 */}
+                      {/* 📱 화면 영역 — 높이 자동, 내부 스크롤 없음 (바깥 페이지가 스크롤) */}
                       <div ref={viewportRef} style={{
                         width: MOBILE_W,
-                        height: MOBILE_H,
                         backgroundColor: previewSkin.shellInner,
                         borderRadius: 6,
-                        overflowY: 'auto',
-                        overflowX: 'hidden',
-                        // 모바일 느낌의 부드러운 스크롤
-                        WebkitOverflowScrolling: 'touch',
-                        // 스크롤바 살짝 보이게 (선택)
-                        scrollbarWidth: 'thin',
+                        overflow: 'hidden',
                       }}>
                         {/* children 은 ScaledHeightWrap 으로 감싼 상태 — 안에서 scale 처리 */}
                         {children}
@@ -2781,7 +3007,7 @@ export default function App() {
                   return (
                     <div style={{ position: 'relative' }}>
                       <MobileFrame label={`📜 전체 (${generatedPages.length}개 페이지)`}>
-                        <ScaledHeightWrap scale={SCALE}>
+                        <ScaledHeightWrap scale={SCALE} scrollable>
                           <div style={{ width: 780, display: 'flex', flexDirection: 'column' }}>
                             {generatedPages.map((p) => (
                               <div key={p} style={{ position: 'relative' }}>
@@ -2835,8 +3061,81 @@ export default function App() {
                 // 기본 PC 모드 — PCFrame 없이 직접 렌더 (5185 방식, 사진편집 정상화)
                 return renderPage(pageRefs[currentPage], 'pc');
               })() : (
-                <div className="text-xs text-slate-400 py-20 text-center">
-                  {currentPage} 생성 후 이곳에 미리보기가 표시됩니다.
+                /* ── 빈 미리보기 CTA ── */
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  padding: '48px 24px', gap: 20,
+                  width: '100%',
+                }}>
+                  {/* 페이지 번호 뱃지 */}
+                  <div style={{
+                    width: 56, height: 56, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #2F2A26 0%, #4a3f36 100%)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 20, fontWeight: 800, color: '#C8B6A6',
+                    boxShadow: '0 4px 14px rgba(47,42,38,0.18)',
+                  }}>
+                    {currentPage.replace('P', '')}
+                  </div>
+
+                  {/* 안내 텍스트 */}
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#2F2A26', marginBottom: 6 }}>
+                      {currentPage} 페이지가 아직 생성되지 않았어요
+                    </div>
+                    <div style={{ fontSize: 12, color: '#9a9087', lineHeight: 1.7 }}>
+                      왼쪽 사이드바에서 정보를 입력한 뒤<br />
+                      아래 버튼을 눌러 바로 생성해보세요 ✨
+                    </div>
+                  </div>
+
+                  {/* 체크리스트 */}
+                  <div style={{
+                    background: '#F7F3EE', borderRadius: 10, padding: '12px 16px',
+                    border: '1px solid #e2ddd4', width: '100%', maxWidth: 280,
+                  }}>
+                    {[
+                      { done: !!brief.productName?.trim(), label: '제품명 입력' },
+                      { done: images.length > 0,           label: `사진 업로드 (${images.length}장)` },
+                      { done: !!(apiKey || claudeApiKey || geminiApiKey), label: 'API 키 입력' },
+                    ].map(({ done, label }) => (
+                      <div key={label} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        fontSize: 11, color: done ? '#2F2A26' : '#b0a89e',
+                        padding: '4px 0',
+                      }}>
+                        <span style={{
+                          width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 9, fontWeight: 800,
+                          background: done ? '#C8B6A6' : '#e2ddd4',
+                          color: done ? '#2F2A26' : '#b0a89e',
+                        }}>
+                          {done ? '✓' : '·'}
+                        </span>
+                        <span style={{ fontWeight: done ? 700 : 400 }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 생성 버튼 */}
+                  <button
+                    onClick={() => handleGenerate(currentPage)}
+                    disabled={isLoading}
+                    style={{
+                      background: 'linear-gradient(135deg, #2F2A26 0%, #4a3f36 100%)',
+                      color: '#F7F3EE', border: 'none', borderRadius: 50,
+                      padding: '11px 32px', fontSize: 13, fontWeight: 800,
+                      cursor: isLoading ? 'not-allowed' : 'pointer',
+                      opacity: isLoading ? 0.6 : 1,
+                      boxShadow: '0 3px 12px rgba(47,42,38,0.22)',
+                      transition: 'transform 0.15s, box-shadow 0.15s',
+                    }}
+                    onMouseEnter={(e) => { if (!isLoading) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 16px rgba(47,42,38,0.28)'; } }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 12px rgba(47,42,38,0.22)'; }}
+                  >
+                    {isLoading ? '⏳ 생성 중…' : `✨ ${currentPage} 지금 생성하기`}
+                  </button>
                 </div>
               )}
             </div>
@@ -3131,28 +3430,32 @@ export default function App() {
               marginLeft: 'auto',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              width: 105,
               justifyContent: 'center',
+              width: 96,
+              height: 44,
               boxShadow: '0 4px 12px rgba(232,122,43,0.45)',
             }}
             title={feedbackExpanded ? 'AI 채팅 패널 닫기' : 'AI에게 자연어로 수정 지시하기'}
           >
-            <span>AI 채팅</span>
-            {revisionHistory[currentPage]?.length > 0 && !feedbackExpanded && (
-              <span
-                className="rounded-full font-bold"
-                style={{
-                  backgroundColor: '#fff',
-                  color: '#E87A2B',
-                  fontSize: '11px',
-                  lineHeight: 1,
-                  padding: '1px 5px',
-                }}
-              >
-                {revisionHistory[currentPage].length}
-              </span>
-            )}
+            <span style={{ position: 'relative' }}>
+              AI 채팅
+              {revisionHistory[currentPage]?.length > 0 && !feedbackExpanded && (
+                <span
+                  className="rounded-full font-bold"
+                  style={{
+                    position: 'absolute', top: -10, right: -14,
+                    backgroundColor: '#fff',
+                    color: '#E87A2B',
+                    fontSize: '10px',
+                    lineHeight: 1,
+                    padding: '1px 5px',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {revisionHistory[currentPage].length}
+                </span>
+              )}
+            </span>
           </button>
         </div>
       )}

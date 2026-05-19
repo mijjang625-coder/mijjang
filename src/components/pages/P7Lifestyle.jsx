@@ -28,9 +28,11 @@ export default function P7Lifestyle({
   onAddFreeImageToSlot = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -43,6 +45,7 @@ export default function P7Lifestyle({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -54,7 +57,7 @@ export default function P7Lifestyle({
   });
 
   const mainLayers = modules.slice(0, 3).map((_, i) => ({
-    id: `P7.images.${i}`, defaultName: `🖼 라이프 사진 ${i + 1}`, defaultZ: i + 1,
+    id: `P7.images.${i}`, defaultName: `🖼 라이프 사진 ${i + 1}`, defaultZ: 80,
   }));
 
   // 자유 위치 사진(slot=null) vs 인라인(slot != null)
@@ -72,10 +75,10 @@ export default function P7Lifestyle({
     freeImages: freePositioned,
     inlineImages: inlineImagesAll,
     imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -151,7 +154,7 @@ export default function P7Lifestyle({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+      <div style={{ position: 'relative', zIndex: 30, pointerEvents: 'none' }}>
         <div style={{ padding: '60px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P7.title')}
@@ -195,15 +198,14 @@ export default function P7Lifestyle({
               <div key={i}>
                 <div style={{
                   position: 'relative',
-                  pointerEvents: 'auto',
-                  zIndex: z,
-                  borderRadius: 18,
+                  pointerEvents: editMode ? 'auto' : 'none',
+                  borderRadius: 0,  // 모서리 제거
                 }}>
                   <EditableImage
                     id={imgId}
                     src={images[i]}
                     aspect="4 / 3"
-                    radius={16}
+                    radius={0}
                     editMode={editMode}
                     override={imageOverrides[imgId] || {}}
                     onChange={(partial) => onImageOverrideChange(imgId, partial)}
@@ -274,6 +276,7 @@ export default function P7Lifestyle({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

@@ -40,6 +40,8 @@ export default function ShapeLayer({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},  // Ctrl+C→V / Alt+드래그 복제
+  onDragStartShape = () => {},  // 드래그/리사이즈 시작 직전 — 히스토리 스냅샷용
   activeLayerId = null,
   onSetActiveLayer = () => {},
   // 레이어 순서 변경 (도형도 레이어 시스템에 통합)
@@ -165,8 +167,10 @@ export default function ShapeLayer({
             editMode={editMode}
             isActive={activeLayerId === `shape:${shape.id}`}
             onActivate={() => onSetActiveLayer(`shape:${shape.id}`)}
+            onDragStart={() => onDragStartShape(shape.id)}
             onUpdate={(partial) => onUpdateShape(shape.id, partial)}
             onDelete={() => onDeleteShape(shape.id)}
+            onDuplicate={() => onDuplicateShape(shape)}
             onChangeLayer={(action) => onChangeShapeLayer(shape.id, action)}
           />
         );
@@ -176,7 +180,7 @@ export default function ShapeLayer({
       {editMode && (
         <div ref={pickerRef} style={{
           position: 'fixed',
-          right: 24, top: 220,
+          right: 8, top: 220,
           zIndex: 100000,
         }}>
           <button
@@ -186,19 +190,22 @@ export default function ShapeLayer({
               border: '2px solid #fff', padding: '8px 12px', borderRadius: 12,
               fontSize: 15, fontWeight: 800, lineHeight: 1.2, cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(168,85,247,0.45)',
-              display: 'flex', alignItems: 'center', gap: 4,
-              width: 105, justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 96, height: 44,
             }}
             title="페이지에 도형(사각형, 원, 화살표 등)을 그립니다 (스크롤해도 따라다님)"
           >
-            <span>도형 추가</span>
-            {shapes.length > 0 && (
-              <span style={{
-                backgroundColor: '#fbbf24', color: '#1e293b', borderRadius: 999,
-                padding: '1px 5px', fontSize: 11, fontWeight: 900,
-                lineHeight: 1,
-              }}>{shapes.length}</span>
-            )}
+            <span style={{ position: 'relative' }}>
+              도형 추가
+              {shapes.length > 0 && (
+                <span style={{
+                  position: 'absolute', top: -10, right: -14,
+                  backgroundColor: '#fbbf24', color: '#1e293b', borderRadius: 999,
+                  padding: '1px 5px', fontSize: 10, fontWeight: 900,
+                  lineHeight: 1, pointerEvents: 'none',
+                }}>{shapes.length}</span>
+              )}
+            </span>
           </button>
           {showPicker && (
             <div
@@ -425,11 +432,28 @@ function PreviewShape({ type, box }) {
 }
 
 // ─── 개별 도형 컴포넌트 ────────────────────────────────
-function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onChangeLayer = () => {} }) {
+function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onChangeLayer = () => {}, onDragStart = () => {} }) {
   const wrapRef = useRef(null);
   const [draggingPos, setDraggingPos] = useState(null);
   const [resizing, setResizing] = useState(null);
   const [showStyle, setShowStyle] = useState(false);
+  const [toolbarRect, setToolbarRect] = useState(null);
+
+  // 활성화될 때마다 wrapRef의 화면 좌표 갱신 → 툴바/패널을 fixed로 띄우기 위해
+  useEffect(() => {
+    if (!isActive || !wrapRef.current) { setToolbarRect(null); return; }
+    const update = () => {
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (r) setToolbarRect(r);
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [isActive, draggingPos, resizing]);
 
   const {
     id, type, x = 0, y = 0, w = 200, h = 100,
@@ -456,6 +480,7 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
     // 🆕 다른 요소 옵션바 닫기
     announceEditorSelection(`shape:${id}`);
     onActivate();
+    onDragStart(); // ← 드래그 시작 직전 히스토리 스냅샷
     setDraggingPos({ startX: e.clientX, startY: e.clientY, sx: x, sy: y });
   };
 
@@ -486,6 +511,7 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
   const handleResizeStart = (e, edge) => {
     e.preventDefault();
     e.stopPropagation();
+    onDragStart(); // ← 리사이즈 시작 직전 히스토리 스냅샷
     setResizing({ edge, startX: e.clientX, startY: e.clientY, sw: w, sh: h, sx: x, sy: y });
   };
 
@@ -638,19 +664,20 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
         />
       ))}
 
-      {/* 툴바 */}
-      {editMode && isActive && (
+      {/* 툴바 — position:fixed로 항상 최상위 */}
+      {editMode && isActive && toolbarRect && (
         <div
           data-shape-toolbar
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute',
-            left: 0, top: -42,
+            position: 'fixed',
+            left: toolbarRect.left,
+            top: Math.max(4, toolbarRect.top - 44),
             display: 'flex', gap: 4, alignItems: 'center',
             backgroundColor: '#1e293b', padding: '6px 10px',
             borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            zIndex: 100001, whiteSpace: 'nowrap',
+            zIndex: 2147483647, whiteSpace: 'nowrap',
           }}
         >
           {/* 레이어 순서 (FreeImage / InlineFreeImage 와 동일) */}
@@ -713,17 +740,19 @@ function Shape({ shape, editMode, isActive, onActivate, onUpdate, onDelete, onCh
         </div>
       )}
 
-      {/* 색상 패널 */}
-      {editMode && isActive && showStyle && (
+      {/* 색상 패널 — position:fixed로 항상 최상위 */}
+      {editMode && isActive && showStyle && toolbarRect && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', left: 0, top: -240,
+            position: 'fixed',
+            left: toolbarRect.left,
+            top: Math.max(4, toolbarRect.top - 284),
             width: 240,
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
-            padding: 10, zIndex: 100002,
+            padding: 10, zIndex: 2147483647,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

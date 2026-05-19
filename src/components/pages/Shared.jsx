@@ -40,10 +40,15 @@ export function PageFrame({ children, height = 1200, bg = BRAND.colors.white, on
         // CSS 변수로 폰트 적용 — 사용자가 폰트 카드 선택 시 즉시 반영
         fontFamily: 'var(--app-font, ' + BRAND.fontFamily + ')',
         position: 'relative',
+        // isolation:isolate — PageFrame 자체를 하나의 stacking context로 격리.
+        // 내부의 모든 레이어(사진/도형/글박스)가 동일 context에서 z-index 비교됨.
+        // 외부(App 레벨)의 z-index 간섭을 차단.
+        isolation: 'isolate',
         borderRadius: skin.borderRadius ?? 0,
         border: skin.border || 'none',
         boxShadow: skin.shadow || 'none',
-        overflow: 'hidden',
+        // overflow:hidden 제거 — ShapeLayer(position:absolute, zIndex:700)가
+        // PageFrame 경계에서 잘리지 않도록. 콘텐츠 클립은 각 페이지 wrapper div에서 처리.
       }}
     >
       {children}

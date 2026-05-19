@@ -19,9 +19,11 @@ export default function P8Usages({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -34,6 +36,7 @@ export default function P8Usages({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -45,7 +48,7 @@ export default function P8Usages({
   });
 
   const mainLayers = usages.slice(0, 4).map((_, i) => ({
-    id: `P8.images.${i}`, defaultName: `🖼 활용법 ${i + 1} 사진`, defaultZ: i + 1,
+    id: `P8.images.${i}`, defaultName: `🖼 활용법 ${i + 1} 사진`, defaultZ: 80,
   }));
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
@@ -55,10 +58,10 @@ export default function P8Usages({
   const layer = useFreeImageLayer({
     pageKey: 'P8', mainLayers, image: images[0], allImages, baseHeight: Math.max(1200, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -66,7 +69,7 @@ export default function P8Usages({
 
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.sub} onClearActive={layer.clearActiveLayer}>
-      <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+      <div style={{ position: 'relative', zIndex: 30, pointerEvents: 'none' }}>
         <div style={{ padding: '50px 40px 20px', textAlign: 'center', pointerEvents: editMode ? 'auto' : 'inherit' }}>
           <EditableText
             {...editPropsFor('P8.headline')}
@@ -100,8 +103,7 @@ export default function P8Usages({
               >
                 <div style={{
                   position: 'relative',
-                  pointerEvents: 'auto',
-                  zIndex: z,
+                  pointerEvents: editMode ? 'auto' : 'none',
                 }}>
                   <EditableImage
                     id={imgId}
@@ -173,6 +175,7 @@ export default function P8Usages({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

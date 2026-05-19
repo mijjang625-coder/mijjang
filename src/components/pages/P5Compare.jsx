@@ -79,9 +79,11 @@ export default function P5Compare({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
+  onDuplicateFreeImage = () => {},
   onAddFreeText = () => {},
   onUpdateFreeText = () => {},
   onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},
   onChangeLayer = () => {},
   onChangeLayerKind = null,
   onReorderLayers = () => {},
@@ -94,6 +96,7 @@ export default function P5Compare({
   onAddShape = () => {},
   onUpdateShape = () => {},
   onDeleteShape = () => {},
+  onDuplicateShape = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
 }) {
@@ -108,8 +111,8 @@ export default function P5Compare({
   const generalImgId = 'P5.generalImage';
   const mainLayers = version === 'photo'
     ? [
-        { id: mainImgId, defaultName: '🖼 우리 제품 사진', defaultZ: 1 },
-        { id: generalImgId, defaultName: '🖼 일반 제품 사진', defaultZ: 2 },
+        { id: mainImgId, defaultName: '🖼 우리 제품 사진', defaultZ: 80 },
+        { id: generalImgId, defaultName: '🖼 일반 제품 사진', defaultZ: 81 },
       ]
     : [];
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
@@ -120,10 +123,10 @@ export default function P5Compare({
   const layer = useFreeImageLayer({
     pageKey: 'P5', mainLayers, image: ourImage, allImages, baseHeight: Math.max(900, shapesBottom + 80),
     editMode, freeImages, imageOverrides, layerNames,
-    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage,
-    onAddFreeText, onUpdateFreeText, onDeleteFreeText,
+    onAddFreeImage, onUpdateFreeImage, onDeleteFreeImage, onDuplicateFreeImage,
+    onAddFreeText, onUpdateFreeText, onDeleteFreeText, onDuplicateFreeText,
     shapes,
-    onDeleteShape,
+    onDeleteShape, onDuplicateShape,
     onChangeLayer, onChangeLayerKind, onReorderLayers, onToggleLayerVisibility, onSetLayerName,
     freeTexts, textOverrides: overrides,
     activeLayerId, onSetActiveLayer,
@@ -320,13 +323,12 @@ export default function P5Compare({
         style={{
           width: 120,
           height: 120,
-          borderRadius: 8,
+          borderRadius: 0,           // 외곽선/둥근 모서리 제거
           overflow: editMode ? 'visible' : 'hidden',
           backgroundColor: '#ffffff',
-          boxShadow: '0 3px 10px rgba(0,0,0,0.14)',
+          // boxShadow 제거 — PNG 내보낼 때 외곽선 없애달라
           position: 'relative',
-          pointerEvents: 'auto',
-          zIndex: imageOverrides[mainImgId]?.zIndex ?? 1,
+          pointerEvents: editMode ? 'auto' : 'none',
         }}
       >
         <EditableImage
@@ -361,13 +363,12 @@ export default function P5Compare({
         style={{
           width: 100,
           height: 100,
-          borderRadius: 8,
+          borderRadius: 0,           // 외곽선/둥근 모서리 제거
           overflow: editMode ? 'visible' : 'hidden',
           backgroundColor: '#ffffff',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+          // boxShadow 제거
           position: 'relative',
-          pointerEvents: 'auto',
-          zIndex: imageOverrides[generalImgId]?.zIndex ?? 1,
+          pointerEvents: editMode ? 'auto' : 'none',
         }}
       >
         <EditableImage
@@ -397,7 +398,8 @@ export default function P5Compare({
       <div
         style={{
           position: 'relative',
-          pointerEvents: 'auto',
+          zIndex: 30,
+          pointerEvents: 'none',
           margin: '28px 20px 20px',
           backgroundColor: M.cardBg,
           borderRadius: M.cardRadius,
@@ -518,6 +520,7 @@ export default function P5Compare({
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
         onDeleteShape={onDeleteShape}
+        onDuplicateShape={onDuplicateShape}
         activeLayerId={activeLayerId}
         onSetActiveLayer={onSetActiveLayer}
         onChangeShapeLayer={(shapeId, action) => {

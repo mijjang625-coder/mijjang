@@ -46,9 +46,14 @@ export function useFreeImageLayer({
   onAddFreeImage = () => {},
   onUpdateFreeImage = () => {},
   onDeleteFreeImage = () => {},
-  onAddFreeText = () => {},   // 🆕 (2026-05-06) 자유 글박스 추가
-  onUpdateFreeText = () => {},// 🆕 (2026-05-06) 자유 글박스 수정
-  onDeleteFreeText = () => {},// 🆕 (2026-05-06) 자유 글박스 삭제
+  onDuplicateFreeImage = () => {},  // Alt+드래그 / Ctrl+V 복제
+  onDragStartFreeImage = () => {}, // 드래그/리사이즈 시작 직전 — 히스토리 스냅샷용
+  onAddFreeText = () => {},
+  onUpdateFreeText = () => {},
+  onDeleteFreeText = () => {},
+  onDuplicateFreeText = () => {},   // Alt+드래그 / Ctrl+V 복제
+  onDragStartFreeText = () => {},  // 드래그/리사이즈 시작 직전 — 히스토리 스냅샷용
+  onDuplicateShape = () => {},      // Alt+드래그 / Ctrl+V 복제
   onAddShape = null,          // 🆕 (2026-05-06) 도형 추가 (선택적; 도형은 보통 ShapeLayer 가 자체 버튼 제공)
   onChangeLayer = () => {},
   onChangeLayerKind = null,
@@ -243,8 +248,10 @@ export function useFreeImageLayer({
           onActivate={() => activateLayer('free', item.id)}
           hasActiveOther={editMode && hasActiveLayer && !itemActive}
           canvasWidth={780}
+          onDragStart={() => onDragStartFreeImage(item.id)}
           onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
           onDelete={() => onDeleteFreeImage(item.id)}
+          onDuplicate={(ox, oy) => onDuplicateFreeImage(item, ox, oy)}
           onChangeLayer={(action) => handleLayerAction({ kind: 'free', id: item.id }, action)}
         />
       );
@@ -279,8 +286,11 @@ export function useFreeImageLayer({
           item={item}
           editMode={editMode}
           canvasWidth={780}
+          onDragStart={() => onDragStartFreeText(item.id)}
           onUpdate={(partial) => onUpdateFreeText(item.id, partial)}
           onDelete={() => onDeleteFreeText(item.id)}
+          onDuplicate={(ox, oy) => onDuplicateFreeText(item, ox, oy)}
+          onActivate={() => activateLayer('freetext', item.id)}
           onChangeLayer={(action) => handleLayerAction({ kind: 'freetext', id: item.id }, action)}
         />
       );
@@ -295,78 +305,89 @@ export function useFreeImageLayer({
         <button
           onClick={() => { setShowPicker((s) => !s); setShowLayers(false); }}
           style={{
-            position: 'fixed', right: 24, top: 168, zIndex: 100000,
+            position: 'fixed', right: 8, top: 168, zIndex: 100000,
             backgroundColor: '#3b82f6', color: '#fff', border: '2px solid #fff',
             padding: '8px 12px', borderRadius: 12, fontSize: 15, fontWeight: 800,
             lineHeight: 1.2, cursor: 'pointer',
             boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
-            display: 'flex', alignItems: 'center', gap: 4,
-            width: 105, justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 96, height: 44,
           }}
           title="페이지에 사진을 자유롭게 추가합니다 (스크롤해도 따라다님)"
         >
-          <span>사진 추가</span>
-          {(freeImages || []).length > 0 && (
-            <span style={{
-              backgroundColor: '#fff', color: '#3b82f6', borderRadius: 999,
-              padding: '1px 5px', fontSize: 11, fontWeight: 900,
-              lineHeight: 1,
-            }}>{freeImages.length}</span>
-          )}
+          <span style={{ position: 'relative' }}>
+            사진 추가
+            {(freeImages || []).length > 0 && (
+              <span style={{
+                position: 'absolute', top: -10, right: -14,
+                backgroundColor: '#fff', color: '#3b82f6', borderRadius: 999,
+                padding: '1px 5px', fontSize: 10, fontWeight: 900, lineHeight: 1,
+                pointerEvents: 'none',
+              }}>{freeImages.length}</span>
+            )}
+          </span>
         </button>
 
         {/* 📝 글박스 추가 — top:268 (간격 50px) */}
         <button
           onClick={() => onAddFreeText()}
           style={{
-            position: 'fixed', right: 24, top: 268, zIndex: 100000,
+            position: 'fixed', right: 8, top: 268, zIndex: 100000,
             backgroundColor: '#f59e0b', color: '#fff', border: '2px solid #fff',
             padding: '8px 12px', borderRadius: 12, fontSize: 13, fontWeight: 800,
             lineHeight: 1.2, cursor: 'pointer',
             boxShadow: '0 4px 12px rgba(245,158,11,0.45)',
-            display: 'flex', alignItems: 'center', gap: 4,
-            width: 105, justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 96, height: 44,
           }}
           title="페이지에 자유 글박스를 추가합니다 (크기를 늘려도 사진/다른 요소가 밀리지 않음)"
         >
-          <span style={{ whiteSpace: 'nowrap' }}>글박스 추가</span>
-          {(freeTexts || []).length > 0 && (
-            <span style={{
-              backgroundColor: '#fff', color: '#f59e0b', borderRadius: 999,
-              padding: '1px 5px', fontSize: 11, fontWeight: 900,
-              lineHeight: 1,
-            }}>{freeTexts.length}</span>
-          )}
+          <span style={{ position: 'relative', whiteSpace: 'nowrap' }}>
+            글박스 추가
+            {(freeTexts || []).length > 0 && (
+              <span style={{
+                position: 'absolute', top: -10, right: -14,
+                backgroundColor: '#fff', color: '#f59e0b', borderRadius: 999,
+                padding: '1px 5px', fontSize: 10, fontWeight: 900, lineHeight: 1,
+                pointerEvents: 'none',
+              }}>{freeTexts.length}</span>
+            )}
+          </span>
         </button>
 
         {/* 레이어 패널 토글 — top:318 */}
         <button
           onClick={() => { setShowLayers((s) => !s); setShowPicker(false); }}
           style={{
-            position: 'fixed', right: 24, top: 318,
+            position: 'fixed', right: 8, top: 318,
             zIndex: 100000,
             backgroundColor: showLayers ? '#1e293b' : '#475569', color: '#fff',
             border: '2px solid #fff', padding: '8px 12px', borderRadius: 12,
             fontSize: 15, fontWeight: 800, lineHeight: 1.2, cursor: 'pointer',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            display: 'flex', alignItems: 'center', gap: 4,
-            width: 105, justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 96, height: 44,
           }}
           title="모든 레이어 목록 (스크롤해도 따라다님)"
         >
-          <span>레이어</span>
-          <span style={{
-            backgroundColor: '#fbbf24', color: '#1e293b',
-            borderRadius: 999, padding: '1px 5px', fontSize: 11, fontWeight: 900,
-            lineHeight: 1,
-          }}>{allLayers.length}</span>
+          <span style={{ position: 'relative' }}>
+            레이어
+            {allLayers.length > 0 && (
+              <span style={{
+                position: 'absolute', top: -10, right: -14,
+                backgroundColor: '#fbbf24', color: '#1e293b',
+                borderRadius: 999, padding: '1px 5px', fontSize: 10, fontWeight: 900,
+                lineHeight: 1, pointerEvents: 'none',
+              }}>{allLayers.length}</span>
+            )}
+          </span>
         </button>
 
         {/* 레이어 패널 — fixed 로 화면 우측에 고정 (버튼들과 겹치지 않게 왼쪽으로 펼침), 스크롤 시 따라옴 */}
         {showLayers && (
           <div
             style={{
-              position: 'fixed', right: 180, top: 168,
+              position: 'fixed', right: 104, top: 168,
               zIndex: 100001,
               width: 320, maxHeight: 'calc(100vh - 200px)', overflow: 'auto',
               backgroundColor: '#fff', border: '1px solid #e2ddd4',
@@ -425,7 +446,7 @@ export function useFreeImageLayer({
                     const next = allLayers.slice();
                     const [moved] = next.splice(from, 1);
                     next.splice(to, 0, moved);
-                    onReorderLayers(next.map((l) => ({ kind: l.kind, id: l.id })));
+                    onReorderLayers(next.map((l) => ({ kind: l.kind, id: l.id })), mainLayers);
                   }}
                   onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                   style={{
