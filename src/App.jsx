@@ -55,6 +55,33 @@ const PAGE_TITLES = {
   P10: 'P10 — 구성품 안내 + FAQ',
 };
 
+// P2 과거 버그(얇은 사각형/빈 글박스) 마이그레이션 정리
+function isLegacyGhostShape(shape) {
+  if (!shape) return false;
+  const type = String(shape.type || '').toLowerCase();
+  if (type !== 'rect' && type !== 'line') return false;
+  const w = Math.abs(Number(shape.w) || 0);
+  const h = Math.abs(Number(shape.h) || 0);
+  const strokeWidth = Number(shape.strokeWidth ?? 1);
+  const fill = String(shape.fill ?? 'none').toLowerCase();
+  const transparentFill = fill === 'none' || fill === 'transparent';
+  const thinVertical = w <= 24 && h >= 40;
+  const thinHorizontal = h <= 12 && w >= 80;
+  return transparentFill && strokeWidth <= 2 && (thinVertical || thinHorizontal);
+}
+
+function isLegacyGhostFreeText(item) {
+  if (!item) return false;
+  const width = Number(item.width ?? 0);
+  const height = Number(item.height ?? 0);
+  const plain = String(item.text ?? item.html ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim();
+  return width <= 12 && height >= 40 && plain.length === 0;
+}
+
 // PRODUCT_TYPES, DEFAULT_BRIEF는 src/lib/briefDefaults.js로 분리 (Sidebar에서도 import)
 
 export default function App() {
@@ -1238,6 +1265,25 @@ export default function App() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // 과거 P2 유령 요소(얇은 사각형/빈 세로 글박스) 1회 정리
+  useEffect(() => {
+    if (!hydrated) return;
+
+    setShapes((prev) => {
+      const list = prev.P2 || [];
+      const next = list.filter((it) => !isLegacyGhostShape(it));
+      if (next.length === list.length) return prev;
+      return { ...prev, P2: next };
+    });
+
+    setFreeTexts((prev) => {
+      const list = prev.P2 || [];
+      const next = list.filter((it) => !isLegacyGhostFreeText(it));
+      if (next.length === list.length) return prev;
+      return { ...prev, P2: next };
+    });
+  }, [hydrated]);
 
   // 자동 저장 (1초 debounce)
   const debouncedSaveRef = useRef(null);

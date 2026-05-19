@@ -14,6 +14,44 @@ function normalizeMultilineText(text = '') {
     .trim();
 }
 
+function normalizeParagraphLines(text = '') {
+  return String(text)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+function isGhostShape(shape) {
+  if (!shape) return false;
+  const w = Math.abs(Number(shape.w) || 0);
+  const h = Math.abs(Number(shape.h) || 0);
+  const strokeWidth = Number(shape.strokeWidth ?? 1);
+  const fill = String(shape.fill ?? 'none').toLowerCase();
+  const type = String(shape.type || '').toLowerCase();
+  const transparentFill = fill === 'none' || fill === 'transparent';
+
+  // 과거 버그로 남은 "얇은 세로/가로 선형 아티팩트" 제거
+  const thinVertical = w <= 24 && h >= 40;
+  const thinHorizontal = h <= 12 && w >= 80;
+  const simpleShape = type === 'rect' || type === 'line';
+
+  return simpleShape && transparentFill && strokeWidth <= 2 && (thinVertical || thinHorizontal);
+}
+
+function isGhostFreeText(item) {
+  if (!item) return false;
+  const width = Number(item.width ?? 0);
+  const height = Number(item.height ?? 0);
+  const plain = String(item.text ?? item.html ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim();
+  return width <= 12 && height >= 40 && plain.length === 0;
+}
+
 // P2: 베네핏 심화 설명 (세로 3섹션, 사진 중심)
 //
 // 인라인 끼워넣기 슬롯:
@@ -78,8 +116,12 @@ export default function P2Benefits({
   // 인라인(slot != null) 사진은 레이어 패널에만 별도로 등록
   const inlineImagesAll = freeImages.filter((it) => !!it.slot);
 
+  // 의도치 않게 생긴 얇은 사각형/빈 글박스 정리
+  const sanitizedShapes = (shapes || []).filter((s) => !isGhostShape(s));
+  const sanitizedFreeTexts = (freeTexts || []).filter((t) => !isGhostFreeText(t));
+
   // 도형들의 가장 아래 끝 → 페이지 baseHeight 자동 연장
-  const shapesBottom = (shapes || []).reduce(
+  const shapesBottom = sanitizedShapes.reduce(
     (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
     0
   );
@@ -93,7 +135,7 @@ export default function P2Benefits({
     editMode,
     freeImages: freePositioned,
     inlineImages: inlineImagesAll,
-    shapes,
+    shapes: sanitizedShapes,
     onDeleteShape, onDuplicateShape,
     imageOverrides,
     layerNames,
@@ -107,7 +149,7 @@ export default function P2Benefits({
     onChangeLayerKind,
     onReorderLayers,
     onToggleLayerVisibility,
-    freeTexts,
+    freeTexts: sanitizedFreeTexts,
     textOverrides: overrides,
     onSetLayerName,
     activeLayerId,
@@ -226,7 +268,7 @@ export default function P2Benefits({
           const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
           const isLast = i === sections.length - 1 || i === 2;
           const normalizedTitle = normalizeMultilineText(s.title);
-          const descText = String(s.desc ?? '').trim();
+          const descText = normalizeParagraphLines(s.desc ?? '');
           return (
             <div key={i}>
               <div
@@ -269,10 +311,8 @@ export default function P2Benefits({
                         margin: 0,
                         lineHeight: 1.5,
                         letterSpacing: '-0.01em',
-                        whiteSpace: editMode ? 'pre-wrap' : 'normal',
-                        display: editMode ? 'block' : '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
+                        whiteSpace: 'pre-line',
+                        display: 'block',
                         overflow: 'hidden',
                         minHeight: '3em',
                       }}
@@ -322,7 +362,7 @@ export default function P2Benefits({
 
       {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}
       <ShapeLayer
-        shapes={shapes}
+        shapes={sanitizedShapes}
         editMode={editMode}
         onAddShape={onAddShape}
         onUpdateShape={onUpdateShape}
