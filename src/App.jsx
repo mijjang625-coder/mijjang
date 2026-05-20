@@ -55,6 +55,19 @@ const PAGE_TITLES = {
   P10: 'P10 — 구성품 안내 + FAQ',
 };
 
+const PROJECTS_INDEX_KEY = 'coupang_agent_projects_index_v1';
+const CURRENT_PROJECT_ID_KEY = 'coupang_agent_current_project_id_v1';
+const DEFAULT_PROJECT_ID = 'default';
+
+function makeProjectMeta(id, name) {
+  const ts = Date.now();
+  return { id, name, createdAt: ts, updatedAt: ts };
+}
+
+function sortProjectsByRecent(list) {
+  return [...list].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
 // P2 과거 버그(얇은 사각형/빈 글박스) 마이그레이션 정리
 function isLegacyGhostShape(shape) {
   if (!shape) return false;
@@ -1206,57 +1219,99 @@ export default function App() {
   }, [provider, aiSettingsHydrated]);
 
   // ─── 프로젝트 자동 저장/복원 ─────────────────────────
+  const [projectsMeta, setProjectsMeta] = useState([]); // [{id,name,createdAt,updatedAt}]
+  const [activeProjectId, setActiveProjectId] = useState(DEFAULT_PROJECT_ID);
+  const projectSwitchingRef = useRef(false);
   const [hydrated, setHydrated] = useState(false);     // 첫 로드 완료 여부
   const [lastSavedAt, setLastSavedAt] = useState(null); // 마지막 자동 저장 시각
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
 
-  // 앱 시작 시 1회 — localStorage + IndexedDB에서 복원
+  const applyProjectState = useCallback((saved) => {
+    if (saved?.brief) setBrief(saved.brief);
+    else setBrief(DEFAULT_BRIEF);
+
+    setImages(Array.isArray(saved?.images) ? saved.images : []);
+    setPages(saved?.pages || {});
+    setCurrentPage(saved?.currentPage || 'P1');
+    setPageVariants(saved?.pageVariants || {});
+    setTextOverrides(saved?.textOverrides || {});
+    setImageOverrides(saved?.imageOverrides || {});
+    setFreeImages(saved?.freeImages || {});
+    setFreeTexts(saved?.freeTexts || {});
+    setShapes(saved?.shapes || {});
+    setLayerNames(saved?.layerNames || {});
+    setP5Version(saved?.p5Version || 'photo');
+    setRevisionHistory(saved?.revisionHistory || {});
+    setReviewInsights(saved?.reviewInsights || null);
+    setReviewAnalyzerSnapshot(saved?.reviewAnalyzerSnapshot || null);
+    setReferenceUrl(saved?.referenceUrl || '');
+    setExtractResult(saved?.extractResult || null);
+    setKeywords(saved?.keywords || []);
+    setPastedText(saved?.pastedText || '');
+    setUserNotes(saved?.userNotes || '');
+    setError('');
+    setReviewAnalyzerResetKey((k) => k + 1);
+
+    try {
+      if (saved?.reviewAnalyzerSnapshot) {
+        const s = JSON.stringify(saved.reviewAnalyzerSnapshot);
+        localStorage.setItem('reviewAnalyzer.v2', s);
+        localStorage.setItem('reviewAnalyzer.v1', s);
+      } else {
+        localStorage.removeItem('reviewAnalyzer.v2');
+        localStorage.removeItem('reviewAnalyzer.v1');
+      }
+    } catch {}
+
+    undoHistory.reset({
+      pages: saved?.pages || {},
+      textOverrides: saved?.textOverrides || {},
+      imageOverrides: saved?.imageOverrides || {},
+      freeImages: saved?.freeImages || {},
+      freeTexts: saved?.freeTexts || {},
+      shapes: saved?.shapes || {},
+      layerNames: saved?.layerNames || {},
+    });
+  }, [undoHistory]);
+
+  // 앱 시작 시 1회 — 프로젝트 목록 + 현재 프로젝트 복원
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const saved = await loadProject();
-        if (cancelled) return;
-        if (saved) {
-          if (saved.brief) setBrief(saved.brief);
-          if (Array.isArray(saved.images)) setImages(saved.images);
-          if (saved.pages) setPages(saved.pages);
-          if (saved.currentPage) setCurrentPage(saved.currentPage);
-          if (saved.pageVariants) setPageVariants(saved.pageVariants);
-          if (saved.textOverrides) setTextOverrides(saved.textOverrides);
-          if (saved.imageOverrides) setImageOverrides(saved.imageOverrides);
-          if (saved.freeImages) setFreeImages(saved.freeImages);
-          if (saved.freeTexts) setFreeTexts(saved.freeTexts);
-          if (saved.shapes) setShapes(saved.shapes);
-          if (saved.layerNames) setLayerNames(saved.layerNames);
-          if (saved.p5Version) setP5Version(saved.p5Version);
-          if (saved.revisionHistory) setRevisionHistory(saved.revisionHistory);
-          if (saved.userNotes !== undefined) setUserNotes(saved.userNotes);
-          if (saved.pastedText !== undefined) setPastedText(saved.pastedText);
-          if (Object.prototype.hasOwnProperty.call(saved, 'reviewInsights')) setReviewInsights(saved.reviewInsights || null);
-          if (Object.prototype.hasOwnProperty.call(saved, 'reviewAnalyzerSnapshot')) {
-            const snapshot = saved.reviewAnalyzerSnapshot || null;
-            setReviewAnalyzerSnapshot(snapshot);
-            try {
-              if (snapshot) {
-                const s = JSON.stringify(snapshot);
-                localStorage.setItem('reviewAnalyzer.v2', s);
-                localStorage.setItem('reviewAnalyzer.v1', s);
-              }
-            } catch {}
+        let list = [];
+        try {
+          const raw = localStorage.getItem(PROJECTS_INDEX_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(parsed)) {
+            list = parsed.filter((it) => it && typeof it.id === 'string' && it.id.trim());
           }
-          setLastSavedAt(getLastSaved());
-          // 🔄 복원된 상태를 히스토리 시작점으로
-          undoHistory.reset({
-            pages: saved.pages || {},
-            textOverrides: saved.textOverrides || {},
-            imageOverrides: saved.imageOverrides || {},
-            freeImages: saved.freeImages || {},
-            freeTexts: saved.freeTexts || {},
-            shapes: saved.shapes || {},
-            layerNames: saved.layerNames || {},
-          });
+        } catch {}
+
+        if (list.length === 0) {
+          list = [makeProjectMeta(DEFAULT_PROJECT_ID, '기본 작업')];
+          try { localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(list)); } catch {}
         }
+
+        let currentId = DEFAULT_PROJECT_ID;
+        try {
+          const savedCurrent = localStorage.getItem(CURRENT_PROJECT_ID_KEY);
+          if (savedCurrent && list.some((it) => it.id === savedCurrent)) currentId = savedCurrent;
+          else if (list[0]?.id) currentId = list[0].id;
+          localStorage.setItem(CURRENT_PROJECT_ID_KEY, currentId);
+        } catch {
+          currentId = list[0]?.id || DEFAULT_PROJECT_ID;
+        }
+
+        const sorted = sortProjectsByRecent(list);
+        if (cancelled) return;
+        setProjectsMeta(sorted);
+        setActiveProjectId(currentId);
+
+        const saved = await loadProject(currentId);
+        if (cancelled) return;
+        applyProjectState(saved || null);
+        setLastSavedAt(getLastSaved(currentId));
       } catch (e) {
         console.warn('프로젝트 복원 실패:', e);
       } finally {
@@ -1288,11 +1343,18 @@ export default function App() {
   // 자동 저장 (1초 debounce)
   const debouncedSaveRef = useRef(null);
   if (!debouncedSaveRef.current) {
-    debouncedSaveRef.current = debounce(async (snapshot) => {
+    debouncedSaveRef.current = debounce(async ({ snapshot, projectId }) => {
       try {
         setSaveStatus('saving');
-        const { savedAt } = await saveProject(snapshot);
+        const { savedAt } = await saveProject(snapshot, projectId);
         setLastSavedAt(savedAt);
+        setProjectsMeta((prev) => {
+          const next = sortProjectsByRecent(prev.map((it) => (
+            it.id === projectId ? { ...it, updatedAt: savedAt } : it
+          )));
+          try { localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(next)); } catch {}
+          return next;
+        });
         setSaveStatus('saved');
         // 2초 후 idle로
         setTimeout(() => setSaveStatus((s) => (s === 'saved' ? 'idle' : s)), 2000);
@@ -1305,14 +1367,17 @@ export default function App() {
 
   // 주요 state가 변할 때마다 debounce 자동 저장
   useEffect(() => {
-    if (!hydrated) return; // 첫 hydration 전에는 저장하지 않음 (덮어쓰기 방지)
+    if (!hydrated || projectSwitchingRef.current) return; // 전환 중에는 저장하지 않음
     debouncedSaveRef.current({
-      brief, images, pages, currentPage, pageVariants,
-      textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
-      reviewInsights, reviewAnalyzerSnapshot,
-      userNotes, pastedText,
+      projectId: activeProjectId,
+      snapshot: {
+        brief, images, pages, currentPage, pageVariants,
+        textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
+        reviewInsights, reviewAnalyzerSnapshot,
+        userNotes, pastedText,
+      },
     });
-  }, [hydrated, brief, images, pages, currentPage, pageVariants,
+  }, [hydrated, activeProjectId, brief, images, pages, currentPage, pageVariants,
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
       reviewInsights, reviewAnalyzerSnapshot, userNotes, pastedText]);
 
@@ -1334,90 +1399,160 @@ export default function App() {
     try {
       const data = await readProjectJSONFromFile(file);
       if (!window.confirm('현재 작업 중인 내용을 모두 덮어쓰고 불러올까요?')) return;
-      // 이미지 (base64) 그대로 setImages → 다음 자동 저장 때 IDB로 옮겨짐
-      if (data.brief) setBrief(data.brief);
-      setImages(Array.isArray(data.images) ? data.images : []);
-      setPages(data.pages || {});
-      setCurrentPage(data.currentPage || 'P1');
-      setPageVariants(data.pageVariants || {});
-      setTextOverrides(data.textOverrides || {});
-      setImageOverrides(data.imageOverrides || {});
-      setFreeImages(data.freeImages || {});
-      setFreeTexts(data.freeTexts || {});
-      setShapes(data.shapes || {});
-      setLayerNames(data.layerNames || {});
-      setP5Version(data.p5Version || 'photo');  // 기본값: 사진 버전
-      setRevisionHistory(data.revisionHistory || {});
-      setReviewInsights(data.reviewInsights || null);
-      setReviewAnalyzerSnapshot(data.reviewAnalyzerSnapshot || null);
-      try {
-        if (data.reviewAnalyzerSnapshot) {
-          const s = JSON.stringify(data.reviewAnalyzerSnapshot);
-          localStorage.setItem('reviewAnalyzer.v2', s);
-          localStorage.setItem('reviewAnalyzer.v1', s);
-        }
-      } catch {}
-      // 🔄 히스토리 초기화 (불러온 상태가 새 시작점)
-      undoHistory.reset({
-        pages: data.pages || {},
-        textOverrides: data.textOverrides || {},
-        imageOverrides: data.imageOverrides || {},
-        freeImages: data.freeImages || {},
-        freeTexts: data.freeTexts || {},
-        shapes: data.shapes || {},
-        layerNames: data.layerNames || {},
+      projectSwitchingRef.current = true;
+      applyProjectState(data || null);
+      const { savedAt } = await saveProject({
+        brief: data?.brief || DEFAULT_BRIEF,
+        images: Array.isArray(data?.images) ? data.images : [],
+        pages: data?.pages || {},
+        currentPage: data?.currentPage || 'P1',
+        pageVariants: data?.pageVariants || {},
+        textOverrides: data?.textOverrides || {},
+        imageOverrides: data?.imageOverrides || {},
+        freeImages: data?.freeImages || {},
+        freeTexts: data?.freeTexts || {},
+        shapes: data?.shapes || {},
+        layerNames: data?.layerNames || {},
+        p5Version: data?.p5Version || 'photo',
+        revisionHistory: data?.revisionHistory || {},
+        reviewInsights: data?.reviewInsights || null,
+        reviewAnalyzerSnapshot: data?.reviewAnalyzerSnapshot || null,
+        userNotes: data?.userNotes || '',
+        pastedText: data?.pastedText || '',
+      }, activeProjectId);
+      setLastSavedAt(savedAt);
+      setProjectsMeta((prev) => {
+        const next = sortProjectsByRecent(prev.map((it) => (
+          it.id === activeProjectId ? { ...it, updatedAt: savedAt } : it
+        )));
+        try { localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(next)); } catch {}
+        return next;
       });
       alert('✅ 프로젝트를 불러왔습니다.');
     } catch (e) {
       alert('❌ 불러오기 실패: ' + e.message);
+    } finally {
+      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
     }
-  }, []);
+  }, [activeProjectId, applyProjectState]);
 
-  // 모두 초기화
+  const getPersistableSnapshot = useCallback(() => ({
+    brief, images, pages, currentPage, pageVariants,
+    textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
+    reviewInsights, reviewAnalyzerSnapshot,
+    userNotes, pastedText,
+  }), [brief, images, pages, currentPage, pageVariants,
+    textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
+    reviewInsights, reviewAnalyzerSnapshot, userNotes, pastedText]);
+
+  const switchProjectById = useCallback(async (nextProjectId) => {
+    if (!nextProjectId || nextProjectId === activeProjectId) return;
+    projectSwitchingRef.current = true;
+    try {
+      const now = Date.now();
+      await saveProject(getPersistableSnapshot(), activeProjectId);
+
+      const saved = await loadProject(nextProjectId);
+      applyProjectState(saved || null);
+      setLastSavedAt(getLastSaved(nextProjectId));
+      setActiveProjectId(nextProjectId);
+      setProjectsMeta((prev) => {
+        const next = sortProjectsByRecent(prev.map((it) => (
+          it.id === activeProjectId ? { ...it, updatedAt: now } : it
+        )));
+        try {
+          localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(next));
+          localStorage.setItem(CURRENT_PROJECT_ID_KEY, nextProjectId);
+        } catch {}
+        return next;
+      });
+    } catch (e) {
+      alert('프로젝트 전환 중 오류가 발생했습니다: ' + (e?.message || e));
+    } finally {
+      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
+    }
+  }, [activeProjectId, applyProjectState, getPersistableSnapshot]);
+
+  const handleCreateProject = useCallback(async () => {
+    const input = window.prompt('새 작업 이름을 입력하세요.', `작업 ${projectsMeta.length + 1}`);
+    if (input == null) return;
+    const name = input.trim() || `작업 ${projectsMeta.length + 1}`;
+    const newId = `project_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+
+    projectSwitchingRef.current = true;
+    try {
+      await saveProject(getPersistableSnapshot(), activeProjectId);
+      const meta = makeProjectMeta(newId, name);
+      const nextList = sortProjectsByRecent([meta, ...projectsMeta]);
+      setProjectsMeta(nextList);
+      setActiveProjectId(newId);
+      try {
+        localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(nextList));
+        localStorage.setItem(CURRENT_PROJECT_ID_KEY, newId);
+      } catch {}
+
+      await clearProject(newId);
+      applyProjectState(null);
+      setLastSavedAt(null);
+      setSaveStatus('idle');
+    } finally {
+      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
+    }
+  }, [activeProjectId, applyProjectState, getPersistableSnapshot, projectsMeta]);
+
+  const handleDeleteProject = useCallback(async () => {
+    if (projectsMeta.length <= 1) {
+      alert('최소 1개의 작업은 유지되어야 합니다.');
+      return;
+    }
+    const target = projectsMeta.find((it) => it.id === activeProjectId);
+    if (!target) return;
+    if (!window.confirm(`'${target.name}' 작업을 삭제할까요?\n삭제 후 복구할 수 없습니다.`)) return;
+
+    const remaining = sortProjectsByRecent(projectsMeta.filter((it) => it.id !== activeProjectId));
+    const fallbackId = remaining[0]?.id || DEFAULT_PROJECT_ID;
+
+    projectSwitchingRef.current = true;
+    try {
+      await clearProject(activeProjectId);
+      setProjectsMeta(remaining);
+      setActiveProjectId(fallbackId);
+      try {
+        localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(remaining));
+        localStorage.setItem(CURRENT_PROJECT_ID_KEY, fallbackId);
+      } catch {}
+
+      const fallbackSaved = await loadProject(fallbackId);
+      applyProjectState(fallbackSaved || null);
+      setLastSavedAt(getLastSaved(fallbackId));
+      setSaveStatus('idle');
+    } finally {
+      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
+    }
+  }, [activeProjectId, applyProjectState, projectsMeta]);
+
+  // 현재 작업만 초기화
   const handleClearAll = useCallback(async () => {
-    if (!window.confirm('모든 입력/이미지/제작 결과를 지우고 처음부터 시작할까요?\n(저장된 데이터도 모두 삭제됩니다.)')) return;
+    if (!window.confirm('현재 작업의 입력/이미지/제작 결과를 모두 지우고 처음부터 시작할까요?')) return;
     if (!window.confirm('정말 초기화하시겠습니까? 되돌릴 수 없습니다.')) return;
     try {
-      await clearProject();
-    } catch {}
-    // state 리셋
-    setBrief(DEFAULT_BRIEF);
-    setImages([]);
-    setPages({});
-    setCurrentPage('P1');
-    setPageVariants({});
-    setTextOverrides({});
-    setImageOverrides({});
-    setFreeImages({});
-    setFreeTexts({});
-    setLayerNames({});
-    setP5Version('photo');  // 기본값: 사진 버전
-    setRevisionHistory({});
-    setReviewInsights(null);
-    setReviewAnalyzerSnapshot(null);
-    setKeywords([]);
-    setExtractResult(null);
-    setReferenceUrl('');
-    setPastedText('');
-    setUserNotes('');
-    setError('');
-    setLastSavedAt(null);
-    try {
-      localStorage.removeItem('reviewAnalyzer.v1');
-      localStorage.removeItem('reviewAnalyzer.v2');
-    } catch {}
-    setReviewAnalyzerResetKey((k) => k + 1);
-    // 🔄 히스토리도 초기화
-    undoHistory.reset({
-      pages: {},
-      textOverrides: {},
-      imageOverrides: {},
-      freeImages: {},
-      shapes: {},
-      layerNames: {},
-    });
-    alert('✅ 초기화되었습니다.');
-  }, []);
+      await clearProject(activeProjectId);
+      applyProjectState(null);
+      setLastSavedAt(null);
+      setSaveStatus('idle');
+      const now = Date.now();
+      setProjectsMeta((prev) => {
+        const next = sortProjectsByRecent(prev.map((it) => (
+          it.id === activeProjectId ? { ...it, updatedAt: now } : it
+        )));
+        try { localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+      alert('✅ 현재 작업이 초기화되었습니다.');
+    } catch (e) {
+      alert('초기화 중 오류가 발생했습니다: ' + (e?.message || e));
+    }
+  }, [activeProjectId, applyProjectState]);
 
   // 브리프 수정 헬퍼
   const updateBrief = (patch) => setBrief((b) => ({ ...b, ...patch }));
@@ -2194,6 +2329,35 @@ export default function App() {
 
             {/* 프로젝트 관리 버튼 그룹 */}
             <div className="flex items-center gap-1 border-l pl-3" style={{ borderColor: '#e2ddd4' }}>
+              <select
+                value={activeProjectId}
+                onChange={(e) => { switchProjectById(e.target.value); }}
+                className="px-2 py-1.5 rounded-md text-[11px] font-bold"
+                style={{ color: '#2F2A26', border: '1px solid #e2ddd4', backgroundColor: '#fff', maxWidth: 190 }}
+                title="작업 목록"
+              >
+                {projectsMeta.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleCreateProject}
+                title="새 작업 만들기"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
+              >
+                ➕ 새 작업
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                title="현재 작업 삭제"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-red-50"
+                style={{ color: '#dc2626', border: '1px solid #fecaca' }}
+              >
+                🗑️ 작업 삭제
+              </button>
               <button
                 onClick={handleExportProject}
                 title="현재 프로젝트를 JSON 파일로 내보내기 (다른 PC에서도 불러올 수 있음)"
@@ -2223,11 +2387,11 @@ export default function App() {
               </button>
               <button
                 onClick={handleClearAll}
-                title="모든 입력/이미지/제작 결과 초기화 (되돌릴 수 없음)"
+                title="현재 작업 입력/이미지/제작 결과 초기화 (되돌릴 수 없음)"
                 className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-red-50"
                 style={{ color: '#dc2626', border: '1px solid #fecaca' }}
               >
-                🗑️ 초기화
+                ♻️ 현재 작업 초기화
               </button>
             </div>
 

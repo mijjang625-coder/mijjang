@@ -13,6 +13,16 @@
 const LS_PROJECT_KEY = 'coupang_agent_project_v1';
 const LS_LAST_SAVED_KEY = 'coupang_agent_last_saved_v1';
 
+function getProjectStorageKey(projectId = 'default') {
+  if (!projectId || projectId === 'default') return LS_PROJECT_KEY;
+  return `${LS_PROJECT_KEY}__${projectId}`;
+}
+
+function getLastSavedStorageKey(projectId = 'default') {
+  if (!projectId || projectId === 'default') return LS_LAST_SAVED_KEY;
+  return `${LS_LAST_SAVED_KEY}__${projectId}`;
+}
+
 // ─── IndexedDB 설정 ────────────────────────────────────
 const DB_NAME = 'coupang_agent_db';
 const DB_VERSION = 1;
@@ -215,7 +225,7 @@ function sanitizeReviewAnalyzerSnapshot(snapshot) {
  *                           textOverrides, imageOverrides, p5Version,
  *                           revisionHistory }
  */
-export async function saveProject(state) {
+export async function saveProject(state, projectId = 'default') {
   // 1. 이미지: base64 → IDB로 옮기고 ID만 보관
   const imagesAsRefs = await persistImagesToIDB(state.images || []);
 
@@ -242,8 +252,8 @@ export async function saveProject(state) {
     savedAt: Date.now(),
   };
   try {
-    localStorage.setItem(LS_PROJECT_KEY, JSON.stringify(lsPayload));
-    localStorage.setItem(LS_LAST_SAVED_KEY, String(lsPayload.savedAt));
+    localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(lsPayload));
+    localStorage.setItem(getLastSavedStorageKey(projectId), String(lsPayload.savedAt));
   } catch (e) {
     console.error('localStorage 저장 실패:', e);
     throw new Error('자동 저장 실패: localStorage 용량 초과 가능성');
@@ -257,10 +267,10 @@ export async function saveProject(state) {
  *
  * @returns {Promise<Object|null>}
  */
-export async function loadProject() {
+export async function loadProject(projectId = 'default') {
   let raw;
   try {
-    raw = localStorage.getItem(LS_PROJECT_KEY);
+    raw = localStorage.getItem(getProjectStorageKey(projectId));
   } catch {
     return null;
   }
@@ -279,9 +289,9 @@ export async function loadProject() {
   };
 }
 
-export function getLastSaved() {
+export function getLastSaved(projectId = 'default') {
   try {
-    const ts = localStorage.getItem(LS_LAST_SAVED_KEY);
+    const ts = localStorage.getItem(getLastSavedStorageKey(projectId));
     return ts ? parseInt(ts, 10) : null;
   } catch {
     return null;
@@ -291,16 +301,13 @@ export function getLastSaved() {
 /**
  * 프로젝트 전체 초기화 (localStorage + IndexedDB)
  */
-export async function clearProject() {
+export async function clearProject(projectId = 'default') {
   try {
-    localStorage.removeItem(LS_PROJECT_KEY);
-    localStorage.removeItem(LS_LAST_SAVED_KEY);
+    localStorage.removeItem(getProjectStorageKey(projectId));
+    localStorage.removeItem(getLastSavedStorageKey(projectId));
   } catch {}
-  try {
-    await idbClearImages();
-  } catch (e) {
-    console.warn('IDB 초기화 실패:', e);
-  }
+  // ⚠️ 멀티 프로젝트 지원: 개별 프로젝트 삭제 시 IDB 전체를 비우지 않음.
+  // 참조가 없는 이미지는 추후 cleanupOrphanImages 로 정리 가능.
 }
 
 // ─── JSON Export / Import (다른 PC 이동용) ────────────────────────────────────
