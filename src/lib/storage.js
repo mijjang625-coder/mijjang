@@ -175,6 +175,116 @@ export async function persistImagesToIDB(images) {
   return result;
 }
 
+async function persistSingleImageLike(value) {
+  if (!value) return value;
+  if (isIdbRef(value)) return value;
+  if (!isDataUrl(value)) return value;
+  const id = imageIdFromDataUrl(value);
+  try {
+    await idbPutImage(id, value);
+    return `idb:${id}`;
+  } catch (e) {
+    console.warn('IDB 이미지 저장 실패, 원본 유지:', e);
+    return value;
+  }
+}
+
+async function hydrateSingleImageLike(value) {
+  if (!value) return value;
+  if (!isIdbRef(value)) return value;
+  const id = value.slice(4);
+  try {
+    const rec = await idbGetImage(id);
+    return rec?.dataUrl || null;
+  } catch {
+    return null;
+  }
+}
+
+async function persistImageOverridesToIDB(imageOverrides) {
+  if (!imageOverrides || typeof imageOverrides !== 'object') return {};
+  const out = {};
+  for (const [key, ov] of Object.entries(imageOverrides)) {
+    if (!ov || typeof ov !== 'object') {
+      out[key] = ov;
+      continue;
+    }
+    const next = { ...ov };
+    if (typeof next.src === 'string') {
+      next.src = await persistSingleImageLike(next.src);
+    }
+    out[key] = next;
+  }
+  return out;
+}
+
+async function hydrateImageOverridesFromIDB(imageOverrides) {
+  if (!imageOverrides || typeof imageOverrides !== 'object') return {};
+  const out = {};
+  for (const [key, ov] of Object.entries(imageOverrides)) {
+    if (!ov || typeof ov !== 'object') {
+      out[key] = ov;
+      continue;
+    }
+    const next = { ...ov };
+    if (typeof next.src === 'string') {
+      next.src = await hydrateSingleImageLike(next.src);
+    }
+    out[key] = next;
+  }
+  return out;
+}
+
+async function persistFreeImagesMapToIDB(freeImagesMap) {
+  if (!freeImagesMap || typeof freeImagesMap !== 'object') return {};
+  const out = {};
+  for (const [pageKey, list] of Object.entries(freeImagesMap)) {
+    if (!Array.isArray(list)) {
+      out[pageKey] = list;
+      continue;
+    }
+    const nextList = [];
+    for (const item of list) {
+      if (!item || typeof item !== 'object') {
+        nextList.push(item);
+        continue;
+      }
+      const next = { ...item };
+      if (typeof next.src === 'string') {
+        next.src = await persistSingleImageLike(next.src);
+      }
+      nextList.push(next);
+    }
+    out[pageKey] = nextList;
+  }
+  return out;
+}
+
+async function hydrateFreeImagesMapFromIDB(freeImagesMap) {
+  if (!freeImagesMap || typeof freeImagesMap !== 'object') return {};
+  const out = {};
+  for (const [pageKey, list] of Object.entries(freeImagesMap)) {
+    if (!Array.isArray(list)) {
+      out[pageKey] = list;
+      continue;
+    }
+    const nextList = [];
+    for (const item of list) {
+      if (!item || typeof item !== 'object') {
+        nextList.push(item);
+        continue;
+      }
+      const next = { ...item };
+      if (typeof next.src === 'string') {
+        next.src = await hydrateSingleImageLike(next.src);
+      }
+      nextList.push(next);
+    }
+    out[pageKey] = nextList;
+  }
+  return out;
+}
+
 /**
  * state로 들어온 'idb:xxx' 참조들을 실제 base64 dataUrl로 복원.
  *
@@ -247,6 +357,8 @@ function sanitizeReviewAnalyzerSnapshot(snapshot) {
 export async function saveProject(state, projectId = 'default') {
   // 1. 이미지: base64 → IDB로 옮기고 ID만 보관
   const imagesAsRefs = await persistImagesToIDB(state.images || []);
+  const imageOverridesAsRefs = await persistImageOverridesToIDB(state.imageOverrides || {});
+  const freeImagesAsRefs = await persistFreeImagesMapToIDB(state.freeImages || {});
 
   // 2. 나머지 데이터는 localStorage (JSON)
   const lsPayload = {
@@ -257,8 +369,8 @@ export async function saveProject(state, projectId = 'default') {
     currentPage: state.currentPage || 'P1',
     pageVariants: state.pageVariants || {},
     textOverrides: state.textOverrides || {},
-    imageOverrides: state.imageOverrides || {},
-    freeImages: state.freeImages || {},
+    imageOverrides: imageOverridesAsRefs,
+    freeImages: freeImagesAsRefs,
     freeTexts: state.freeTexts || {},
     shapes: state.shapes || {},
     layerNames: state.layerNames || {},
@@ -302,9 +414,13 @@ export async function loadProject(projectId = 'default') {
   }
   // 이미지 ID 배열을 다시 base64로 hydrate
   const hydratedImages = await hydrateImagesFromIDB(parsed.images || []);
+  const hydratedImageOverrides = await hydrateImageOverridesFromIDB(parsed.imageOverrides || {});
+  const hydratedFreeImages = await hydrateFreeImagesMapFromIDB(parsed.freeImages || {});
   return {
     ...parsed,
     images: hydratedImages,
+    imageOverrides: hydratedImageOverrides,
+    freeImages: hydratedFreeImages,
   };
 }
 
