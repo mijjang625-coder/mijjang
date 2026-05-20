@@ -28,6 +28,8 @@ import {
   downloadProjectJSON,
   readProjectJSONFromFile,
   getLastSaved,
+  saveProjectDraft,
+  loadProjectDraft,
   debounce,
 } from './lib/storage.js';
 import {
@@ -1318,9 +1320,18 @@ export default function App() {
         setActiveProjectId(currentId);
 
         const saved = await loadProject(currentId);
+        const draft = loadProjectDraft(currentId);
         if (cancelled) return;
-        applyProjectState(saved || null);
-        setLastSavedAt(getLastSaved(currentId));
+
+        const savedAtMain = Number(saved?.savedAt || 0);
+        const savedAtDraft = Number(draft?.savedAt || 0);
+        if (savedAtDraft > savedAtMain) {
+          applyProjectState({ ...(saved || {}), ...(draft || {}), images: saved?.images || [] });
+          setLastSavedAt(savedAtDraft || null);
+        } else {
+          applyProjectState(saved || null);
+          setLastSavedAt(getLastSaved(currentId));
+        }
       } catch (e) {
         console.warn('프로젝트 복원 실패:', e);
       } finally {
@@ -1350,7 +1361,18 @@ export default function App() {
   }, [hydrated]);
 
   // 자동 저장 (1초 debounce)
+  // + 초경량 드래프트 저장(텍스트/오버라이드 즉시성 보강)
   const debouncedSaveRef = useRef(null);
+  const debouncedDraftSaveRef = useRef(null);
+  if (!debouncedDraftSaveRef.current) {
+    debouncedDraftSaveRef.current = debounce(({ snapshot, projectId }) => {
+      try {
+        saveProjectDraft(snapshot, projectId);
+      } catch (e) {
+        console.warn('드래프트 저장 실패:', e);
+      }
+    }, 120);
+  }
   if (!debouncedSaveRef.current) {
     debouncedSaveRef.current = debounce(async ({ snapshot, projectId }) => {
       try {
@@ -1383,14 +1405,20 @@ export default function App() {
       // 비정상적으로 잠금이 남은 경우 자동 해제
       endProjectSwitch();
     }
+    const snapshot = {
+      brief, images, pages, currentPage, pageVariants,
+      textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
+      reviewInsights, reviewAnalyzerSnapshot,
+      userNotes, pastedText,
+    };
+
+    // 1) 경량 드래프트를 빠르게 기록 (새로고침 유실 방지)
+    debouncedDraftSaveRef.current({ projectId: activeProjectId, snapshot });
+
+    // 2) 기존 정식 저장(localStorage+IDB) 유지
     debouncedSaveRef.current({
       projectId: activeProjectId,
-      snapshot: {
-        brief, images, pages, currentPage, pageVariants,
-        textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
-        reviewInsights, reviewAnalyzerSnapshot,
-        userNotes, pastedText,
-      },
+      snapshot,
     });
   }, [hydrated, activeProjectId, brief, images, pages, currentPage, pageVariants,
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
@@ -1402,6 +1430,7 @@ export default function App() {
     if (!hydrated) return;
     const flushPendingSave = () => {
       try {
+        debouncedDraftSaveRef.current?.flush?.();
         debouncedSaveRef.current?.flush?.();
       } catch (e) {
         console.warn('종료 직전 저장 flush 실패:', e);

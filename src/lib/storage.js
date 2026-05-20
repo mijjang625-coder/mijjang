@@ -12,6 +12,7 @@
 // ─── localStorage 키 ────────────────────────────────────
 const LS_PROJECT_KEY = 'coupang_agent_project_v1';
 const LS_LAST_SAVED_KEY = 'coupang_agent_last_saved_v1';
+const LS_DRAFT_KEY = 'coupang_agent_project_draft_v1';
 
 function getProjectStorageKey(projectId = 'default') {
   if (!projectId || projectId === 'default') return LS_PROJECT_KEY;
@@ -21,6 +22,11 @@ function getProjectStorageKey(projectId = 'default') {
 function getLastSavedStorageKey(projectId = 'default') {
   if (!projectId || projectId === 'default') return LS_LAST_SAVED_KEY;
   return `${LS_LAST_SAVED_KEY}__${projectId}`;
+}
+
+function getDraftStorageKey(projectId = 'default') {
+  if (!projectId || projectId === 'default') return LS_DRAFT_KEY;
+  return `${LS_DRAFT_KEY}__${projectId}`;
 }
 
 // ─── IndexedDB 설정 ────────────────────────────────────
@@ -311,6 +317,42 @@ export function getLastSaved(projectId = 'default') {
   }
 }
 
+export function saveProjectDraft(state, projectId = 'default') {
+  const payload = {
+    version: 1,
+    savedAt: Date.now(),
+    brief: state?.brief || null,
+    pages: state?.pages || {},
+    currentPage: state?.currentPage || 'P1',
+    pageVariants: state?.pageVariants || {},
+    textOverrides: state?.textOverrides || {},
+    imageOverrides: state?.imageOverrides || {},
+    freeImages: state?.freeImages || {},
+    freeTexts: state?.freeTexts || {},
+    shapes: state?.shapes || {},
+    layerNames: state?.layerNames || {},
+    p5Version: state?.p5Version || 'photo',
+    revisionHistory: state?.revisionHistory || {},
+    reviewInsights: state?.reviewInsights || null,
+    reviewAnalyzerSnapshot: sanitizeReviewAnalyzerSnapshot(state?.reviewAnalyzerSnapshot),
+    userNotes: state?.userNotes || '',
+    pastedText: state?.pastedText || '',
+  };
+  localStorage.setItem(getDraftStorageKey(projectId), JSON.stringify(payload));
+  return payload.savedAt;
+}
+
+export function loadProjectDraft(projectId = 'default') {
+  try {
+    const raw = localStorage.getItem(getDraftStorageKey(projectId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 프로젝트 전체 초기화 (localStorage + IndexedDB)
  */
@@ -318,6 +360,7 @@ export async function clearProject(projectId = 'default') {
   try {
     localStorage.removeItem(getProjectStorageKey(projectId));
     localStorage.removeItem(getLastSavedStorageKey(projectId));
+    localStorage.removeItem(getDraftStorageKey(projectId));
   } catch {}
   // ⚠️ 멀티 프로젝트 지원: 개별 프로젝트 삭제 시 IDB 전체를 비우지 않음.
   // 참조가 없는 이미지는 추후 cleanupOrphanImages 로 정리 가능.
