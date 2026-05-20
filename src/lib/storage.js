@@ -204,16 +204,37 @@ async function hydrateSingleImageLike(value) {
 async function persistImageOverridesToIDB(imageOverrides) {
   if (!imageOverrides || typeof imageOverrides !== 'object') return {};
   const out = {};
-  for (const [key, ov] of Object.entries(imageOverrides)) {
-    if (!ov || typeof ov !== 'object') {
-      out[key] = ov;
+
+  // 구조: { [pageKey]: { [imageId]: override } }
+  // 구버전 호환: { [imageId]: override(src 포함) } 형태도 지원
+  for (const [pageKey, pageOverrides] of Object.entries(imageOverrides)) {
+    if (!pageOverrides || typeof pageOverrides !== 'object') {
+      out[pageKey] = pageOverrides;
       continue;
     }
-    const next = { ...ov };
-    if (typeof next.src === 'string') {
-      next.src = await persistSingleImageLike(next.src);
+
+    // 구버전(flat) 단건 override
+    if (typeof pageOverrides.src === 'string') {
+      out[pageKey] = {
+        ...pageOverrides,
+        src: await persistSingleImageLike(pageOverrides.src),
+      };
+      continue;
     }
-    out[key] = next;
+
+    const pageOut = {};
+    for (const [imageId, ov] of Object.entries(pageOverrides)) {
+      if (!ov || typeof ov !== 'object') {
+        pageOut[imageId] = ov;
+        continue;
+      }
+      const next = { ...ov };
+      if (typeof next.src === 'string') {
+        next.src = await persistSingleImageLike(next.src);
+      }
+      pageOut[imageId] = next;
+    }
+    out[pageKey] = pageOut;
   }
   return out;
 }
@@ -221,16 +242,35 @@ async function persistImageOverridesToIDB(imageOverrides) {
 async function hydrateImageOverridesFromIDB(imageOverrides) {
   if (!imageOverrides || typeof imageOverrides !== 'object') return {};
   const out = {};
-  for (const [key, ov] of Object.entries(imageOverrides)) {
-    if (!ov || typeof ov !== 'object') {
-      out[key] = ov;
+
+  for (const [pageKey, pageOverrides] of Object.entries(imageOverrides)) {
+    if (!pageOverrides || typeof pageOverrides !== 'object') {
+      out[pageKey] = pageOverrides;
       continue;
     }
-    const next = { ...ov };
-    if (typeof next.src === 'string') {
-      next.src = await hydrateSingleImageLike(next.src);
+
+    // 구버전(flat) 단건 override
+    if (typeof pageOverrides.src === 'string') {
+      out[pageKey] = {
+        ...pageOverrides,
+        src: await hydrateSingleImageLike(pageOverrides.src),
+      };
+      continue;
     }
-    out[key] = next;
+
+    const pageOut = {};
+    for (const [imageId, ov] of Object.entries(pageOverrides)) {
+      if (!ov || typeof ov !== 'object') {
+        pageOut[imageId] = ov;
+        continue;
+      }
+      const next = { ...ov };
+      if (typeof next.src === 'string') {
+        next.src = await hydrateSingleImageLike(next.src);
+      }
+      pageOut[imageId] = next;
+    }
+    out[pageKey] = pageOut;
   }
   return out;
 }
