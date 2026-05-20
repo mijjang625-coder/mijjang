@@ -338,13 +338,34 @@ export function saveProjectDraft(state, projectId = 'default') {
     userNotes: state?.userNotes || '',
     pastedText: state?.pastedText || '',
   };
-  localStorage.setItem(getDraftStorageKey(projectId), JSON.stringify(payload));
+  const key = getDraftStorageKey(projectId);
+  // 드래프트는 sessionStorage 우선 사용 (새로고침 복원은 되면서 localStorage quota 압박 방지)
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(key, JSON.stringify(payload));
+      // 과거 버전이 localStorage에 남긴 draft를 즉시 정리해 quota 여유 확보
+      try { localStorage.removeItem(key); } catch {}
+      return payload.savedAt;
+    }
+  } catch {}
+  // fallback: sessionStorage를 쓸 수 없는 환경에서만 localStorage 사용
+  localStorage.setItem(key, JSON.stringify(payload));
   return payload.savedAt;
 }
 
 export function loadProjectDraft(projectId = 'default') {
+  const key = getDraftStorageKey(projectId);
   try {
-    const raw = localStorage.getItem(getDraftStorageKey(projectId));
+    if (typeof sessionStorage !== 'undefined') {
+      const rawSession = sessionStorage.getItem(key);
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      }
+    }
+  } catch {}
+  try {
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed : null;
@@ -361,6 +382,9 @@ export async function clearProject(projectId = 'default') {
     localStorage.removeItem(getProjectStorageKey(projectId));
     localStorage.removeItem(getLastSavedStorageKey(projectId));
     localStorage.removeItem(getDraftStorageKey(projectId));
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(getDraftStorageKey(projectId));
+    }
   } catch {}
   // ⚠️ 멀티 프로젝트 지원: 개별 프로젝트 삭제 시 IDB 전체를 비우지 않음.
   // 참조가 없는 이미지는 추후 cleanupOrphanImages 로 정리 가능.
