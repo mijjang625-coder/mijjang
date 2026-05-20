@@ -399,18 +399,22 @@ export function readProjectJSONFromFile(file) {
 // ─── Debounce 유틸 ────────────────────────────────────
 export function debounce(fn, wait = 1000) {
   let t = null;
+  let lastArgs = null;
   const debounced = (...args) => {
+    lastArgs = args;
     if (t) clearTimeout(t);
     t = setTimeout(() => {
       t = null;
-      fn(...args);
+      fn(...(lastArgs || []));
+      lastArgs = null;
     }, wait);
   };
   debounced.flush = () => {
     if (t) {
       clearTimeout(t);
       t = null;
-      fn();
+      fn(...(lastArgs || []));
+      lastArgs = null;
     }
   };
   debounced.cancel = () => {
@@ -418,6 +422,7 @@ export function debounce(fn, wait = 1000) {
       clearTimeout(t);
       t = null;
     }
+    lastArgs = null;
   };
   return debounced;
 }

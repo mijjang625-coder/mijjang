@@ -1396,6 +1396,32 @@ export default function App() {
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
       reviewInsights, reviewAnalyzerSnapshot, userNotes, pastedText]);
 
+  // 새로고침/탭 전환 직전에는 debounce 대기분을 즉시 저장
+  // (짧은 편집 직후 refresh 시 유실되는 현상 방지)
+  useEffect(() => {
+    if (!hydrated) return;
+    const flushPendingSave = () => {
+      try {
+        debouncedSaveRef.current?.flush?.();
+      } catch (e) {
+        console.warn('종료 직전 저장 flush 실패:', e);
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') flushPendingSave();
+    };
+
+    window.addEventListener('beforeunload', flushPendingSave);
+    window.addEventListener('pagehide', flushPendingSave);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flushPendingSave);
+      window.removeEventListener('pagehide', flushPendingSave);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [hydrated]);
+
   // 수동 내보내기 (JSON 파일로 다운로드)
   const handleExportProject = useCallback(() => {
     const productName = (brief.productName || 'project').trim().slice(0, 30).replace(/[^\w가-힣]/g, '_') || 'project';
