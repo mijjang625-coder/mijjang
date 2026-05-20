@@ -13,6 +13,16 @@
 const LS_PROJECT_KEY = 'coupang_agent_project_v1';
 const LS_LAST_SAVED_KEY = 'coupang_agent_last_saved_v1';
 
+function getProjectStorageKey(projectId = 'default') {
+  if (!projectId || projectId === 'default') return LS_PROJECT_KEY;
+  return `${LS_PROJECT_KEY}__${projectId}`;
+}
+
+function getLastSavedStorageKey(projectId = 'default') {
+  if (!projectId || projectId === 'default') return LS_LAST_SAVED_KEY;
+  return `${LS_LAST_SAVED_KEY}__${projectId}`;
+}
+
 // ─── IndexedDB 설정 ────────────────────────────────────
 const DB_NAME = 'coupang_agent_db';
 const DB_VERSION = 1;
@@ -110,6 +120,19 @@ function newImageId() {
   return 'img_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
 }
 
+function hashString(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+function imageIdFromDataUrl(dataUrl) {
+  return `img_${hashString(dataUrl)}_${dataUrl.length.toString(36)}`;
+}
+
 /**
  * images 배열에서 base64 데이터를 IndexedDB로 옮기고,
  * state에는 참조 ID 'idb:xxx'만 남긴 배열을 반환.
@@ -129,8 +152,8 @@ export async function persistImagesToIDB(images) {
       // 이미 ID 형태 → 그대로
       result.push(img);
     } else if (isDataUrl(img)) {
-      // base64 → IDB에 저장 후 ID 반환
-      const id = newImageId();
+      // base64 → 내용 기반 고정 ID를 사용해 중복 저장 방지
+      const id = imageIdFromDataUrl(img);
       try {
         await idbPutImage(id, img);
         result.push('idb:' + id);
@@ -215,7 +238,7 @@ function sanitizeReviewAnalyzerSnapshot(snapshot) {
  *                           textOverrides, imageOverrides, p5Version,
  *                           revisionHistory }
  */
-export async function saveProject(state) {
+export async function saveProject(state, projectId = 'default') {
   // 1. 이미지: base64 → IDB로 옮기고 ID만 보관
   const imagesAsRefs = await persistImagesToIDB(state.images || []);
 
@@ -242,8 +265,8 @@ export async function saveProject(state) {
     savedAt: Date.now(),
   };
   try {
-    localStorage.setItem(LS_PROJECT_KEY, JSON.stringify(lsPayload));
-    localStorage.setItem(LS_LAST_SAVED_KEY, String(lsPayload.savedAt));
+    localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(lsPayload));
+    localStorage.setItem(getLastSavedStorageKey(projectId), String(lsPayload.savedAt));
   } catch (e) {
     console.error('localStorage 저장 실패:', e);
     throw new Error('자동 저장 실패: localStorage 용량 초과 가능성');
@@ -257,10 +280,10 @@ export async function saveProject(state) {
  *
  * @returns {Promise<Object|null>}
  */
-export async function loadProject() {
+export async function loadProject(projectId = 'default') {
   let raw;
   try {
-    raw = localStorage.getItem(LS_PROJECT_KEY);
+    raw = localStorage.getItem(getProjectStorageKey(projectId));
   } catch {
     return null;
   }
@@ -279,9 +302,9 @@ export async function loadProject() {
   };
 }
 
-export function getLastSaved() {
+export function getLastSaved(projectId = 'default') {
   try {
-    const ts = localStorage.getItem(LS_LAST_SAVED_KEY);
+    const ts = localStorage.getItem(getLastSavedStorageKey(projectId));
     return ts ? parseInt(ts, 10) : null;
   } catch {
     return null;
@@ -291,16 +314,13 @@ export function getLastSaved() {
 /**
  * 프로젝트 전체 초기화 (localStorage + IndexedDB)
  */
-export async function clearProject() {
+export async function clearProject(projectId = 'default') {
   try {
-    localStorage.removeItem(LS_PROJECT_KEY);
-    localStorage.removeItem(LS_LAST_SAVED_KEY);
+    localStorage.removeItem(getProjectStorageKey(projectId));
+    localStorage.removeItem(getLastSavedStorageKey(projectId));
   } catch {}
-  try {
-    await idbClearImages();
-  } catch (e) {
-    console.warn('IDB 초기화 실패:', e);
-  }
+  // ⚠️ 멀티 프로젝트 지원: 개별 프로젝트 삭제 시 IDB 전체를 비우지 않음.
+  // 참조가 없는 이미지는 추후 cleanupOrphanImages 로 정리 가능.
 }
 
 // ─── JSON Export / Import (다른 PC 이동용) ────────────────────────────────────
