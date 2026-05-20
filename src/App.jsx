@@ -1222,6 +1222,15 @@ export default function App() {
   const [projectsMeta, setProjectsMeta] = useState([]); // [{id,name,createdAt,updatedAt}]
   const [activeProjectId, setActiveProjectId] = useState(DEFAULT_PROJECT_ID);
   const projectSwitchingRef = useRef(false);
+  const projectSwitchStartedAtRef = useRef(0);
+  const beginProjectSwitch = () => {
+    projectSwitchingRef.current = true;
+    projectSwitchStartedAtRef.current = Date.now();
+  };
+  const endProjectSwitch = () => {
+    projectSwitchingRef.current = false;
+    projectSwitchStartedAtRef.current = 0;
+  };
   const [hydrated, setHydrated] = useState(false);     // 첫 로드 완료 여부
   const [lastSavedAt, setLastSavedAt] = useState(null); // 마지막 자동 저장 시각
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
@@ -1367,7 +1376,13 @@ export default function App() {
 
   // 주요 state가 변할 때마다 debounce 자동 저장
   useEffect(() => {
-    if (!hydrated || projectSwitchingRef.current) return; // 전환 중에는 저장하지 않음
+    if (!hydrated) return;
+    if (projectSwitchingRef.current) {
+      const elapsed = Date.now() - projectSwitchStartedAtRef.current;
+      if (elapsed < 4000) return; // 정상 전환 중
+      // 비정상적으로 잠금이 남은 경우 자동 해제
+      endProjectSwitch();
+    }
     debouncedSaveRef.current({
       projectId: activeProjectId,
       snapshot: {
@@ -1399,7 +1414,7 @@ export default function App() {
     try {
       const data = await readProjectJSONFromFile(file);
       if (!window.confirm('현재 작업 중인 내용을 모두 덮어쓰고 불러올까요?')) return;
-      projectSwitchingRef.current = true;
+      beginProjectSwitch();
       applyProjectState(data || null);
       const { savedAt } = await saveProject({
         brief: data?.brief || DEFAULT_BRIEF,
@@ -1432,7 +1447,7 @@ export default function App() {
     } catch (e) {
       alert('❌ 불러오기 실패: ' + e.message);
     } finally {
-      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
+      setTimeout(() => { endProjectSwitch(); }, 0);
     }
   }, [activeProjectId, applyProjectState]);
 
@@ -1469,7 +1484,7 @@ export default function App() {
     } catch (e) {
       alert('프로젝트 전환 중 오류가 발생했습니다: ' + (e?.message || e));
     } finally {
-      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
+      setTimeout(() => { endProjectSwitch(); }, 0);
     }
   }, [activeProjectId, applyProjectState, getPersistableSnapshot]);
 
@@ -1496,7 +1511,7 @@ export default function App() {
       setLastSavedAt(null);
       setSaveStatus('idle');
     } finally {
-      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
+      setTimeout(() => { endProjectSwitch(); }, 0);
     }
   }, [activeProjectId, applyProjectState, getPersistableSnapshot, projectsMeta]);
 
@@ -1527,7 +1542,7 @@ export default function App() {
       setLastSavedAt(getLastSaved(fallbackId));
       setSaveStatus('idle');
     } finally {
-      setTimeout(() => { projectSwitchingRef.current = false; }, 0);
+      setTimeout(() => { endProjectSwitch(); }, 0);
     }
   }, [activeProjectId, applyProjectState, projectsMeta]);
 

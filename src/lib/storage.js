@@ -120,6 +120,19 @@ function newImageId() {
   return 'img_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
 }
 
+function hashString(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+function imageIdFromDataUrl(dataUrl) {
+  return `img_${hashString(dataUrl)}_${dataUrl.length.toString(36)}`;
+}
+
 /**
  * images 배열에서 base64 데이터를 IndexedDB로 옮기고,
  * state에는 참조 ID 'idb:xxx'만 남긴 배열을 반환.
@@ -139,8 +152,8 @@ export async function persistImagesToIDB(images) {
       // 이미 ID 형태 → 그대로
       result.push(img);
     } else if (isDataUrl(img)) {
-      // base64 → IDB에 저장 후 ID 반환
-      const id = newImageId();
+      // base64 → 내용 기반 고정 ID를 사용해 중복 저장 방지
+      const id = imageIdFromDataUrl(img);
       try {
         await idbPutImage(id, img);
         result.push('idb:' + id);
