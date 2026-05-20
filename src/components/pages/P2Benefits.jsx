@@ -337,7 +337,10 @@ export default function P2Benefits({
                     override={imageOverrides[imgId] || {}}
                     onChange={(partial) => onImageOverrideChange(imgId, partial)}
                     availableImages={(allImages || []).filter(Boolean)}
-                    isActive={editMode ? isImgActive : null}
+                    // P2 메인 사진: 아무 레이어도 활성화되지 않은 초기 상태에서는
+                    // hover 기반 UI(8개 핸들)도 허용해 기존 체감 복원.
+                    // 다른 레이어가 이미 활성화된 상태에서는 기존 active 규칙(true/false) 유지.
+                    isActive={editMode ? (layer.hasActiveLayer ? isImgActive : null) : null}
                     onActivate={() => layer.activateLayer('main', imgId)}
                     hasActiveOther={editMode && layer.hasActiveLayer && !isImgActive}
                     onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: imgId }, action)}
