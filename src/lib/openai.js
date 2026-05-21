@@ -55,6 +55,32 @@ function parseJsonLoose(text) {
   return null;
 }
 
+function promoteTopLevelCopyIfNeeded(parsed, { pageNumber, isRevisionMode }) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || parsed.copy) return parsed;
+
+  // P10 수정 모드에서 모델이 copy 래퍼 없이 본문만 반환하는 경우가 자주 있어
+  // 최소 보정으로 기존 복구 폴백("응답 형식 오류")를 피한다.
+  if (isRevisionMode && pageNumber === 'P10') {
+    const hasP10CopyShape = ['components', 'faq', 'faqs', 'compliance'].some((k) => k in parsed);
+    if (hasP10CopyShape) {
+      return {
+        ...parsed,
+        copy: {
+          ...parsed,
+          // faq vs faqs 키 호환은 아래 P10 보강 블록에서 다시 처리됨
+        },
+        needsMoreInfo: false,
+        missingItems: Array.isArray(parsed?.missingItems) ? parsed.missingItems : [],
+        confirmMessage: typeof parsed?.confirmMessage === 'string' && parsed.confirmMessage.trim()
+          ? parsed.confirmMessage
+          : '요청하신 수정을 반영했습니다. 추가로 다듬고 싶은 부분이 있으면 이어서 말씀해 주세요.',
+      };
+    }
+  }
+
+  return parsed;
+}
+
 function serializeUserBrief(brief, imageCount) {
   const {
     productName,
@@ -664,6 +690,8 @@ ${content}`;
     throw new Error('AI 응답을 JSON으로 파싱할 수 없습니다.');
   }
 
+  parsed = promoteTopLevelCopyIfNeeded(parsed, { pageNumber, isRevisionMode });
+
   // API 에러 payload가 JSON으로 들어온 경우(예: {type:"error", ...})는
   // "생성 성공"으로 처리하면 미리보기가 빈 화면이 되므로 즉시 실패 처리한다.
   const parsedErrorType = parsed?.type === 'error' || parsed?.error?.type === 'error';
@@ -687,6 +715,7 @@ ${content}`;
       maxTokens: 4096,
     });
     parsed = parseJsonLoose(retried?.content || '') || parsed;
+    parsed = promoteTopLevelCopyIfNeeded(parsed, { pageNumber, isRevisionMode });
   }
 
   // 여전히 copy가 없으면 더 엄격한 복구 프롬프트로 1회 추가 시도
@@ -704,6 +733,7 @@ ${content}`;
       maxTokens: 4096,
     });
     parsed = parseJsonLoose(strictRetried?.content || '') || parsed;
+    parsed = promoteTopLevelCopyIfNeeded(parsed, { pageNumber, isRevisionMode });
   }
 
   // P4 리뷰 수정은 별도 집중 복구를 1회 더 시도 (리뷰 수정 성공률 강화)
