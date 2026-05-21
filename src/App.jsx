@@ -3128,7 +3128,7 @@ export default function App() {
                         width: MOBILE_W,
                         height: MOBILE_H,
                         backgroundColor: previewSkin.shellInner,
-                        borderRadius: 6,
+                        borderRadius: 0,
                         overflowX: 'hidden',
                         overflowY: 'auto',
                         WebkitOverflowScrolling: 'touch',
