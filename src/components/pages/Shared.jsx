@@ -44,9 +44,11 @@ export function PageFrame({ children, height = 1200, bg = BRAND.colors.white, on
         // 내부의 모든 레이어(사진/도형/글박스)가 동일 context에서 z-index 비교됨.
         // 외부(App 레벨)의 z-index 간섭을 차단.
         isolation: 'isolate',
-        borderRadius: skin.borderRadius ?? 0,
-        border: skin.border || 'none',
-        boxShadow: skin.shadow || 'none',
+        // 2026-05-21: 화면/PNG에서 반복 보고된 우측 외곽선/코너 아티팩트 방지
+        // 카테고리 스킨의 테두리/둥근모서리/그림자는 페이지 본문에 시각 노이즈를 만들 수 있어 비활성화
+        borderRadius: 0,
+        border: 'none',
+        boxShadow: 'none',
         // overflow:hidden 제거 — ShapeLayer(position:absolute, zIndex:700)가
         // PageFrame 경계에서 잘리지 않도록. 콘텐츠 클립은 각 페이지 wrapper div에서 처리.
       }}
