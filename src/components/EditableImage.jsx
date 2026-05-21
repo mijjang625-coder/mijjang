@@ -763,10 +763,10 @@ export default function EditableImage({
           // 좌표 계산
           if (typeof h.left === 'number') style.left = fx + h.left;
           else if (h.left === '50%') style.left = fx + (fw / 2) - 6;
-          if (h.right !== undefined) style.left = fx + fw + h.right - 6;
+          if (h.right !== undefined) style.left = fx + fw + h.right;
           if (typeof h.top === 'number') style.top = fy + h.top;
           else if (h.top === '50%') style.top = fy + (fh / 2) - 6;
-          if (h.bottom !== undefined) style.top = fy + fh + h.bottom - 6;
+          if (h.bottom !== undefined) style.top = fy + fh + h.bottom;
 
           return (
             <div
