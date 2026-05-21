@@ -25,8 +25,6 @@ export function PageFrame({ children, height = 1200, bg = BRAND.colors.white, on
     onClearActive();
   };
 
-  const skin = BRAND.pageSkin || {};
-
   return (
     <div
       className="coupang-page"
@@ -35,7 +33,7 @@ export function PageFrame({ children, height = 1200, bg = BRAND.colors.white, on
         width: 780,
         minHeight: height,
         backgroundColor: bg,
-        backgroundImage: skin.backgroundImage || 'none',
+        backgroundImage: 'none',
         color: BRAND.colors.text,
         // CSS 변수로 폰트 적용 — 사용자가 폰트 카드 선택 시 즉시 반영
         fontFamily: 'var(--app-font, ' + BRAND.fontFamily + ')',
