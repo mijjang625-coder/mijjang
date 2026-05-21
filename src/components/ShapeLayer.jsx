@@ -34,6 +34,25 @@ const COLORS = [
   '#1f2937', '#9ca3af', '#ffffff', '#000000',
 ];
 
+// 과거 버그로 저장된 유령 선/사각형(얇은 테두리 아티팩트) 필터
+function isLegacyGhostShape(shape) {
+  if (!shape) return false;
+  const type = String(shape.type || '').toLowerCase();
+  if (type !== 'rect' && type !== 'line') return false;
+
+  const w = Math.abs(Number(shape.w) || 0);
+  const h = Math.abs(Number(shape.h) || 0);
+  const strokeWidth = Number(shape.strokeWidth ?? 1);
+  const fill = String(shape.fill ?? 'none').toLowerCase();
+  const transparentFill = fill === 'none' || fill === 'transparent';
+
+  // 정상 도형을 최대한 건드리지 않도록 "긴 + 매우 얇은" 케이스만 제거
+  const veryThinHorizontal = w >= 500 && h <= 14;
+  const veryThinVertical = h >= 180 && w <= 16;
+
+  return transparentFill && strokeWidth <= 2 && (veryThinHorizontal || veryThinVertical);
+}
+
 export default function ShapeLayer({
   shapes = [],
   editMode = false,
@@ -57,6 +76,8 @@ export default function ShapeLayer({
   // { x, y, w, h }  — 페이지 좌표 (780px 기준)
   const [previewBox, setPreviewBox] = useState(null);
   const drawStartRef = useRef(null); // { x, y } 페이지 좌표
+
+  const sanitizedShapes = (shapes || []).filter((shape) => !isLegacyGhostShape(shape));
 
   // 외부 클릭 시 picker 닫기
   useEffect(() => {
@@ -144,7 +165,7 @@ export default function ShapeLayer({
       )}
 
       {/* 도형 렌더 */}
-      {shapes.map((shape) => {
+      {sanitizedShapes.map((shape) => {
         // 🆕 (2026-05-03) 가시성 토글 — visibility:hidden (PNG 캡처에도 반영)
         if (shape.hidden) {
           return (
@@ -197,13 +218,13 @@ export default function ShapeLayer({
           >
             <span style={{ position: 'relative' }}>
               도형 추가
-              {shapes.length > 0 && (
+              {sanitizedShapes.length > 0 && (
                 <span style={{
                   position: 'absolute', top: -10, right: -14,
                   backgroundColor: '#fbbf24', color: '#1e293b', borderRadius: 999,
                   padding: '1px 5px', fontSize: 10, fontWeight: 900,
                   lineHeight: 1, pointerEvents: 'none',
-                }}>{shapes.length}</span>
+                }}>{sanitizedShapes.length}</span>
               )}
             </span>
           </button>
