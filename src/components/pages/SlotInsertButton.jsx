@@ -35,7 +35,7 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
         style={{
           position: 'absolute',
           right: 18,
-          top: 56,
+          top: slot === 'bottom' ? -8 : 56,
           width: 30,
           height: 30,
           border: '1.5px dashed #94a3b8',
