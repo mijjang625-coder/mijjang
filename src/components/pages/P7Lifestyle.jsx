@@ -184,7 +184,7 @@ export default function P7Lifestyle({
           )}
         </div>
 
-        <div style={{ padding: '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <div style={{ padding: editMode ? '20px 30px 140px' : '20px 30px 60px', display: 'flex', flexDirection: 'column', gap: 0 }}>
           {/* 슬롯: 첫 모듈 위 */}
           {renderSlot('top')}
 
