@@ -256,7 +256,7 @@ export default function P2Benefits({
   return (
     <PageFrame height={layer.pageHeight} bg={BRAND.colors.white} onClearActive={layer.clearActiveLayer}>
       <div style={{
-        padding: '50px 40px',
+        padding: editMode ? '50px 40px 140px' : '50px 40px',
         position: 'relative',
         zIndex: 30,
         pointerEvents: 'none',
