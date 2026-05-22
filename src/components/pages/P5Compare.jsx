@@ -313,11 +313,14 @@ export default function P5Compare({
   // 사진 행: 중앙 (우리 제품)
   const renderOurPhotoCell = () => (
     <div
+      data-edit-image-host="true"
       style={{
         ...cellBase,
         backgroundColor: 'transparent',
         minHeight: 176,
         borderBottom: `${M.rowDividerWidth} solid rgba(255,255,255,0.3)`,
+        zIndex: editMode && mainActive ? 1200 : 2,
+        overflow: editMode && mainActive ? 'visible' : 'hidden',
       }}
     >
       <div
@@ -325,7 +328,7 @@ export default function P5Compare({
           width: 120,
           height: 120,
           borderRadius: 0,           // 외곽선/둥근 모서리 제거
-          overflow: editMode ? 'visible' : 'hidden',
+          overflow: editMode && mainActive ? 'visible' : 'hidden',
           backgroundColor: '#ffffff',
           // boxShadow 제거 — PNG 내보낼 때 외곽선 없애달라
           position: 'relative',
@@ -353,11 +356,14 @@ export default function P5Compare({
   // 사진 행: 우측 (일반 제품 — 흐림)
   const renderGeneralPhotoCell = () => (
     <div
+      data-edit-image-host="true"
       style={{
         ...cellBase,
         backgroundColor: M.cellRightBg,
         minHeight: 176,
         borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
+        zIndex: editMode && generalActive ? 1200 : 2,
+        overflow: editMode && generalActive ? 'visible' : 'hidden',
       }}
     >
       <div
@@ -365,7 +371,7 @@ export default function P5Compare({
           width: 100,
           height: 100,
           borderRadius: 0,           // 외곽선/둥근 모서리 제거
-          overflow: editMode ? 'visible' : 'hidden',
+          overflow: editMode && generalActive ? 'visible' : 'hidden',
           backgroundColor: '#ffffff',
           // boxShadow 제거
           position: 'relative',
