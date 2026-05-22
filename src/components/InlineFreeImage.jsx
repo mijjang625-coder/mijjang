@@ -51,7 +51,7 @@ export default function InlineFreeImage({
   canMoveUp = true,
   canMoveDown = true,
   replaceImages = [],
-  frameRadius = 16,
+  frameRadius = 0,
 }) {
   const wrapRef = useRef(null);
   const [resizing, setResizing] = useState(null);

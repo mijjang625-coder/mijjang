@@ -33,7 +33,7 @@ const SNAP_THRESHOLD = 8;
 const MIN_SIZE = 40;
 const MIN_IMG_SCALE = 0.5;   // 50%까지 축소 가능 (EditableImage v4와 동일)
 const MAX_IMG_SCALE = 4.0;   // 400%까지 확대
-const FREE_RADIUS = 16;      // 자유 이미지 기본 모서리 둥글기 (메인 사진과 통일)
+const FREE_RADIUS = 0;       // 자유 이미지 기본 모서리 각지게(전 페이지 통일)
 
 function coverSize(boxW, boxH, natW = 1, natH = 1) {
   const boxRatio = boxW / boxH;
