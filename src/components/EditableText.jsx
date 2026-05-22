@@ -602,6 +602,41 @@ export default function EditableText({
     setTimeout(() => { inlineApplyingRef.current = false; }, 200);
   };
 
+  // 외부 웹페이지/문서에서 붙여넣을 때 HTML/스타일을 버리고
+  // 순수 텍스트만 삽입해서 서식 오염으로 편집이 깨지는 문제를 방지한다.
+  const handlePastePlainText = (e) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const text = e.clipboardData?.getData('text/plain') ?? '';
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+
+    range.deleteContents();
+
+    const frag = document.createDocumentFragment();
+    const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+    lines.forEach((line, idx) => {
+      frag.appendChild(document.createTextNode(line));
+      if (idx < lines.length - 1) {
+        frag.appendChild(document.createElement('br'));
+      }
+    });
+
+    const lastNode = frag.lastChild;
+    range.insertNode(frag);
+
+    if (lastNode) {
+      const caretRange = document.createRange();
+      caretRange.setStartAfter(lastNode);
+      caretRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(caretRange);
+    }
+  };
+
   // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
   let outlineStyle = '1px dashed rgba(96,165,250,0.45)'; // 기본 (어디가 편집 가능한지 표시)
   if (hovering) outlineStyle = '2px dashed #60a5fa';
@@ -641,6 +676,7 @@ export default function EditableText({
         onMouseDown={handleMouseDown}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
+        onPaste={handlePastePlainText}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault();

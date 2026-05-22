@@ -154,6 +154,7 @@ export default function P2Benefits({
     onSetLayerName,
     activeLayerId,
     onSetActiveLayer,
+    freeImageFrameRadius: 0,
   });
 
   // 슬롯별 사진 그룹핑 (slot != null)
@@ -242,6 +243,7 @@ export default function P2Benefits({
               onChangeLayer={(action) =>
                 layer.handleLayerAction({ kind: 'inline', id: item.id }, action)
               }
+              frameRadius={0}
               zIndexLabel={item.zIndex ?? null}
             />
           );
