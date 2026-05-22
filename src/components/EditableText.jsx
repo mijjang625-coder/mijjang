@@ -134,6 +134,7 @@ export default function EditableText({
   const frame = override?.frame || null;
   const frameHeight = Number(frame?.h);
   const hasFrameHeight = Number.isFinite(frameHeight) && frameHeight > 0;
+  const useResizeFrame = enableResizeHandle && hasFrameHeight;
   const resolvedMinResizeHeight = Number.isFinite(Number(minResizeHeight))
     ? Math.max(0, Number(minResizeHeight))
     : 0;
@@ -484,7 +485,7 @@ export default function EditableText({
           ...style,
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
-          ...(hasFrameHeight ? {
+          ...(useResizeFrame ? {
             height: `${frameHeight}px`,
             minHeight: `${resolvedMinResizeHeight}px`,
             boxSizing: 'border-box',
@@ -780,14 +781,14 @@ export default function EditableText({
           ...style,
           // 🆕 편집 모드에서도 줄바꿈(\n) 표시 유지
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
-          ...(hasFrameHeight ? {
+          ...(useResizeFrame ? {
             height: `${frameHeight}px`,
             minHeight: `${resolvedMinResizeHeight}px`,
             boxSizing: 'border-box',
           } : null),
           ...(editMode && enableResizeHandle ? {
             resize: 'vertical',
-            overflow: 'auto',
+            overflow: 'hidden',
             minHeight: `${resolvedMinResizeHeight}px`,
           } : null),
           transform: `translate(${offset.x}px, ${offset.y}px)`,
