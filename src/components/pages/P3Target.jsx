@@ -87,14 +87,14 @@ export default function P3Target({
             style={{
               border: `2px dashed ${BRAND.colors.main}`,
               borderRadius: 16,
-              padding: '40px 20px',
+              padding: '22px 20px 18px',
               backgroundColor: 'rgba(255,255,255,0.7)',
-              minHeight: 220,
+              minHeight: 150,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: 18,
+              justifyContent: 'flex-start',
+              gap: 10,
             }}
           >
             {badge && (<div><PillBadge>{badge}</PillBadge></div>)}
