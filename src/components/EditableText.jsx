@@ -95,6 +95,8 @@ export default function EditableText({
   style = {},
   draggable = true,
   placeholder = '',
+  enableResizeHandle = false,
+  minResizeHeight = 0,
 }) {
   const ref = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -129,6 +131,12 @@ export default function EditableText({
     fontFamily: overrideStyle.fontFamily || effectiveDefaultStyle.fontFamily || BRAND.fontFamily,
   };
   const offset = override?.offset || { x: 0, y: 0 };
+  const frame = override?.frame || null;
+  const frameHeight = Number(frame?.h);
+  const hasFrameHeight = Number.isFinite(frameHeight) && frameHeight > 0;
+  const resolvedMinResizeHeight = Number.isFinite(Number(minResizeHeight))
+    ? Math.max(0, Number(minResizeHeight))
+    : 0;
   const isRegistered = !!override?.registered;
 
   // 줄바꿈이 있는 텍스트는 행간을 일정 범위로 정규화해
@@ -473,6 +481,11 @@ export default function EditableText({
           ...style,
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
+          ...(hasFrameHeight ? {
+            height: `${frameHeight}px`,
+            minHeight: `${Math.max(resolvedMinResizeHeight, frameHeight)}px`,
+            boxSizing: 'border-box',
+          } : null),
           ...visStyle,
         }}
         dangerouslySetInnerHTML={{ __html: displayHtml }}
@@ -637,6 +650,32 @@ export default function EditableText({
     }
   };
 
+  useEffect(() => {
+    if (!editMode) return;
+    if (!enableResizeHandle) return;
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    let rafId = 0;
+    const obs = new ResizeObserver((entries) => {
+      const nextH = Math.round(entries?.[0]?.contentRect?.height || 0);
+      if (!Number.isFinite(nextH) || nextH <= 0) return;
+      const prevH = Math.round(Number(override?.frame?.h) || 0);
+      if (Math.abs(nextH - prevH) < 1) return;
+
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        onChange({ frame: { ...(override?.frame || {}), h: nextH } });
+      });
+    });
+
+    obs.observe(el);
+    return () => {
+      cancelAnimationFrame(rafId);
+      obs.disconnect();
+    };
+  }, [editMode, enableResizeHandle, onChange, override?.frame]);
+
   // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
   let outlineStyle = '1px dashed rgba(96,165,250,0.45)'; // 기본 (어디가 편집 가능한지 표시)
   if (hovering) outlineStyle = '2px dashed #60a5fa';
@@ -738,6 +777,16 @@ export default function EditableText({
           ...style,
           // 🆕 편집 모드에서도 줄바꿈(\n) 표시 유지
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
+          ...(hasFrameHeight ? {
+            height: `${frameHeight}px`,
+            minHeight: `${Math.max(resolvedMinResizeHeight, frameHeight)}px`,
+            boxSizing: 'border-box',
+          } : null),
+          ...(editMode && enableResizeHandle ? {
+            resize: 'vertical',
+            overflow: 'auto',
+            minHeight: `${Math.max(resolvedMinResizeHeight, hasFrameHeight ? frameHeight : 0)}px`,
+          } : null),
           transform: `translate(${offset.x}px, ${offset.y}px)`,
           outline: outlineStyle,
           outlineOffset: 2,
