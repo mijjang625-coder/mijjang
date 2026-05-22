@@ -306,6 +306,8 @@ export default function P2Benefits({
                     <EditableText
                       {...editPropsFor(`P2.sections.${i}.desc`)}
                       as="p"
+                      enableResizeHandle
+                      minResizeHeight={34}
                       defaultStyle={{
                         fontSize: 22,
                         fontWeight: 500,
