@@ -149,6 +149,14 @@ export default function P5Compare({
   const useOurAsGeneralBase = !generalImage && !!ourImage;
   const resolvedGeneralImage = generalImage || ourImage || GENERIC_FALLBACK_BG;
 
+  const hasValidFrame = (ovr) => {
+    const f = ovr?.frame;
+    return Number.isFinite(Number(f?.width)) && Number(f?.width) > 0
+      && Number.isFinite(Number(f?.height)) && Number(f?.height) > 0;
+  };
+  const mainHasFrame = hasValidFrame(imageOverrides[mainImgId]);
+  const generalHasFrame = hasValidFrame(imageOverrides[generalImgId]);
+
   // ─────────────────────────────────────────────────────────────
   // 🆕 (2026-05-09 v2) 사용자 HTML 목업 정확한 사양 기반 재작성
   // ─────────────────────────────────────────────────────────────
@@ -319,8 +327,8 @@ export default function P5Compare({
         backgroundColor: 'transparent',
         minHeight: 176,
         borderBottom: `${M.rowDividerWidth} solid rgba(255,255,255,0.3)`,
-        zIndex: editMode && mainActive ? 1200 : 2,
-        overflow: editMode && mainActive ? 'visible' : 'hidden',
+        zIndex: (editMode && mainActive) || mainHasFrame ? 1200 : 2,
+        overflow: (editMode && mainActive) || mainHasFrame ? 'visible' : 'hidden',
       }}
     >
       <div
@@ -328,7 +336,7 @@ export default function P5Compare({
           width: 120,
           height: 120,
           borderRadius: 0,           // 외곽선/둥근 모서리 제거
-          overflow: editMode && mainActive ? 'visible' : 'hidden',
+          overflow: (editMode && mainActive) || mainHasFrame ? 'visible' : 'hidden',
           backgroundColor: '#ffffff',
           // boxShadow 제거 — PNG 내보낼 때 외곽선 없애달라
           position: 'relative',
@@ -362,8 +370,8 @@ export default function P5Compare({
         backgroundColor: M.cellRightBg,
         minHeight: 176,
         borderBottom: `${M.rowDividerWidth} solid ${M.rowDivider}`,
-        zIndex: editMode && generalActive ? 1200 : 2,
-        overflow: editMode && generalActive ? 'visible' : 'hidden',
+        zIndex: (editMode && generalActive) || generalHasFrame ? 1200 : 2,
+        overflow: (editMode && generalActive) || generalHasFrame ? 'visible' : 'hidden',
       }}
     >
       <div
@@ -371,7 +379,7 @@ export default function P5Compare({
           width: 100,
           height: 100,
           borderRadius: 0,           // 외곽선/둥근 모서리 제거
-          overflow: editMode && generalActive ? 'visible' : 'hidden',
+          overflow: (editMode && generalActive) || generalHasFrame ? 'visible' : 'hidden',
           backgroundColor: '#ffffff',
           // boxShadow 제거
           position: 'relative',
