@@ -542,7 +542,9 @@ export default function EditableImage({
   // 이웃 셀이 위에 그려질 수 있으므로, 활성 편집 중에는 호스트 셀도 함께 승격.
   // ⚠️ editMode 분기와 무관하게 항상 같은 순서로 Hook 호출.
   useEffect(() => {
-    const host = wrapperRef.current?.parentElement;
+    const host =
+      wrapperRef.current?.closest('[data-edit-image-host="true"]') ||
+      wrapperRef.current?.parentElement;
 
     if (!overlayActive || !host) {
       if (hostStackRef.current) {
