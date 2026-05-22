@@ -467,6 +467,32 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, selectAllEditableContent]);
 
+  useEffect(() => {
+    if (!editMode) return;
+    if (!enableResizeHandle) return;
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    let rafId = 0;
+    const obs = new ResizeObserver((entries) => {
+      const nextH = Math.round(entries?.[0]?.contentRect?.height || 0);
+      if (!Number.isFinite(nextH) || nextH <= 0) return;
+      const prevH = Math.round(Number(override?.frame?.h) || 0);
+      if (Math.abs(nextH - prevH) < 1) return;
+
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        onChange({ frame: { ...(override?.frame || {}), h: nextH } });
+      });
+    });
+
+    obs.observe(el);
+    return () => {
+      cancelAnimationFrame(rafId);
+      obs.disconnect();
+    };
+  }, [editMode, enableResizeHandle, onChange, override?.frame]);
+
   // 🆕 (2026-05-03) 가시성 토글 (포토샵 방식) — visibility:hidden (PNG 캡처에도 반영)
   const isHidden = !!override?.hidden;
 
@@ -653,32 +679,6 @@ export default function EditableText({
       sel.addRange(caretRange);
     }
   };
-
-  useEffect(() => {
-    if (!editMode) return;
-    if (!enableResizeHandle) return;
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-
-    let rafId = 0;
-    const obs = new ResizeObserver((entries) => {
-      const nextH = Math.round(entries?.[0]?.contentRect?.height || 0);
-      if (!Number.isFinite(nextH) || nextH <= 0) return;
-      const prevH = Math.round(Number(override?.frame?.h) || 0);
-      if (Math.abs(nextH - prevH) < 1) return;
-
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        onChange({ frame: { ...(override?.frame || {}), h: nextH } });
-      });
-    });
-
-    obs.observe(el);
-    return () => {
-      cancelAnimationFrame(rafId);
-      obs.disconnect();
-    };
-  }, [editMode, enableResizeHandle, onChange, override?.frame]);
 
   // 편집모드일 때 outline 결정 — hover/showToolbar/isEditing 단계별 강조
   let outlineStyle = '1px dashed rgba(96,165,250,0.45)'; // 기본 (어디가 편집 가능한지 표시)
