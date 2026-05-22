@@ -28,6 +28,8 @@ import { useEffect, useState } from 'react';
 import FreeImage from '../FreeImage.jsx';
 import FreeText from '../FreeText.jsx';
 
+const FREE_IMAGE_DEFAULT_RADIUS = 16;
+
 export function useFreeImageLayer({
   pageKey,
   mainLayers = [],          // [{ id, defaultName, defaultZ }]
@@ -62,6 +64,7 @@ export function useFreeImageLayer({
   onSetLayerName = () => {},
   activeLayerId = null,
   onSetActiveLayer = () => {},
+  freeImageFrameRadius = FREE_IMAGE_DEFAULT_RADIUS,
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
@@ -235,6 +238,7 @@ export function useFreeImageLayer({
               onUpdate={() => {}}
               onDelete={() => {}}
               onChangeLayer={() => {}}
+              frameRadius={freeImageFrameRadius}
             />
           </div>
         );
@@ -253,6 +257,7 @@ export function useFreeImageLayer({
           onDelete={() => onDeleteFreeImage(item.id)}
           onDuplicate={(ox, oy) => onDuplicateFreeImage(item, ox, oy)}
           onChangeLayer={(action) => handleLayerAction({ kind: 'free', id: item.id }, action)}
+          frameRadius={freeImageFrameRadius}
         />
       );
     });

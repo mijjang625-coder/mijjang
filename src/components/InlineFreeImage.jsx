@@ -51,6 +51,7 @@ export default function InlineFreeImage({
   canMoveUp = true,
   canMoveDown = true,
   replaceImages = [],
+  frameRadius = 16,
 }) {
   const wrapRef = useRef(null);
   const [resizing, setResizing] = useState(null);
@@ -362,7 +363,7 @@ export default function InlineFreeImage({
           width: w,
           maxWidth: '100%',
           height: h,
-          borderRadius: 16,
+          borderRadius: frameRadius,
           overflow: 'hidden',
           backgroundColor: '#e8e5e1',
           outline:

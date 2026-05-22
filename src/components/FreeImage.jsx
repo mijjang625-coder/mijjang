@@ -51,6 +51,7 @@ export default function FreeImage({
   onDuplicate = () => {},  // Alt+드래그 / Ctrl+C→V 복제
   onDragStart = () => {},  // 드래그/리사이즈 시작 직전 — 히스토리 스냅샷용
   canvasWidth = 780,
+  frameRadius = FREE_RADIUS,
   isActive = false,
   onActivate = () => {},
   // 다른 레이어가 활성화되어 있는지 (자기 자신은 제외) — true면 이 레이어는 클릭 통과
@@ -417,7 +418,7 @@ export default function FreeImage({
           inset: 0,
           backgroundColor: '#e8e5e1',
           overflow: 'hidden',
-          borderRadius: FREE_RADIUS,
+          borderRadius: frameRadius,
           outline:
             mode === 'cropping' ? '2px solid #f97316'
             : (editMode && isActive) ? '2px solid #3b82f6'
