@@ -385,6 +385,9 @@ export default function EditableText({
   const handleMouseDown = (e) => {
     if (isEditing) return;
     if (!draggable) return;
+    // 세로 리사이즈 핸들을 켠 텍스트 박스(P2 desc)는
+    // 드래그 이동보다 높이 조절이 우선이므로 이동 시작을 막는다.
+    if (enableResizeHandle) return;
     if (e.target.closest('[data-toolbar]')) return;
 
     // 더블클릭(편집 진입)과 충돌하지 않도록 다중 클릭에서는 드래그 시작 금지
@@ -483,7 +486,7 @@ export default function EditableText({
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
           ...(hasFrameHeight ? {
             height: `${frameHeight}px`,
-            minHeight: `${Math.max(resolvedMinResizeHeight, frameHeight)}px`,
+            minHeight: `${resolvedMinResizeHeight}px`,
             boxSizing: 'border-box',
           } : null),
           ...visStyle,
@@ -779,13 +782,13 @@ export default function EditableText({
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
           ...(hasFrameHeight ? {
             height: `${frameHeight}px`,
-            minHeight: `${Math.max(resolvedMinResizeHeight, frameHeight)}px`,
+            minHeight: `${resolvedMinResizeHeight}px`,
             boxSizing: 'border-box',
           } : null),
           ...(editMode && enableResizeHandle ? {
             resize: 'vertical',
             overflow: 'auto',
-            minHeight: `${Math.max(resolvedMinResizeHeight, hasFrameHeight ? frameHeight : 0)}px`,
+            minHeight: `${resolvedMinResizeHeight}px`,
           } : null),
           transform: `translate(${offset.x}px, ${offset.y}px)`,
           outline: outlineStyle,
