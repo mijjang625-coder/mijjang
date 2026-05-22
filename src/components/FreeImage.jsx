@@ -142,6 +142,37 @@ export default function FreeImage({
   }, []);
   useEditorSelectionListener(`free-image:${id}`, closeOnOtherSelect);
 
+  // ⌨️ 화살표 미세 이동 — 활성 자유사진을 1px(Shift=10px) 단위로 이동
+  useEffect(() => {
+    if (!editMode || !isActive) return undefined;
+
+    const handleKeydown = (e) => {
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      if (e.metaKey || e.ctrlKey) return;
+
+      const activeEl = document.activeElement;
+      const tag = (activeEl?.tagName || '').toLowerCase();
+      const isTypingTarget =
+        !!activeEl?.isContentEditable ||
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select' ||
+        tag === 'button';
+      if (isTypingTarget) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const step = e.shiftKey ? 10 : 1;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      onUpdate({ x: Math.round(x + dx), y: Math.round(y + dy) });
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [editMode, isActive, x, y, onUpdate]);
+
   useEffect(() => {
     if (!draggingPos) return;
     const DRAG_THRESHOLD = 3; // 3px 이상 움직여야 실제 드래그로 인식

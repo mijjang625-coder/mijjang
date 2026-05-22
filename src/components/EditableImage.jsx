@@ -573,6 +573,48 @@ export default function EditableImage({
     };
   }, [overlayActive]);
 
+  // ⌨️ 화살표 미세 이동 — 활성 이미지를 1px(Shift=10px) 단위로 이동
+  useEffect(() => {
+    if (!editMode) return undefined;
+    if (isActive !== true) return undefined;
+
+    const handleKeydown = (e) => {
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      if (e.metaKey || e.ctrlKey) return;
+
+      const activeEl = document.activeElement;
+      const tag = (activeEl?.tagName || '').toLowerCase();
+      const isTypingTarget =
+        !!activeEl?.isContentEditable ||
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select' ||
+        tag === 'button';
+      if (isTypingTarget) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const step = e.shiftKey ? 10 : 1;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+
+      const fallbackW = frameRef.current?.offsetWidth || naturalSize.w || 0;
+      const fallbackH = frameRef.current?.offsetHeight || naturalSize.h || 0;
+      if (!fallbackW || !fallbackH) return;
+
+      const width = Math.round(frame?.width ?? fallbackW);
+      const height = Math.round(frame?.height ?? fallbackH);
+      const x = Math.round((frame?.x ?? 0) + dx);
+      const y = Math.round((frame?.y ?? 0) + dy);
+
+      onChange({ frame: { width, height, x, y } });
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [editMode, isActive, frame, naturalSize.w, naturalSize.h, onChange]);
+
   // ─── 편집모드 OFF: 단순 렌더 ──────────────────────
   if (!editMode) {
     const hasFrame = !!frame;
