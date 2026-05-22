@@ -11,6 +11,7 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const valid = (allImages || []).filter(Boolean);
+  const openUpward = slot === 'bottom';
 
   // 외부 클릭 시 닫기
   useEffect(() => {
@@ -65,9 +66,10 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
           style={{
             position: 'absolute',
             right: 14,
-            top: 14,
+            top: openUpward ? 'auto' : 14,
+            bottom: openUpward ? 14 : 'auto',
             transform: 'none',
-            marginTop: 4,
+            marginTop: openUpward ? 0 : 4,
             width: 340, maxHeight: 380, overflow: 'auto',
             backgroundColor: '#fff', border: '1px solid #e2ddd4',
             borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
