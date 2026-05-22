@@ -195,6 +195,136 @@ export async function hydrateImagesFromIDB(images) {
   return result;
 }
 
+// freeImages[page][]의 item.src(base64)도 IDB로 이관
+export async function persistFreeImagesToIDB(freeImagesByPage) {
+  if (!freeImagesByPage || typeof freeImagesByPage !== 'object') return {};
+  const out = {};
+  for (const [page, list] of Object.entries(freeImagesByPage)) {
+    if (!Array.isArray(list)) {
+      out[page] = list;
+      continue;
+    }
+    const nextList = [];
+    for (const item of list) {
+      if (!item || typeof item !== 'object') {
+        nextList.push(item);
+        continue;
+      }
+      const src = item.src;
+      let nextSrc = src;
+      if (isDataUrl(src)) {
+        const id = imageIdFromDataUrl(src);
+        try {
+          await idbPutImage(id, src);
+          nextSrc = 'idb:' + id;
+        } catch (e) {
+          console.warn('IDB freeImages 저장 실패, 원본 유지:', e);
+        }
+      }
+      nextList.push({ ...item, src: nextSrc });
+    }
+    out[page] = nextList;
+  }
+  return out;
+}
+
+export async function hydrateFreeImagesFromIDB(freeImagesByPage) {
+  if (!freeImagesByPage || typeof freeImagesByPage !== 'object') return {};
+  const out = {};
+  for (const [page, list] of Object.entries(freeImagesByPage)) {
+    if (!Array.isArray(list)) {
+      out[page] = list;
+      continue;
+    }
+    const nextList = [];
+    for (const item of list) {
+      if (!item || typeof item !== 'object') {
+        nextList.push(item);
+        continue;
+      }
+      const src = item.src;
+      if (isIdbRef(src)) {
+        const id = src.slice(4);
+        try {
+          const rec = await idbGetImage(id);
+          nextList.push({ ...item, src: rec?.dataUrl || null });
+        } catch {
+          nextList.push({ ...item, src: null });
+        }
+      } else {
+        nextList.push(item);
+      }
+    }
+    out[page] = nextList;
+  }
+  return out;
+}
+
+// imageOverrides[page][slot].src(base64)도 IDB로 이관
+export async function persistImageOverridesToIDB(imageOverridesByPage) {
+  if (!imageOverridesByPage || typeof imageOverridesByPage !== 'object') return {};
+  const out = {};
+  for (const [page, overrideMap] of Object.entries(imageOverridesByPage)) {
+    if (!overrideMap || typeof overrideMap !== 'object') {
+      out[page] = overrideMap;
+      continue;
+    }
+    const nextMap = {};
+    for (const [key, value] of Object.entries(overrideMap)) {
+      if (!value || typeof value !== 'object') {
+        nextMap[key] = value;
+        continue;
+      }
+      const src = value.src;
+      let nextSrc = src;
+      if (isDataUrl(src)) {
+        const id = imageIdFromDataUrl(src);
+        try {
+          await idbPutImage(id, src);
+          nextSrc = 'idb:' + id;
+        } catch (e) {
+          console.warn('IDB imageOverrides 저장 실패, 원본 유지:', e);
+        }
+      }
+      nextMap[key] = nextSrc === src ? value : { ...value, src: nextSrc };
+    }
+    out[page] = nextMap;
+  }
+  return out;
+}
+
+export async function hydrateImageOverridesFromIDB(imageOverridesByPage) {
+  if (!imageOverridesByPage || typeof imageOverridesByPage !== 'object') return {};
+  const out = {};
+  for (const [page, overrideMap] of Object.entries(imageOverridesByPage)) {
+    if (!overrideMap || typeof overrideMap !== 'object') {
+      out[page] = overrideMap;
+      continue;
+    }
+    const nextMap = {};
+    for (const [key, value] of Object.entries(overrideMap)) {
+      if (!value || typeof value !== 'object') {
+        nextMap[key] = value;
+        continue;
+      }
+      const src = value.src;
+      if (isIdbRef(src)) {
+        const id = src.slice(4);
+        try {
+          const rec = await idbGetImage(id);
+          nextMap[key] = { ...value, src: rec?.dataUrl || null };
+        } catch {
+          nextMap[key] = { ...value, src: null };
+        }
+      } else {
+        nextMap[key] = value;
+      }
+    }
+    out[page] = nextMap;
+  }
+  return out;
+}
+
 // 사용되지 않는 IDB 이미지 청소 (현재 images 배열에서 참조되지 않는 것 삭제)
 export async function cleanupOrphanImages(currentImages) {
   if (!Array.isArray(currentImages)) return;
@@ -241,6 +371,8 @@ function sanitizeReviewAnalyzerSnapshot(snapshot) {
 export async function saveProject(state, projectId = 'default') {
   // 1. 이미지: base64 → IDB로 옮기고 ID만 보관
   const imagesAsRefs = await persistImagesToIDB(state.images || []);
+  const freeImagesAsRefs = await persistFreeImagesToIDB(state.freeImages || {});
+  const imageOverridesAsRefs = await persistImageOverridesToIDB(state.imageOverrides || {});
 
   // 2. 나머지 데이터는 localStorage (JSON)
   const lsPayload = {
@@ -251,8 +383,8 @@ export async function saveProject(state, projectId = 'default') {
     currentPage: state.currentPage || 'P1',
     pageVariants: state.pageVariants || {},
     textOverrides: state.textOverrides || {},
-    imageOverrides: state.imageOverrides || {},
-    freeImages: state.freeImages || {},
+    imageOverrides: imageOverridesAsRefs,
+    freeImages: freeImagesAsRefs,
     freeTexts: state.freeTexts || {},
     shapes: state.shapes || {},
     layerNames: state.layerNames || {},
@@ -296,9 +428,13 @@ export async function loadProject(projectId = 'default') {
   }
   // 이미지 ID 배열을 다시 base64로 hydrate
   const hydratedImages = await hydrateImagesFromIDB(parsed.images || []);
+  const hydratedFreeImages = await hydrateFreeImagesFromIDB(parsed.freeImages || {});
+  const hydratedImageOverrides = await hydrateImageOverridesFromIDB(parsed.imageOverrides || {});
   return {
     ...parsed,
     images: hydratedImages,
+    freeImages: hydratedFreeImages,
+    imageOverrides: hydratedImageOverrides,
   };
 }
 
