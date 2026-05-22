@@ -486,7 +486,7 @@ export default function EditableText({
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
           ...(hasFrameHeight ? {
             height: `${frameHeight}px`,
-            minHeight: `${Math.max(resolvedMinResizeHeight, frameHeight)}px`,
+            minHeight: `${resolvedMinResizeHeight}px`,
             boxSizing: 'border-box',
           } : null),
           ...visStyle,
@@ -782,13 +782,13 @@ export default function EditableText({
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
           ...(hasFrameHeight ? {
             height: `${frameHeight}px`,
-            minHeight: `${Math.max(resolvedMinResizeHeight, frameHeight)}px`,
+            minHeight: `${resolvedMinResizeHeight}px`,
             boxSizing: 'border-box',
           } : null),
           ...(editMode && enableResizeHandle ? {
             resize: 'vertical',
             overflow: 'auto',
-            minHeight: `${Math.max(resolvedMinResizeHeight, hasFrameHeight ? frameHeight : 0)}px`,
+            minHeight: `${resolvedMinResizeHeight}px`,
           } : null),
           transform: `translate(${offset.x}px, ${offset.y}px)`,
           outline: outlineStyle,
