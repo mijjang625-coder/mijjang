@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient.js';
 
 const inputClass =
@@ -11,6 +11,7 @@ export default function AuthGate({ children }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const authBootstrappedRef = useRef(false);
 
   const userEmail = useMemo(() => session?.user?.email || '', [session]);
 
@@ -23,12 +24,35 @@ export default function AuthGate({ children }) {
     let active = true;
 
     const bootstrapAuth = async () => {
+      // React StrictMode(개발)에서 effect가 2번 실행되는 문제 방지
+      if (authBootstrappedRef.current) {
+        const { data } = await supabase.auth.getSession();
+        if (active) {
+          setSession(data.session ?? null);
+          setLoading(false);
+        }
+        return;
+      }
+      authBootstrappedRef.current = true;
+
       try {
+        const url = new URL(window.location.href);
+        const oauthCode = url.searchParams.get('code');
+
+        // PKCE(code) 플로우 지원
+        if (oauthCode) {
+          const { error } = await supabase.auth.exchangeCodeForSession(oauthCode);
+          if (error && active) {
+            setMessage(`Google 로그인 오류: ${error.message}`);
+          }
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         const rawHash = window.location.hash?.startsWith('#')
           ? window.location.hash.slice(1)
           : '';
 
-        // OAuth 콜백 해시를 수동 처리해 세션 누락 레이스를 방지
+        // Implicit(hash) 플로우 지원
         if (rawHash && (rawHash.includes('access_token=') || rawHash.includes('error='))) {
           const hashParams = new URLSearchParams(rawHash);
           const accessToken = hashParams.get('access_token');
@@ -44,18 +68,22 @@ export default function AuthGate({ children }) {
               access_token: accessToken,
               refresh_token: refreshToken,
             });
+            if (error && active) {
+              setMessage(`Google 세션 저장 실패: ${error.message}`);
+            }
             if (!error && active) {
               setSession(data.session ?? null);
             }
           }
 
-          // URL에 토큰이 남지 않게 즉시 제거
           window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
         }
 
         const { data } = await supabase.auth.getSession();
         if (!active) return;
         setSession(data.session ?? null);
+      } catch (err) {
+        if (active) setMessage(err?.message || '로그인 상태 초기화 중 오류가 발생했어요.');
       } finally {
         if (active) setLoading(false);
       }
