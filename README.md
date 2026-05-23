@@ -76,35 +76,3 @@ src/
 ## 🔑 OpenAI API 키
 
 좌측 사이드바 상단에 입력. `localStorage`에만 저장되며 외부 전송 없음.
-
-## 🔐 로그인(Supabase) 빠른 설정
-
-앱은 Supabase 환경변수가 설정되면 로그인 화면을 먼저 보여줍니다.
-환경변수가 없으면 기존처럼 바로 편집 화면으로 진입합니다.
-
-### 1) Supabase 프로젝트 만들기
-- Supabase에서 새 프로젝트 생성
-- **Project URL** / **anon public key** 복사
-
-### 2) 로컬 `.env.local` 만들기
-
-```bash
-VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-```
-
-### 3) 실행
-
-```bash
-npm run dev
-```
-
-### 4) 배포 환경에서도 같은 값 등록
-- Vercel/Cloudflare Pages 환경변수에 위 2개 키 등록
-- 운영 환경에서 API 키를 코드에 직접 넣지 말고 환경변수로 관리
-
-### 5) Google 로그인 사용 시
-- Supabase Auth > Providers > Google 활성화
-- Redirect URL에 배포 도메인/로컬 도메인 등록
-  - 예: `http://localhost:3000`
-  - 예: `https://your-domain.com`
