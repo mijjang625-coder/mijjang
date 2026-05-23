@@ -122,6 +122,7 @@ export default function InlineFreeImage({
     inlineMoveRef.current = {
       startY: e.clientY,
       lastY: e.clientY,
+      moved: false,
     };
     setMovingInline(true);
   };
@@ -338,7 +339,8 @@ export default function InlineFreeImage({
   useEffect(() => {
     if (!movingInline) return;
 
-    const STEP = 42;
+    const STEP = 24;
+    const MIN_TOTAL_STEP = 10;
     const onMove = (e) => {
       const st = inlineMoveRef.current;
       if (!st) return;
@@ -346,12 +348,20 @@ export default function InlineFreeImage({
       if (dy <= -STEP) {
         onMoveUp();
         st.lastY = e.clientY;
+        st.moved = true;
       } else if (dy >= STEP) {
         onMoveDown();
         st.lastY = e.clientY;
+        st.moved = true;
       }
     };
-    const onUp = () => {
+    const onUp = (e) => {
+      const st = inlineMoveRef.current;
+      if (st && !st.moved) {
+        const totalDy = e.clientY - st.startY;
+        if (totalDy <= -MIN_TOTAL_STEP) onMoveUp();
+        else if (totalDy >= MIN_TOTAL_STEP) onMoveDown();
+      }
       setMovingInline(false);
       inlineMoveRef.current = null;
     };
