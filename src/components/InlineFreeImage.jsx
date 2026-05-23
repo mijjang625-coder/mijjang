@@ -109,11 +109,15 @@ export default function InlineFreeImage({
   };
 
   const handleInlineMoveStart = (e) => {
-    if (!editMode || !isActive) return;
+    if (!editMode) return;
     if (mode !== 'idle') return;
     if (e.button !== 0) return;
     if (e.target.closest?.('[data-handle]')) return;
     if (e.target.closest?.('button,input,textarea,[contenteditable="true"]')) return;
+
+    // 첫 드래그에서도 바로 이동되도록 활성화 조건을 강제하지 않음
+    announceEditorSelection(`inline-image:${item.id}`);
+    onActivate();
 
     inlineMoveRef.current = {
       startY: e.clientY,
