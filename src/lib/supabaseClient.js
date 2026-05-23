@@ -5,13 +5,25 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey, {
+// Vite HMR + React StrictMode 환경에서 클라이언트 중복 생성 방지
+const SUPABASE_SINGLETON_KEY = '__coupang_supabase_client_v1__';
+
+function getSupabaseSingleton() {
+  if (!isSupabaseConfigured) return null;
+
+  const store = globalThis;
+  if (!store[SUPABASE_SINGLETON_KEY]) {
+    store[SUPABASE_SINGLETON_KEY] = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        flowType: 'implicit',
+        flowType: 'pkce',
       },
-    })
-  : null;
+    });
+  }
+
+  return store[SUPABASE_SINGLETON_KEY];
+}
+
+export const supabase = getSupabaseSingleton();

@@ -41,10 +41,17 @@ export default function AuthGate({ children }) {
 
         // PKCE(code) 플로우 지원
         if (oauthCode) {
-          const { error } = await supabase.auth.exchangeCodeForSession(oauthCode);
-          if (error && active) {
-            setMessage(`Google 로그인 오류: ${error.message}`);
+          const doneKey = `oauth-exchanged:${oauthCode}`;
+          const alreadyDone = sessionStorage.getItem(doneKey) === '1';
+
+          if (!alreadyDone) {
+            const { error } = await supabase.auth.exchangeCodeForSession(oauthCode);
+            if (error && active) {
+              setMessage(`Google 로그인 오류: ${error.message}`);
+            }
+            sessionStorage.setItem(doneKey, '1');
           }
+
           window.history.replaceState({}, document.title, window.location.pathname);
         }
 
@@ -83,7 +90,9 @@ export default function AuthGate({ children }) {
         if (!active) return;
         setSession(data.session ?? null);
       } catch (err) {
-        if (active) setMessage(err?.message || '로그인 상태 초기화 중 오류가 발생했어요.');
+        if (active) {
+          setMessage(err?.message || '로그인 상태 초기화 중 오류가 발생했어요.');
+        }
       } finally {
         if (active) setLoading(false);
       }
