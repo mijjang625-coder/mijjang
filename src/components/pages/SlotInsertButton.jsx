@@ -29,16 +29,16 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
       height: 0,
       pointerEvents: 'none',
       margin: 0,
-      zIndex: 30,
+      zIndex: 120,
     }}>
       <button
         onClick={() => setOpen((s) => !s)}
         style={{
           position: 'absolute',
-          right: 18,
-          top: slot === 'bottom' || isBetweenSlot ? -8 : 56,
-          width: 30,
-          height: 30,
+          right: 12,
+          top: slot === 'bottom' ? -10 : isBetweenSlot ? -22 : 56,
+          width: 36,
+          height: 36,
           border: '1.5px dashed #94a3b8',
           backgroundColor: open ? '#dbeafe' : '#f8fafc',
           color: '#475569',
@@ -52,8 +52,8 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
           lineHeight: 1,
           transition: 'background-color 0.15s, border-color 0.15s',
           pointerEvents: 'auto',
-          zIndex: 31,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+          zIndex: 120001,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
         }}
         title={label}
         aria-label={label}
