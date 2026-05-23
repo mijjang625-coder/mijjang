@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient.js';
 
 const inputClass =
@@ -11,6 +11,7 @@ export default function AuthGate({ children }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const authBootstrappedRef = useRef(false);
 
   const userEmail = useMemo(() => session?.user?.email || '', [session]);
 
@@ -22,11 +23,82 @@ export default function AuthGate({ children }) {
 
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session ?? null);
-      setLoading(false);
-    });
+    const bootstrapAuth = async () => {
+      // React StrictMode(개발)에서 effect가 2번 실행되는 문제 방지
+      if (authBootstrappedRef.current) {
+        const { data } = await supabase.auth.getSession();
+        if (active) {
+          setSession(data.session ?? null);
+          setLoading(false);
+        }
+        return;
+      }
+      authBootstrappedRef.current = true;
+
+      try {
+        const url = new URL(window.location.href);
+        const oauthCode = url.searchParams.get('code');
+
+        // PKCE(code) 플로우 지원
+        if (oauthCode) {
+          const doneKey = `oauth-exchanged:${oauthCode}`;
+          const alreadyDone = sessionStorage.getItem(doneKey) === '1';
+
+          if (!alreadyDone) {
+            const { error } = await supabase.auth.exchangeCodeForSession(oauthCode);
+            if (error && active) {
+              setMessage(`Google 로그인 오류: ${error.message}`);
+            }
+            sessionStorage.setItem(doneKey, '1');
+          }
+
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        const rawHash = window.location.hash?.startsWith('#')
+          ? window.location.hash.slice(1)
+          : '';
+
+        // Implicit(hash) 플로우 지원
+        if (rawHash && (rawHash.includes('access_token=') || rawHash.includes('error='))) {
+          const hashParams = new URLSearchParams(rawHash);
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          const oauthError = hashParams.get('error_description') || hashParams.get('error');
+
+          if (oauthError && active) {
+            setMessage(`Google 로그인 오류: ${decodeURIComponent(oauthError)}`);
+          }
+
+          if (accessToken && refreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error && active) {
+              setMessage(`Google 세션 저장 실패: ${error.message}`);
+            }
+            if (!error && active) {
+              setSession(data.session ?? null);
+            }
+          }
+
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        }
+
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        setSession(data.session ?? null);
+      } catch (err) {
+        if (active) {
+          setMessage(err?.message || '로그인 상태 초기화 중 오류가 발생했어요.');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    bootstrapAuth();
 
     const {
       data: { subscription },
@@ -80,7 +152,7 @@ export default function AuthGate({ children }) {
     try {
       setBusy(true);
       setMessage('');
-      const redirectTo = `${window.location.origin}`;
+      const redirectTo = `${window.location.origin}${window.location.pathname}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo },
