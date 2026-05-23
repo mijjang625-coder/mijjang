@@ -509,6 +509,8 @@ export default function EditableText({
         style={{
           ...normalizedStyle,
           ...style,
+          // ✅ 편집 모드에서 이동한 위치(offset)를 비편집/PNG export에서도 동일 반영
+          transform: `translate(${offset.x}px, ${offset.y}px)`,
           // 🆕 줄바꿈(\n) 유지 — 사용자가 편집 시 입력한 엔터를 PNG/화면에서 그대로 표시
           whiteSpace: normalizedStyle.whiteSpace || 'pre-wrap',
           ...(useResizeFrame ? {
