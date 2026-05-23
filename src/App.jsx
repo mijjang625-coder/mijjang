@@ -1406,7 +1406,6 @@ export default function App() {
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
       reviewInsights, reviewAnalyzerSnapshot,
     }, filename);
-    alert('✅ 백업 파일을 다운로드했습니다.\n다른 컴퓨터에서 [백업 불러오기]로 이어서 작업할 수 있어요.');
   }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory, reviewInsights, reviewAnalyzerSnapshot]);
 
   // 수동 불러오기 (JSON 파일 입력)
@@ -2376,11 +2375,11 @@ export default function App() {
               </button>
               <button
                 onClick={handleExportProject}
-                title="컴퓨터 이동용 백업(JSON) 파일 저장"
+                title="프로젝트 JSON 파일 저장"
                 className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
               >
-                💾 백업 내보내기
+                💾 내보내기
               </button>
               <input
                 ref={fileInputRef}
@@ -2395,11 +2394,11 @@ export default function App() {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                title="다른 컴퓨터에서 가져온 백업(JSON) 파일 불러오기"
+                title="프로젝트 JSON 파일 불러오기"
                 className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
               >
-                📂 백업 불러오기
+                📂 불러오기
               </button>
               <button
                 onClick={handleClearAll}
@@ -2410,10 +2409,6 @@ export default function App() {
                 ♻️ 현재 작업 초기화
               </button>
             </div>
-            <div className="text-[10px] font-semibold px-2 py-1 rounded-md border" style={{ color: '#92400e', borderColor: '#fcd34d', backgroundColor: '#fffbeb' }}>
-              ⚠️ 현재 저장은 이 브라우저(로컬)에만 저장됩니다. PC 이동 전에는 반드시 [백업 내보내기]를 눌러주세요.
-            </div>
-
             {/* P1~P10 전체 내보내기 (PNG/HTML) */}
             <div className="relative" data-tour="export-button">
               <button

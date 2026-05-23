@@ -51,15 +51,17 @@ export default function InlineFreeImage({
   canMoveUp = true,
   canMoveDown = true,
   replaceImages = [],
-  frameRadius = 16,
+  frameRadius = 0,
 }) {
   const wrapRef = useRef(null);
+  const inlineMoveRef = useRef(null);
   const [resizing, setResizing] = useState(null);
   const [showAdjust, setShowAdjust] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
   // 🔍 크롭 모드 (더블클릭 진입)
   const [mode, setMode] = useState('idle'); // 'idle' | 'cropping'
   const [draggingCrop, setDraggingCrop] = useState(null);
+  const [movingInline, setMovingInline] = useState(false);
 
   // 🆕 다른 요소가 활성화되면 자기 조정/교체 패널 + 크롭모드 닫기
   const closeOnOtherSelect = useCallback(() => {
@@ -104,6 +106,20 @@ export default function InlineFreeImage({
       sox: offsetX,
       soy: offsetY,
     });
+  };
+
+  const handleInlineMoveStart = (e) => {
+    if (!editMode || !isActive) return;
+    if (mode !== 'idle') return;
+    if (e.button !== 0) return;
+    if (e.target.closest?.('[data-handle]')) return;
+    if (e.target.closest?.('button,input,textarea,[contenteditable="true"]')) return;
+
+    inlineMoveRef.current = {
+      startY: e.clientY,
+      lastY: e.clientY,
+    };
+    setMovingInline(true);
   };
 
   useEffect(() => {
@@ -315,6 +331,35 @@ export default function InlineFreeImage({
     };
   }, [resizing, onUpdate]);
 
+  useEffect(() => {
+    if (!movingInline) return;
+
+    const STEP = 42;
+    const onMove = (e) => {
+      const st = inlineMoveRef.current;
+      if (!st) return;
+      const dy = e.clientY - st.lastY;
+      if (dy <= -STEP) {
+        onMoveUp();
+        st.lastY = e.clientY;
+      } else if (dy >= STEP) {
+        onMoveDown();
+        st.lastY = e.clientY;
+      }
+    };
+    const onUp = () => {
+      setMovingInline(false);
+      inlineMoveRef.current = null;
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [movingInline, onMoveUp, onMoveDown]);
+
   // 좌우 정렬 → marginLeft/marginRight 자동 결정 (col flex 컨테이너)
   const containerStyle = {
     position: 'relative',
@@ -340,6 +385,7 @@ export default function InlineFreeImage({
   return (
     <div ref={wrapRef} style={containerStyle} data-inline-free="true">
       <div
+        onMouseDown={handleInlineMoveStart}
         onClick={(e) => {
           e.stopPropagation();
           if (editMode) {
@@ -373,7 +419,9 @@ export default function InlineFreeImage({
           outlineOffset: 2,
           boxShadow: editMode && isActive ? '0 4px 14px rgba(59,130,246,0.25)' : 'none',
           cursor: editMode
-            ? (mode === 'cropping' ? (draggingCrop ? 'grabbing' : 'grab') : 'pointer')
+            ? (mode === 'cropping'
+              ? (draggingCrop ? 'grabbing' : 'grab')
+              : (isActive ? (movingInline ? 'grabbing' : 'grab') : 'pointer'))
             : 'default',
         }}
       >

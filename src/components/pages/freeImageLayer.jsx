@@ -28,7 +28,7 @@ import { useEffect, useState } from 'react';
 import FreeImage from '../FreeImage.jsx';
 import FreeText from '../FreeText.jsx';
 
-const FREE_IMAGE_DEFAULT_RADIUS = 16;
+const FREE_IMAGE_DEFAULT_RADIUS = 0;
 
 export function useFreeImageLayer({
   pageKey,

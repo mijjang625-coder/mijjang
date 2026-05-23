@@ -52,6 +52,30 @@ export default function P6Material({
     size = { title: '', provingMessage: '', specs: [] },
   } = copy;
 
+  const stripHtml = (html = '') => String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim();
+
+  const resolvedSpecs = (size.specs || [])
+    .map((s, i) => {
+      const labelId = `P6.size.specs.${i}.label`;
+      const valueId = `P6.size.specs.${i}.value`;
+      const labelOverride = overrides[labelId] || {};
+      const valueOverride = overrides[valueId] || {};
+
+      const labelText = labelOverride.text !== undefined
+        ? String(labelOverride.text)
+        : (labelOverride.html ? stripHtml(labelOverride.html) : String(s?.label || ''));
+      const valueText = valueOverride.text !== undefined
+        ? String(valueOverride.text)
+        : (valueOverride.html ? stripHtml(valueOverride.html) : String(s?.value || ''));
+
+      return { i, labelId, valueId, labelText, valueText };
+    })
+    .filter((row) => editMode || row.labelText || row.valueText);
+
   const matId = 'P6.materialImage';
   const sizeId = 'P6.sizeImage';
   const mainLayers = [
@@ -252,35 +276,47 @@ export default function P6Material({
             overflow: editMode ? 'visible' : 'hidden',
           }}
         >
-          {(size.specs || []).map((s, i, arr) => (
+          {resolvedSpecs.map((row, visibleIdx) => (
             <div
-              key={i}
+              key={row.i}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1.6fr',
                 borderBottom:
-                  i === arr.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
+                  visibleIdx === resolvedSpecs.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
               }}
             >
-              <div
-                style={{
-                  padding: '16px 18px',
-                  fontSize: 22,
-                  fontWeight: 800,
-                  color: BRAND.colors.main,
-                }}
-              >
-                {s.label}
+              <div style={{ padding: '16px 18px' }}>
+                <EditableText
+                  {...editPropsFor(row.labelId)}
+                  as="div"
+                  defaultStyle={{
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: BRAND.colors.main,
+                    lineHeight: 1.4,
+                    margin: 0,
+                  }}
+                  placeholder={editMode ? '(항목명)' : ''}
+                >
+                  {row.labelText}
+                </EditableText>
               </div>
-              <div
-                style={{
-                  padding: '16px 18px',
-                  fontSize: 22,
-                  fontWeight: 500,
-                  color: BRAND.colors.text,
-                }}
-              >
-                {s.value}
+              <div style={{ padding: '16px 18px' }}>
+                <EditableText
+                  {...editPropsFor(row.valueId)}
+                  as="div"
+                  defaultStyle={{
+                    fontSize: 22,
+                    fontWeight: 500,
+                    color: BRAND.colors.text,
+                    lineHeight: 1.45,
+                    margin: 0,
+                  }}
+                  placeholder={editMode ? '(설명)' : ''}
+                >
+                  {row.valueText}
+                </EditableText>
               </div>
             </div>
           ))}
