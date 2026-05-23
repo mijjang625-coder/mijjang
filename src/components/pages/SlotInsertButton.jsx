@@ -12,6 +12,7 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
   const ref = useRef(null);
   const valid = (allImages || []).filter(Boolean);
   const openUpward = slot === 'bottom';
+  const isBetweenSlot = String(slot || '').startsWith('between-');
 
   // 외부 클릭 시 닫기
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function SlotInsertButton({ slot, onInsert, allImages = [], label
         style={{
           position: 'absolute',
           right: 18,
-          top: slot === 'bottom' ? -8 : 56,
+          top: slot === 'bottom' || isBetweenSlot ? -8 : 56,
           width: 30,
           height: 30,
           border: '1.5px dashed #94a3b8',
