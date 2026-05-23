@@ -1515,6 +1515,24 @@ export default function App() {
     }
   }, [activeProjectId, applyProjectState, getPersistableSnapshot, projectsMeta]);
 
+  const handleRenameProject = useCallback(() => {
+    const target = projectsMeta.find((it) => it.id === activeProjectId);
+    if (!target) return;
+    const input = window.prompt('작업 이름을 수정하세요.', target.name || '');
+    if (input == null) return;
+    const name = input.trim();
+    if (!name) {
+      alert('작업 이름은 비워둘 수 없습니다.');
+      return;
+    }
+    const now = Date.now();
+    const next = sortProjectsByRecent(projectsMeta.map((it) => (
+      it.id === activeProjectId ? { ...it, name, updatedAt: now } : it
+    )));
+    setProjectsMeta(next);
+    try { localStorage.setItem(PROJECTS_INDEX_KEY, JSON.stringify(next)); } catch {}
+  }, [activeProjectId, projectsMeta]);
+
   const handleDeleteProject = useCallback(async () => {
     if (projectsMeta.length <= 1) {
       alert('최소 1개의 작업은 유지되어야 합니다.');
@@ -2347,9 +2365,10 @@ export default function App() {
               <select
                 value={activeProjectId}
                 onChange={(e) => { switchProjectById(e.target.value); }}
+                onDoubleClick={handleRenameProject}
                 className="px-2 py-1.5 rounded-md text-[11px] font-bold"
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4', backgroundColor: '#fff', maxWidth: 190 }}
-                title="작업 목록"
+                title="작업 목록 (더블클릭: 현재 작업 이름 수정)"
               >
                 {projectsMeta.map((project) => (
                   <option key={project.id} value={project.id}>
@@ -2364,6 +2383,14 @@ export default function App() {
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
               >
                 ➕ 새 작업
+              </button>
+              <button
+                onClick={handleRenameProject}
+                title="현재 작업 이름 수정"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
+              >
+                ✏️ 이름 변경
               </button>
               <button
                 onClick={handleDeleteProject}

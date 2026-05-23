@@ -109,15 +109,20 @@ export default function InlineFreeImage({
   };
 
   const handleInlineMoveStart = (e) => {
-    if (!editMode || !isActive) return;
+    if (!editMode) return;
     if (mode !== 'idle') return;
     if (e.button !== 0) return;
     if (e.target.closest?.('[data-handle]')) return;
     if (e.target.closest?.('button,input,textarea,[contenteditable="true"]')) return;
 
+    // 첫 드래그에서도 바로 이동되도록 활성화 조건을 강제하지 않음
+    announceEditorSelection(`inline-image:${item.id}`);
+    onActivate();
+
     inlineMoveRef.current = {
       startY: e.clientY,
       lastY: e.clientY,
+      moved: false,
     };
     setMovingInline(true);
   };
@@ -334,7 +339,8 @@ export default function InlineFreeImage({
   useEffect(() => {
     if (!movingInline) return;
 
-    const STEP = 42;
+    const STEP = 24;
+    const MIN_TOTAL_STEP = 10;
     const onMove = (e) => {
       const st = inlineMoveRef.current;
       if (!st) return;
@@ -342,12 +348,20 @@ export default function InlineFreeImage({
       if (dy <= -STEP) {
         onMoveUp();
         st.lastY = e.clientY;
+        st.moved = true;
       } else if (dy >= STEP) {
         onMoveDown();
         st.lastY = e.clientY;
+        st.moved = true;
       }
     };
-    const onUp = () => {
+    const onUp = (e) => {
+      const st = inlineMoveRef.current;
+      if (st && !st.moved) {
+        const totalDy = e.clientY - st.startY;
+        if (totalDy <= -MIN_TOTAL_STEP) onMoveUp();
+        else if (totalDy >= MIN_TOTAL_STEP) onMoveDown();
+      }
       setMovingInline(false);
       inlineMoveRef.current = null;
     };
