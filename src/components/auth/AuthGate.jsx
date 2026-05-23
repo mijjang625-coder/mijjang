@@ -22,11 +22,46 @@ export default function AuthGate({ children }) {
 
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session ?? null);
-      setLoading(false);
-    });
+    const bootstrapAuth = async () => {
+      try {
+        const rawHash = window.location.hash?.startsWith('#')
+          ? window.location.hash.slice(1)
+          : '';
+
+        // OAuth 콜백 해시를 수동 처리해 세션 누락 레이스를 방지
+        if (rawHash && (rawHash.includes('access_token=') || rawHash.includes('error='))) {
+          const hashParams = new URLSearchParams(rawHash);
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          const oauthError = hashParams.get('error_description') || hashParams.get('error');
+
+          if (oauthError && active) {
+            setMessage(`Google 로그인 오류: ${decodeURIComponent(oauthError)}`);
+          }
+
+          if (accessToken && refreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (!error && active) {
+              setSession(data.session ?? null);
+            }
+          }
+
+          // URL에 토큰이 남지 않게 즉시 제거
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        }
+
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        setSession(data.session ?? null);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    bootstrapAuth();
 
     const {
       data: { subscription },
@@ -80,7 +115,7 @@ export default function AuthGate({ children }) {
     try {
       setBusy(true);
       setMessage('');
-      const redirectTo = `${window.location.origin}`;
+      const redirectTo = `${window.location.origin}${window.location.pathname}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo },
