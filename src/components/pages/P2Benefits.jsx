@@ -307,6 +307,7 @@ export default function P2Benefits({
                       {...editPropsFor(`P2.sections.${i}.desc`)}
                       as="p"
                       enableResizeHandle
+                      lockDragWhenResizeHandle={false}
                       minResizeHeight={34}
                       defaultStyle={{
                         fontSize: 22,

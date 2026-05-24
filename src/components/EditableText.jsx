@@ -97,6 +97,7 @@ export default function EditableText({
   placeholder = '',
   enableResizeHandle = false,
   minResizeHeight = 0,
+  lockDragWhenResizeHandle = true,
 }) {
   const ref = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -386,9 +387,9 @@ export default function EditableText({
   const handleMouseDown = (e) => {
     if (isEditing) return;
     if (!draggable) return;
-    // 세로 리사이즈 핸들을 켠 텍스트 박스(P2 desc)는
-    // 드래그 이동보다 높이 조절이 우선이므로 이동 시작을 막는다.
-    if (enableResizeHandle) return;
+    // 리사이즈 핸들을 켠 텍스트 박스는 필요 시 드래그 잠금을 유지
+    // (기본값 true, 페이지별로 해제 가능)
+    if (enableResizeHandle && lockDragWhenResizeHandle) return;
     if (e.target.closest('[data-toolbar]')) return;
 
     // 더블클릭(편집 진입)과 충돌하지 않도록 다중 클릭에서는 드래그 시작 금지
