@@ -504,34 +504,47 @@ export default function App() {
     }));
   };
 
-  // 자유 이미지 추가 (자유 위치 — slot=null)
-  // - 페이지 우상단의 "사진 추가" 버튼으로 추가되는 사진은 자유 위치 모드로 들어감
-  // - 페이지 위쪽(본문 시작 부분)에 가운데 정렬로 추가 — 사용자가 드래그로 원하는 위치로 이동
+  // 사진 추가 (기본: 본문 밀림형)
+  // - P2/P7/P9: 기존 슬롯 시스템(bottom)으로 인라인 삽입
+  // - 그 외(useFreeImageLayer 기반 페이지): __flow__ 슬롯으로 본문 아래 인라인 삽입
+  // - P1: 기존 자유 배치 유지(slot=null)
   const addFreeImage = (pageNum, src) => {
     pushHistory(`${pageNum} 사진 추가`);
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
       const id = 'free_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-      const NEW_W = 480;
-      const NEW_H = 360;
       const PAGE_W = 780;
+
+      const supportsInlineSlot = pageNum === 'P2' || pageNum === 'P7' || pageNum === 'P9';
+      const flowSlot = supportsInlineSlot ? 'bottom' : (pageNum === 'P1' ? null : '__flow__');
+
+      // 밀림형(인라인) 기본 크기
+      const NEW_W = flowSlot ? 700 : 480;
+      const NEW_H = flowSlot ? 460 : 360;
       const x = Math.round((PAGE_W - NEW_W) / 2);
 
-      // 🆕 페이지 위쪽(y=120)에 추가 — 본문 위에 자연스럽게 겹쳐서 보임
-      // 같은 위치에 이미 사진이 있으면 비스듬히 쌓아서 겹침 표시
+      // 자유 배치(P1)일 때만 기존 겹침 배치 로직 적용
       const freeOnly = list.filter((it) => !it.slot);
       const BASE_Y = 120;
       let y = BASE_Y;
-      const occupied = freeOnly.filter((it) => Math.abs((it.y || 0) - y) < 50).length;
-      y = BASE_Y + occupied * 30;
-      const xOffset = occupied * 30;
+      if (!flowSlot) {
+        const occupied = freeOnly.filter((it) => Math.abs((it.y || 0) - y) < 50).length;
+        y = BASE_Y + occupied * 30;
+      }
+      const xOffset = !flowSlot
+        ? freeOnly.filter((it) => Math.abs((it.y || 0) - BASE_Y) < 50).length * 30
+        : 0;
 
       const newItem = {
-        id, src,
+        id,
+        src,
         x: x + xOffset,
-        y, w: NEW_W, h: NEW_H,
-        crop: null, zIndex: 80 + list.length,
-        slot: null, // 자유 위치
+        y,
+        w: NEW_W,
+        h: NEW_H,
+        crop: null,
+        zIndex: 80 + list.length,
+        slot: flowSlot,
       };
       return { ...prev, [pageNum]: [...list, newItem] };
     });

@@ -361,6 +361,7 @@ export default function P2Benefits({
         {renderSlot('bottom')}
       </div>
 
+      {layer.renderFlowImages?.()}
       {layer.renderFreeImages()}
       {layer.renderFreeTexts()}
       {layer.renderOverlay()}

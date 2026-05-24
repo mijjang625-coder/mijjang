@@ -524,6 +524,7 @@ export default function P5Compare({
         </div>
       </div>
 
+      {layer.renderFlowImages?.()}
       {layer.renderFreeImages()}
       {layer.renderFreeTexts()}
       {layer.renderOverlay()}

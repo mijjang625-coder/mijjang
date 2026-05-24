@@ -264,6 +264,7 @@ export default function P7Lifestyle({
         </div>
       </div>
 
+      {layer.renderFlowImages?.()}
       {layer.renderFreeImages()}
       {layer.renderFreeTexts()}
       {layer.renderOverlay()}
