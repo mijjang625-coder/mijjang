@@ -383,6 +383,19 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, showToolbar, mergedHtml]);
 
+  const isResizeHandleHotzone = (e) => {
+    if (!enableResizeHandle) return false;
+    if (!ref.current) return false;
+
+    const rect = ref.current.getBoundingClientRect();
+    const RESIZE_GUARD_X = 28;
+    const RESIZE_GUARD_Y = 20;
+
+    const nearRightEdge = e.clientX >= rect.right - RESIZE_GUARD_X;
+    const nearBottomEdge = e.clientY >= rect.bottom - RESIZE_GUARD_Y;
+    return nearRightEdge && nearBottomEdge;
+  };
+
   // ─────────── 드래그 이동 (임계값 기반) ───────────
   const handleMouseDown = (e) => {
     if (isEditing) return;
@@ -390,6 +403,8 @@ export default function EditableText({
     // 리사이즈 핸들을 켠 텍스트 박스는 필요 시 드래그 잠금을 유지
     // (기본값 true, 페이지별로 해제 가능)
     if (enableResizeHandle && lockDragWhenResizeHandle) return;
+    // 리사이즈 핸들 근처(우하단)에서 시작한 입력은 이동이 아니라 리사이즈로 간주
+    if (isResizeHandleHotzone(e)) return;
     if (e.target.closest('[data-toolbar]')) return;
 
     // 더블클릭(편집 진입)과 충돌하지 않도록 다중 클릭에서는 드래그 시작 금지
