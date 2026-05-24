@@ -58,21 +58,6 @@ const PAGE_TITLES = {
 const PROJECTS_INDEX_KEY = 'coupang_agent_projects_index_v1';
 const CURRENT_PROJECT_ID_KEY = 'coupang_agent_current_project_id_v1';
 const DEFAULT_PROJECT_ID = 'default';
-const MANUAL_BACKUP_TS_KEY = 'coupang_agent_last_manual_backup_v1';
-const BACKUP_REMINDER_INTERVAL_MS = 10 * 60 * 1000; // 10분
-
-function getManualBackupStorageKey(projectId = DEFAULT_PROJECT_ID) {
-  if (!projectId || projectId === DEFAULT_PROJECT_ID) return MANUAL_BACKUP_TS_KEY;
-  return `${MANUAL_BACKUP_TS_KEY}__${projectId}`;
-}
-
-function formatHourMinute(ts) {
-  if (!ts) return '-';
-  const d = new Date(ts);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
 
 function makeProjectMeta(id, name) {
   const ts = Date.now();
@@ -1281,9 +1266,6 @@ export default function App() {
   const [hydrated, setHydrated] = useState(false);     // 첫 로드 완료 여부
   const [lastSavedAt, setLastSavedAt] = useState(null); // 마지막 자동 저장 시각
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
-  const [lastManualBackupAt, setLastManualBackupAt] = useState(null); // 마지막 JSON 수동 백업 시각
-  const backupReminderDirtySinceRef = useRef(null);
-  const backupReminderLastAlertAtRef = useRef(null);
 
   const applyProjectState = useCallback((saved) => {
     if (saved?.brief) setBrief(saved.brief);
@@ -1380,17 +1362,6 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
-  // 프로젝트 전환 시 마지막 수동 백업 시각 로드
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      const raw = localStorage.getItem(getManualBackupStorageKey(activeProjectId));
-      setLastManualBackupAt(raw ? parseInt(raw, 10) : null);
-    } catch {
-      setLastManualBackupAt(null);
-    }
-  }, [hydrated, activeProjectId]);
-
   // 과거 P2 유령 요소(얇은 사각형/빈 세로 글박스) 1회 정리
   useEffect(() => {
     if (!hydrated) return;
@@ -1467,13 +1438,7 @@ export default function App() {
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
       reviewInsights, reviewAnalyzerSnapshot,
     }, filename);
-
-    const ts = Date.now();
-    setLastManualBackupAt(ts);
-    try {
-      localStorage.setItem(getManualBackupStorageKey(activeProjectId), String(ts));
-    } catch {}
-  }, [activeProjectId, brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory, reviewInsights, reviewAnalyzerSnapshot]);
+  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory, reviewInsights, reviewAnalyzerSnapshot]);
 
   // 수동 불러오기 (JSON 파일 입력)
   const fileInputRef = useRef(null);
@@ -2265,15 +2230,40 @@ export default function App() {
     }
   };
 
+  // 🆕 PNG/HTML 내보내기 직전, 현재 편집 중인 contentEditable을 강제 commit.
+  // - 사용자가 텍스트 박스 커서를 둔 채 바로 내보내기를 누르면 onBlur 저장 타이밍이
+  //   캡처보다 늦어 화면(PNG) 불일치가 발생할 수 있어 사전 동기화.
+  const flushPendingEditsForExport = useCallback(async () => {
+    try {
+      // 현재 포커스된 편집 요소 blur → EditableText.onBlur 트리거
+      const activeEl = document.activeElement;
+      if (activeEl && typeof activeEl.blur === 'function') activeEl.blur();
+
+      // 안전망: contentEditable=true 요소가 남아있다면 전부 blur 시도
+      const editingNodes = Array.from(document.querySelectorAll('[contenteditable="true"]'));
+      editingNodes.forEach((node) => {
+        if (typeof node.blur === 'function') node.blur();
+      });
+
+      // React state 반영 + 레이아웃 안정화 2프레임 대기
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      await new Promise((r) => requestAnimationFrame(() => r()));
+    } catch {
+      // export는 계속 진행 (동기화 실패가 내보내기 자체를 막지 않도록)
+    }
+  }, []);
+
   // 다운로드
   const handleDownloadImage = async (pageNumber) => {
     try {
+      await flushPendingEditsForExport();
       const node = pageRefs[pageNumber].current;
       await downloadAsImage(node, `${brief.productName || 'product'}-${pageNumber}.png`);
     } catch (err) { setError(err.message); }
   };
-  const handleDownloadHtml = (pageNumber) => {
+  const handleDownloadHtml = async (pageNumber) => {
     try {
+      await flushPendingEditsForExport();
       const node = pageRefs[pageNumber].current;
       downloadAsHtml(node, `${brief.productName || 'product'}-${pageNumber}.html`);
     } catch (err) { setError(err.message); }
@@ -2302,6 +2292,7 @@ export default function App() {
 
   const handleExportAllSinglePng = async () => {
     try {
+      await flushPendingEditsForExport();
       setShowExportPanel(true);
       setExportProgress({ done: 0, total: 1, label: '준비 중...' });
       const list = await collectAllPageNodes();
@@ -2313,6 +2304,7 @@ export default function App() {
 
   const handleExportAllSeparate = async () => {
     try {
+      await flushPendingEditsForExport();
       setShowExportPanel(true);
       setExportProgress({ done: 0, total: 1, label: '준비 중...' });
       const list = await collectAllPageNodes();
@@ -2324,6 +2316,7 @@ export default function App() {
 
   const handleExportAllHtml = async () => {
     try {
+      await flushPendingEditsForExport();
       setShowExportPanel(true);
       setExportProgress({ done: 0, total: 1, label: 'HTML 생성 중...' });
       const list = await collectAllPageNodes();
@@ -2339,60 +2332,6 @@ export default function App() {
     P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),
     P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
   };
-
-  const hasChangesAfterBackup = !!lastSavedAt && (!lastManualBackupAt || lastSavedAt > lastManualBackupAt);
-
-  // 변경이 백업 이후 계속되는 구간 추적 (10분 주기 알림 기준점)
-  useEffect(() => {
-    if (!hydrated) return;
-    if (hasChangesAfterBackup) {
-      if (!backupReminderDirtySinceRef.current) {
-        backupReminderDirtySinceRef.current = Date.now();
-      }
-      return;
-    }
-    backupReminderDirtySinceRef.current = null;
-    backupReminderLastAlertAtRef.current = null;
-  }, [hydrated, hasChangesAfterBackup]);
-
-  // 백업 필요 상태가 10분 이상 지속되면 주기적으로 리마인드 팝업
-  useEffect(() => {
-    if (!hydrated) return;
-    const timer = setInterval(() => {
-      if (!hasChangesAfterBackup) return;
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-
-      const dirtySince = backupReminderDirtySinceRef.current || Date.now();
-      const now = Date.now();
-      const elapsedFromDirty = now - dirtySince;
-      const elapsedFromLastAlert = backupReminderLastAlertAtRef.current
-        ? now - backupReminderLastAlertAtRef.current
-        : Number.POSITIVE_INFINITY;
-
-      if (elapsedFromDirty < BACKUP_REMINDER_INTERVAL_MS) return;
-      if (elapsedFromLastAlert < BACKUP_REMINDER_INTERVAL_MS) return;
-
-      backupReminderLastAlertAtRef.current = now;
-      const shouldBackupNow = window.confirm(
-        '⚠️ 백업 알림\n\n마지막 수동 백업 이후 10분 이상 변경 작업이 진행되었습니다.\n지금 JSON으로 백업하시겠어요?'
-      );
-      if (shouldBackupNow) handleExportProject();
-    }, 30000);
-
-    return () => clearInterval(timer);
-  }, [hydrated, hasChangesAfterBackup, handleExportProject]);
-
-  // 수동 백업 전에 작업이 더 진행되었다면 종료 시 경고
-  useEffect(() => {
-    const onBeforeUnload = (e) => {
-      if (!hydrated) return;
-      if (!hasChangesAfterBackup) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [hydrated, hasChangesAfterBackup]);
 
   const currentResult = pages[currentPage];
   const currentRevisionChat = revisionChats[currentPage] || [];
@@ -2467,24 +2406,6 @@ export default function App() {
               )}
               {saveStatus === 'idle' && !lastSavedAt && (
                 <span style={{ color: '#94a3b8' }}>자동 저장 대기</span>
-              )}
-            </div>
-
-            {/* 수동 백업 상태/알림 */}
-            <div className="text-[11px] font-semibold flex items-center gap-1.5" title="다른 컴퓨터 이동/브라우저 문제 대비를 위해 JSON 수동 백업을 권장합니다. 백업 필요 상태가 10분 지속되면 팝업으로 다시 안내합니다.">
-              {hasChangesAfterBackup ? (
-                <button
-                  type="button"
-                  onClick={handleExportProject}
-                  className="px-2 py-1 rounded-lg border"
-                  style={{ borderColor: '#fdba74', backgroundColor: '#fff7ed', color: '#c2410c' }}
-                >
-                  ⚠️ 백업 필요 (지금 내보내기)
-                </button>
-              ) : (
-                <span style={{ color: '#64748b' }}>
-                  🛟 백업 {formatHourMinute(lastManualBackupAt)}
-                </span>
               )}
             </div>
 
