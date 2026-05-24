@@ -205,7 +205,14 @@ export default function P3Target({
         </div>
 
         {/* 3) 체크리스트 */}
-        <div style={{ padding: '0 40px 40px', flexShrink: 0, pointerEvents: editMode ? 'auto' : 'inherit' }}>
+        <div
+          style={{
+            padding: '0 40px 40px',
+            marginTop: 18,
+            flexShrink: 0,
+            pointerEvents: editMode ? 'auto' : 'inherit',
+          }}
+        >
           <div
             style={{
               border: `2px dashed ${BRAND.colors.main}`,
