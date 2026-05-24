@@ -1,5 +1,5 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, CheckIcon, PillBadge } from './Shared.jsx';
+import { PageFrame, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
@@ -97,7 +97,31 @@ export default function P3Target({
               gap: 10,
             }}
           >
-            {badge && (<div><PillBadge>{badge}</PillBadge></div>)}
+            {badge && (
+              <div>
+                <EditableText
+                  {...editPropsFor('P3.badge')}
+                  as="span"
+                  defaultStyle={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '10px 20px',
+                    minHeight: 52,
+                    borderRadius: 12,
+                    backgroundColor: BRAND.colors.main,
+                    color: '#fff',
+                    fontSize: 22,
+                    fontWeight: 800,
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.2,
+                    verticalAlign: 'middle',
+                  }}
+                >
+                  {badge}
+                </EditableText>
+              </div>
+            )}
             <EditableText
               {...editPropsFor('P3.mainTitle')}
               as="h2"
