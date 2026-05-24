@@ -70,7 +70,7 @@ export default function FreeText({
   const [snapLine, setSnapLine] = useState(null);
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
 
-  const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0, active: false, started: false });
+  const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0, active: false, started: false, axisLock: null });
 
   // 기본값 병합
   const x = item.x ?? 50;
@@ -214,6 +214,7 @@ export default function FreeText({
       x: e.clientX, y: e.clientY,
       baseX: x, baseY: y,
       active: true, started: false,
+      axisLock: null,
       isAlt: e.altKey,  // Alt 키 기억
     };
   };
@@ -222,10 +223,10 @@ export default function FreeText({
     let altDuplicated = false; // Alt+드래그: 복제 한 번만 실행
     const onMove = (e) => {
       if (!dragStart.current.active) return;
-      const dx = e.clientX - dragStart.current.x;
-      const dy = e.clientY - dragStart.current.y;
+      const rawDx = e.clientX - dragStart.current.x;
+      const rawDy = e.clientY - dragStart.current.y;
       if (!dragStart.current.started) {
-        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        if (Math.abs(rawDx) < DRAG_THRESHOLD && Math.abs(rawDy) < DRAG_THRESHOLD) return;
         dragStart.current.started = true;
         setDragging(true);
         onDragStart(); // ← 드래그 확정 시점에 히스토리 스냅샷
@@ -235,6 +236,19 @@ export default function FreeText({
           onDuplicate(0, 0); // 원본 위치 그대로 복제
         }
       }
+
+      let dx = rawDx;
+      let dy = rawDy;
+      if (e.shiftKey) {
+        if (!dragStart.current.axisLock) {
+          dragStart.current.axisLock = Math.abs(rawDx) >= Math.abs(rawDy) ? 'x' : 'y';
+        }
+        if (dragStart.current.axisLock === 'x') dy = 0;
+        else dx = 0;
+      } else {
+        dragStart.current.axisLock = null;
+      }
+
       let newX = dragStart.current.baseX + dx;
       let newY = dragStart.current.baseY + dy;
       // 좌/우/가운데 스냅
@@ -250,6 +264,7 @@ export default function FreeText({
     const onUp = () => {
       if (dragStart.current.active) {
         dragStart.current.active = false;
+        dragStart.current.axisLock = null;
         if (dragStart.current.started) setDragging(false);
       }
       setSnapLine(null);

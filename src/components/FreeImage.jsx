@@ -177,11 +177,12 @@ export default function FreeImage({
     if (!draggingPos) return;
     const DRAG_THRESHOLD = 3; // 3px 이상 움직여야 실제 드래그로 인식
     let altDuplicated = false; // Alt+드래그: 복제 한 번만 실행
+    let axisLock = null; // Shift 드래그 축 고정: 'x' | 'y' | null
     const onMove = (e) => {
-      const dx = e.clientX - draggingPos.startX;
-      const dy = e.clientY - draggingPos.startY;
+      const rawDx = e.clientX - draggingPos.startX;
+      const rawDy = e.clientY - draggingPos.startY;
       // 임계값 미만이면 아직 드래그 아님
-      if (!draggingPos.active && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      if (!draggingPos.active && Math.hypot(rawDx, rawDy) < DRAG_THRESHOLD) return;
       if (!draggingPos.active) {
         setDraggingPos((p) => ({ ...p, active: true }));
         onDragStart(); // ← 드래그 확정 시점에 히스토리 스냅샷
@@ -191,6 +192,17 @@ export default function FreeImage({
           onDuplicate(0, 0); // 원본 위치 그대로 복제 (이후 원본이 이동)
         }
       }
+
+      let dx = rawDx;
+      let dy = rawDy;
+      if (e.shiftKey) {
+        if (!axisLock) axisLock = Math.abs(rawDx) >= Math.abs(rawDy) ? 'x' : 'y';
+        if (axisLock === 'x') dy = 0;
+        else dx = 0;
+      } else {
+        axisLock = null;
+      }
+
       let nx = draggingPos.sx + dx;
       let ny = draggingPos.sy + dy;
 
@@ -203,7 +215,11 @@ export default function FreeImage({
 
       onUpdate({ x: Math.round(nx), y: Math.round(ny) });
     };
-    const onUp = () => { setDraggingPos(null); setSnapV(null); };
+    const onUp = () => {
+      axisLock = null;
+      setDraggingPos(null);
+      setSnapV(null);
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
