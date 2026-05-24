@@ -154,6 +154,7 @@ export default function P4Reviews({
         </div>
       </div>
 
+      {layer.renderFlowImages?.()}
       {layer.renderFreeImages()}
       {layer.renderFreeTexts()}
       {layer.renderOverlay()}

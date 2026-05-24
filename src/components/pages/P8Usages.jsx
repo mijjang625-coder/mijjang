@@ -166,6 +166,7 @@ export default function P8Usages({
         </div>
       </div>
 
+      {layer.renderFlowImages?.()}
       {layer.renderFreeImages()}
       {layer.renderFreeTexts()}
       {layer.renderOverlay()}

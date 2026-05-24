@@ -360,9 +360,21 @@ export default function EditableImage({
 
   useEffect(() => {
     if (!draggingFrame) return;
+    let axisLock = null; // Shift 드래그 축 고정: 'x' | 'y' | null
     const onMove = (e) => {
-      const dx = e.clientX - draggingFrame.startX;
-      const dy = e.clientY - draggingFrame.startY;
+      const rawDx = e.clientX - draggingFrame.startX;
+      const rawDy = e.clientY - draggingFrame.startY;
+
+      let dx = rawDx;
+      let dy = rawDy;
+      if (e.shiftKey) {
+        if (!axisLock) axisLock = Math.abs(rawDx) >= Math.abs(rawDy) ? 'x' : 'y';
+        if (axisLock === 'x') dy = 0;
+        else dx = 0;
+      } else {
+        axisLock = null;
+      }
+
       let nx = draggingFrame.startFx + dx;
       let ny = draggingFrame.startFy + dy;
 
@@ -388,7 +400,11 @@ export default function EditableImage({
         },
       });
     };
-    const onUp = () => { setDraggingFrame(null); setSnapLines({ v: null, h: null }); };
+    const onUp = () => {
+      axisLock = null;
+      setDraggingFrame(null);
+      setSnapLines({ v: null, h: null });
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {

@@ -441,7 +441,8 @@ export default function P10Faq({
       </div>
     </div>
 
-    {layer.renderFreeImages()}
+    {layer.renderFlowImages?.()}
+      {layer.renderFreeImages()}
     {layer.renderFreeTexts()}
     {layer.renderOverlay()}
       {/* 🟦 도형 레이어 — 페이지 위에 자유 도형 그리기 */}

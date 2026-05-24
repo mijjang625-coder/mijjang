@@ -27,6 +27,7 @@
 import { useEffect, useState } from 'react';
 import FreeImage from '../FreeImage.jsx';
 import FreeText from '../FreeText.jsx';
+import InlineFreeImage from '../InlineFreeImage.jsx';
 
 const FREE_IMAGE_DEFAULT_RADIUS = 0;
 
@@ -209,16 +210,65 @@ export function useFreeImageLayer({
     setShowPicker(false);
   };
 
-  // 자유이미지 하단 좌표 → 페이지 minHeight 자동 연장
-  const freeBottom = (freeImages || []).reduce(
-    (max, it) => Math.max(max, (it.y || 0) + (it.h || 0)),
-    0
-  );
+  // 자유이미지(absolute) 하단 좌표 → 페이지 minHeight 자동 연장
+  // slot이 있는 인라인 사진은 normal flow로 밀림 처리되므로 여기서 제외
+  const freeBottom = (freeImages || [])
+    .filter((it) => !it.slot)
+    .reduce((max, it) => Math.max(max, (it.y || 0) + (it.h || 0)), 0);
   const pageHeight = Math.max(baseHeight, freeBottom + 80);
+
+  /** 인라인 흐름 사진 렌더 (__flow__) — 본문 아래에서 자리를 차지하며 밀림 */
+  const renderFlowImages = () =>
+    (freeImages || [])
+      .filter((item) => item.slot === '__flow__')
+      .map((item) => {
+        const itemActive = isLayerActive('free', item.id);
+        if (item.hidden) {
+          return (
+            <div
+              key={item.id}
+              data-inline-flow-image-hidden="true"
+              style={{ visibility: 'hidden' }}
+              aria-hidden="true"
+            >
+              <InlineFreeImage
+                item={item}
+                editMode={false}
+                isActive={false}
+                replaceImages={validImages}
+                onUpdate={() => {}}
+                onDelete={() => {}}
+                onMoveUp={() => {}}
+                onMoveDown={() => {}}
+                onChangeLayer={() => {}}
+                frameRadius={freeImageFrameRadius}
+              />
+            </div>
+          );
+        }
+        return (
+          <InlineFreeImage
+            key={item.id}
+            item={item}
+            editMode={editMode}
+            isActive={itemActive}
+            onActivate={() => activateLayer('free', item.id)}
+            onUpdate={(partial) => onUpdateFreeImage(item.id, partial)}
+            onDelete={() => onDeleteFreeImage(item.id)}
+            onMoveUp={() => {}}
+            onMoveDown={() => {}}
+            onChangeLayer={(action) => handleLayerAction({ kind: 'free', id: item.id }, action)}
+            replaceImages={validImages}
+            frameRadius={freeImageFrameRadius}
+          />
+        );
+      });
 
   /** 자유 이미지 절대 배치 렌더 */
   const renderFreeImages = () =>
-    (freeImages || []).map((item) => {
+    (freeImages || [])
+      .filter((item) => !item.slot)
+      .map((item) => {
       const itemActive = isLayerActive('free', item.id);
       // 🆕 (2026-05-03) 레이어 숨김(hidden=true) — visibility:hidden 으로 PNG 캡처에도 반영
       if (item.hidden) {
@@ -687,6 +737,7 @@ export function useFreeImageLayer({
     clearActiveLayer,
     hasActiveLayer,
     handleLayerAction,
+    renderFlowImages,
     renderFreeImages,
     renderFreeTexts,
     renderOverlay,

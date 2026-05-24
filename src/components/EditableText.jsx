@@ -114,7 +114,7 @@ export default function EditableText({
 
   // 드래그 상태
   const [dragging, setDragging] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0, active: false, started: false });
+  const dragStart = useRef({ x: 0, y: 0, baseX: 0, baseY: 0, active: false, started: false, axisLock: null });
 
   // 현재 적용할 값 (override가 있으면 우선)
   const mergedHtml = resolveInitialHtml(override, children);
@@ -423,20 +423,34 @@ export default function EditableText({
       baseY: offset.y || 0,
       active: true,
       started: false,
+      axisLock: null,
     };
   };
 
   useEffect(() => {
     const handleMove = (e) => {
       if (!dragStart.current.active) return;
-      const dx = e.clientX - dragStart.current.x;
-      const dy = e.clientY - dragStart.current.y;
+      const rawDx = e.clientX - dragStart.current.x;
+      const rawDy = e.clientY - dragStart.current.y;
       // 임계값 넘기 전엔 단순 클릭으로 간주
       if (!dragStart.current.started) {
-        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        if (Math.abs(rawDx) < DRAG_THRESHOLD && Math.abs(rawDy) < DRAG_THRESHOLD) return;
         dragStart.current.started = true;
         setDragging(true);
       }
+
+      let dx = rawDx;
+      let dy = rawDy;
+      if (e.shiftKey) {
+        if (!dragStart.current.axisLock) {
+          dragStart.current.axisLock = Math.abs(rawDx) >= Math.abs(rawDy) ? 'x' : 'y';
+        }
+        if (dragStart.current.axisLock === 'x') dy = 0;
+        else dx = 0;
+      } else {
+        dragStart.current.axisLock = null;
+      }
+
       onChange({
         offset: {
           x: dragStart.current.baseX + dx,
@@ -447,6 +461,7 @@ export default function EditableText({
     const handleUp = () => {
       if (dragStart.current.active) {
         dragStart.current.active = false;
+        dragStart.current.axisLock = null;
         // started=true면 click handler가 자기 자신을 무시하도록 잠시 유지
         if (dragStart.current.started) {
           setDragging(false);

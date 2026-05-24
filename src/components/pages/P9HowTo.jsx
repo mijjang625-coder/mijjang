@@ -301,6 +301,7 @@ export default function P9HowTo({
         )}
       </div>
 
+      {layer.renderFlowImages?.()}
       {layer.renderFreeImages()}
       {layer.renderFreeTexts()}
       {layer.renderOverlay()}
