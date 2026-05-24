@@ -117,6 +117,8 @@ export default function P6Material({
             textAlign: 'center',
             letterSpacing: '-0.03em',
             lineHeight: 1.3,
+            paddingTop: 4,
+            paddingBottom: 2,
           }}
         >
           {material.title || '믿을 수 있는 소재'}
@@ -225,6 +227,8 @@ export default function P6Material({
             textAlign: 'center',
             letterSpacing: '-0.03em',
             lineHeight: 1.3,
+            paddingTop: 4,
+            paddingBottom: 2,
           }}
         >
           {size.title || '실제 크기 확인'}
