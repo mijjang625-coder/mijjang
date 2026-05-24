@@ -158,7 +158,9 @@ export default function P6Material({
               WebkitBoxOrient: 'vertical',
               overflow: editMode ? 'visible' : 'hidden',
               textOverflow: 'ellipsis',
-              maxHeight: editMode ? 'none' : 60,
+              // 2줄 클램프 높이를 line-height(1.55)와 맞춰 잘림 방지
+              // 22px * 1.55 * 2 ≈ 68.2px → 여유 포함 70px
+              maxHeight: editMode ? 'none' : 70,
             }}
           >
             {material.desc}

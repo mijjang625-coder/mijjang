@@ -166,6 +166,8 @@ export default function FreeImage({
       const step = e.shiftKey ? 10 : 1;
       const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
       const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      // 키 1회 이동도 Undo 1단계로 남기기 위해 이동 직전에 스냅샷
+      onDragStart();
       onUpdate({ x: Math.round(x + dx), y: Math.round(y + dy) });
     };
 
