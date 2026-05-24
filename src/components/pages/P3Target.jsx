@@ -132,6 +132,32 @@ export default function P3Target({
             >
               {mainTitle}
             </EditableText>
+
+            {(badgePoint || editMode) && (
+              <EditableText
+                {...editPropsFor('P3.badgePoint')}
+                as="p"
+                draggable={false}
+                enableResizeHandle
+                minResizeHeight={34}
+                lockDragWhenResizeHandle
+                defaultStyle={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: BRAND.colors.text,
+                  margin: '4px 0 0',
+                  textAlign: 'center',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.45,
+                  whiteSpace: 'pre-line',
+                  display: 'block',
+                  overflow: 'hidden',
+                }}
+                placeholder="보조 설명 문구를 입력하세요"
+              >
+                {badgePoint}
+              </EditableText>
+            )}
           </div>
         </div>
 
