@@ -202,7 +202,10 @@ export function useFreeImageLayer({
       if (!file.type.startsWith('image/')) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
-        if (ev.target?.result) onAddFreeImage(ev.target.result);
+        if (ev.target?.result) {
+          const hint = getViewportPlacementHint(480, 360);
+          onAddFreeImage(ev.target.result, hint);
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -216,6 +219,43 @@ export function useFreeImageLayer({
     .filter((it) => !it.slot)
     .reduce((max, it) => Math.max(max, (it.y || 0) + (it.h || 0)), 0);
   const pageHeight = Math.max(baseHeight, freeBottom + 80);
+
+  // 현재 보고 있는 화면(뷰포트 중앙) 기준으로 새 요소 좌표 계산
+  // - 사진/글박스 추가 시 "맨 위"가 아니라 현재 보는 위치에 생성되도록 사용.
+  const getViewportPlacementHint = (itemW, itemH) => {
+    if (typeof window === 'undefined') return null;
+    const pages = Array.from(document.querySelectorAll('.coupang-page'));
+    if (!pages.length) return null;
+
+    // 화면에 가장 크게 보이는 페이지를 선택 (split 모드에선 보통 PC 프레임이 선택됨)
+    let best = null;
+    let bestVisibleArea = -1;
+    for (const el of pages) {
+      const r = el.getBoundingClientRect();
+      const vw = Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
+      const vh = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0));
+      const area = vw * vh;
+      if (area > bestVisibleArea) {
+        bestVisibleArea = area;
+        best = { el, rect: r };
+      }
+    }
+    if (!best || bestVisibleArea <= 0) return null;
+
+    const pageRect = best.rect;
+    const visibleTop = Math.max(pageRect.top, 0);
+    const visibleBottom = Math.min(pageRect.bottom, window.innerHeight);
+    const visibleCenterY = (visibleTop + visibleBottom) / 2;
+
+    const rawX = (780 - itemW) / 2;
+    const rawY = visibleCenterY - pageRect.top - (itemH / 2);
+    const maxX = Math.max(0, 780 - itemW);
+
+    return {
+      x: Math.max(0, Math.min(maxX, Math.round(rawX))),
+      y: Math.max(0, Math.round(rawY)),
+    };
+  };
 
   /** 인라인 흐름 사진 렌더 (__flow__) — 본문 아래에서 자리를 차지하며 밀림 */
   const renderFlowImages = () =>
@@ -385,7 +425,10 @@ export function useFreeImageLayer({
 
         {/* 📝 글박스 추가 — top:268 (간격 50px) */}
         <button
-          onClick={() => onAddFreeText()}
+          onClick={() => {
+            const hint = getViewportPlacementHint(280, 60);
+            onAddFreeText(hint);
+          }}
           style={{
             position: 'fixed', right: 8, top: 268, zIndex: 100000,
             backgroundColor: '#f59e0b', color: '#fff', border: '2px solid #fff',
@@ -703,7 +746,11 @@ export function useFreeImageLayer({
                   {validImages.map((src, idx) => (
                     <button
                       key={idx}
-                      onClick={() => { onAddFreeImage(src); setShowPicker(false); }}
+                      onClick={() => {
+                        const hint = getViewportPlacementHint(480, 360);
+                        onAddFreeImage(src, hint);
+                        setShowPicker(false);
+                      }}
                       style={{
                         border: '1px solid #e2ddd4', borderRadius: 6, padding: 0, overflow: 'hidden',
                         cursor: 'pointer', aspectRatio: '1 / 1', backgroundColor: '#f3f4f6',

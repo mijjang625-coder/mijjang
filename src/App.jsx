@@ -508,7 +508,8 @@ export default function App() {
   // - P2/P7/P9: 기존 슬롯 시스템(bottom)으로 인라인 삽입
   // - 그 외(useFreeImageLayer 기반 페이지): __flow__ 슬롯으로 본문 아래 인라인 삽입
   // - P1: 기존 자유 배치 유지(slot=null)
-  const addFreeImage = (pageNum, src) => {
+  // - positionHint가 있으면 현재 보고 있는 화면 위치 근처에 자유 배치(slot=null)로 생성
+  const addFreeImage = (pageNum, src, positionHint = null) => {
     pushHistory(`${pageNum} 사진 추가`);
     setFreeImages((prev) => {
       const list = prev[pageNum] || [];
@@ -516,29 +517,39 @@ export default function App() {
       const PAGE_W = 780;
 
       const supportsInlineSlot = pageNum === 'P2' || pageNum === 'P7' || pageNum === 'P9';
-      const flowSlot = supportsInlineSlot ? 'bottom' : (pageNum === 'P1' ? null : '__flow__');
+      const hasHint = !!positionHint && Number.isFinite(positionHint.x) && Number.isFinite(positionHint.y);
+      const flowSlot = hasHint ? null : (supportsInlineSlot ? 'bottom' : (pageNum === 'P1' ? null : '__flow__'));
 
       // 밀림형(인라인) 기본 크기
       const NEW_W = flowSlot ? 700 : 480;
       const NEW_H = flowSlot ? 460 : 360;
-      const x = Math.round((PAGE_W - NEW_W) / 2);
+      const centeredX = Math.round((PAGE_W - NEW_W) / 2);
 
-      // 자유 배치(P1)일 때만 기존 겹침 배치 로직 적용
+      // 자유 배치(P1 또는 hasHint)일 때는 겹침 완화 오프셋 적용
       const freeOnly = list.filter((it) => !it.slot);
       const BASE_Y = 120;
       let y = BASE_Y;
+      let x = centeredX;
       if (!flowSlot) {
-        const occupied = freeOnly.filter((it) => Math.abs((it.y || 0) - y) < 50).length;
-        y = BASE_Y + occupied * 30;
+        if (hasHint) {
+          const occupiedNearHint = freeOnly.filter(
+            (it) => Math.abs((it.x || 0) - positionHint.x) < 30 && Math.abs((it.y || 0) - positionHint.y) < 30,
+          ).length;
+          const maxX = Math.max(0, PAGE_W - NEW_W);
+          x = Math.max(0, Math.min(maxX, Math.round(positionHint.x + occupiedNearHint * 14)));
+          y = Math.max(0, Math.round(positionHint.y + occupiedNearHint * 14));
+        } else {
+          const occupied = freeOnly.filter((it) => Math.abs((it.y || 0) - y) < 50).length;
+          y = BASE_Y + occupied * 30;
+          const xOffset = freeOnly.filter((it) => Math.abs((it.y || 0) - BASE_Y) < 50).length * 30;
+          x = centeredX + xOffset;
+        }
       }
-      const xOffset = !flowSlot
-        ? freeOnly.filter((it) => Math.abs((it.y || 0) - BASE_Y) < 50).length * 30
-        : 0;
 
       const newItem = {
         id,
         src,
-        x: x + xOffset,
+        x,
         y,
         w: NEW_W,
         h: NEW_H,
@@ -604,7 +615,7 @@ export default function App() {
   // 📝 자유 글박스 추가 — "글박스 추가" 버튼으로 호출
   // - 페이지 위쪽에 기본 크기로 생성
   // - 같은 위치에 이미 글박스가 있으면 비스듬히 쌓아 겹침 표시
-  const addFreeText = (pageNum) => {
+  const addFreeText = (pageNum, positionHint = null) => {
     pushHistory(`${pageNum} 글박스 추가`);
     setFreeTexts((prev) => {
       const list = prev[pageNum] || [];
@@ -614,9 +625,17 @@ export default function App() {
       const PAGE_W = 780;
       const baseX = Math.round((PAGE_W - NEW_W) / 2);
       const BASE_Y = 100;
-      const occupied = list.filter((it) => Math.abs((it.y || 0) - BASE_Y) < 50).length;
-      const x = baseX + occupied * 30;
-      const y = BASE_Y + occupied * 30;
+      const hasHint = !!positionHint && Number.isFinite(positionHint.x) && Number.isFinite(positionHint.y);
+      const occupied = hasHint
+        ? list.filter((it) => Math.abs((it.x || 0) - positionHint.x) < 30 && Math.abs((it.y || 0) - positionHint.y) < 30).length
+        : list.filter((it) => Math.abs((it.y || 0) - BASE_Y) < 50).length;
+      const maxX = Math.max(0, PAGE_W - NEW_W);
+      const x = hasHint
+        ? Math.max(0, Math.min(maxX, Math.round(positionHint.x + occupied * 14)))
+        : (baseX + occupied * 30);
+      const y = hasHint
+        ? Math.max(0, Math.round(positionHint.y + occupied * 14))
+        : (BASE_Y + occupied * 30);
       const newItem = {
         id,
         x, y,

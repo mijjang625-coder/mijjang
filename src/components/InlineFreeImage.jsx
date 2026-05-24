@@ -52,6 +52,7 @@ export default function InlineFreeImage({
   canMoveDown = true,
   replaceImages = [],
   frameRadius = 0,
+  pageWidth = 780,
 }) {
   const wrapRef = useRef(null);
   const inlineMoveRef = useRef(null);
@@ -125,6 +126,27 @@ export default function InlineFreeImage({
       moved: false,
     };
     setMovingInline(true);
+  };
+
+  // 인라인(밀림형) 사진을 자유 배치(절대좌표)로 변환
+  // - 사용자가 '+'로 넣은 사진도 직접 드래그 이동할 수 있게 해준다.
+  const detachToFreePosition = () => {
+    const pageEl = wrapRef.current?.closest?.('.coupang-page');
+    const boxEl = wrapRef.current?.querySelector?.('[data-inline-image-box="true"]') || wrapRef.current;
+    if (!pageEl || !boxEl) {
+      onUpdate({ slot: null, x: 40, y: 120, align: 'center' });
+      return;
+    }
+
+    const pageRect = pageEl.getBoundingClientRect();
+    const boxRect = boxEl.getBoundingClientRect();
+    const rawX = boxRect.left - pageRect.left;
+    const rawY = boxRect.top - pageRect.top;
+    const maxX = Math.max(0, pageWidth - w);
+    const x = Math.max(0, Math.min(maxX, Math.round(rawX)));
+    const y = Math.max(0, Math.round(rawY));
+
+    onUpdate({ slot: null, x, y, align: 'center' });
   };
 
   useEffect(() => {
@@ -399,6 +421,7 @@ export default function InlineFreeImage({
   return (
     <div ref={wrapRef} style={containerStyle} data-inline-free="true">
       <div
+        data-inline-image-box="true"
         onMouseDown={handleInlineMoveStart}
         onClick={(e) => {
           e.stopPropagation();
@@ -547,6 +570,11 @@ export default function InlineFreeImage({
             style={btnIcon(canMoveUp ? '#0ea5e9' : '#334155')} title="본문 위로 이동">⇧</button>
           <button onClick={onMoveDown} disabled={!canMoveDown}
             style={btnIcon(canMoveDown ? '#0ea5e9' : '#334155')} title="본문 아래로 이동">⇩</button>
+          <button
+            onClick={detachToFreePosition}
+            style={btnLabel('#0f766e')}
+            title="자동 밀림을 해제하고 자유 배치로 전환 (이후 드래그 이동 가능)"
+          >🖐 자유 이동</button>
           <span style={sep} />
 
           {/* 좌우 정렬 (빠른 접근) — 2026-04-28 추가 */}
