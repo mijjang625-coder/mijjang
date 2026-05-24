@@ -208,7 +208,7 @@ export default function P3Target({
         <div
           style={{
             padding: '0 40px 40px',
-            marginTop: 18,
+            marginTop: 32,
             flexShrink: 0,
             pointerEvents: editMode ? 'auto' : 'inherit',
           }}
