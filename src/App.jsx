@@ -58,6 +58,20 @@ const PAGE_TITLES = {
 const PROJECTS_INDEX_KEY = 'coupang_agent_projects_index_v1';
 const CURRENT_PROJECT_ID_KEY = 'coupang_agent_current_project_id_v1';
 const DEFAULT_PROJECT_ID = 'default';
+const MANUAL_BACKUP_TS_KEY = 'coupang_agent_last_manual_backup_v1';
+
+function getManualBackupStorageKey(projectId = DEFAULT_PROJECT_ID) {
+  if (!projectId || projectId === DEFAULT_PROJECT_ID) return MANUAL_BACKUP_TS_KEY;
+  return `${MANUAL_BACKUP_TS_KEY}__${projectId}`;
+}
+
+function formatHourMinute(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
 
 function makeProjectMeta(id, name) {
   const ts = Date.now();
@@ -1266,6 +1280,7 @@ export default function App() {
   const [hydrated, setHydrated] = useState(false);     // 첫 로드 완료 여부
   const [lastSavedAt, setLastSavedAt] = useState(null); // 마지막 자동 저장 시각
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [lastManualBackupAt, setLastManualBackupAt] = useState(null); // 마지막 JSON 수동 백업 시각
 
   const applyProjectState = useCallback((saved) => {
     if (saved?.brief) setBrief(saved.brief);
@@ -1362,6 +1377,17 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
+  // 프로젝트 전환 시 마지막 수동 백업 시각 로드
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const raw = localStorage.getItem(getManualBackupStorageKey(activeProjectId));
+      setLastManualBackupAt(raw ? parseInt(raw, 10) : null);
+    } catch {
+      setLastManualBackupAt(null);
+    }
+  }, [hydrated, activeProjectId]);
+
   // 과거 P2 유령 요소(얇은 사각형/빈 세로 글박스) 1회 정리
   useEffect(() => {
     if (!hydrated) return;
@@ -1438,7 +1464,13 @@ export default function App() {
       textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory,
       reviewInsights, reviewAnalyzerSnapshot,
     }, filename);
-  }, [brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory, reviewInsights, reviewAnalyzerSnapshot]);
+
+    const ts = Date.now();
+    setLastManualBackupAt(ts);
+    try {
+      localStorage.setItem(getManualBackupStorageKey(activeProjectId), String(ts));
+    } catch {}
+  }, [activeProjectId, brief, images, pages, currentPage, pageVariants, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames, p5Version, revisionHistory, reviewInsights, reviewAnalyzerSnapshot]);
 
   // 수동 불러오기 (JSON 파일 입력)
   const fileInputRef = useRef(null);
@@ -2305,9 +2337,23 @@ export default function App() {
     P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
   };
 
+  // 수동 백업 전에 작업이 더 진행되었다면 종료 시 경고
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (!hydrated) return;
+      const hasChangesAfterBackup = !!lastSavedAt && (!lastManualBackupAt || lastSavedAt > lastManualBackupAt);
+      if (!hasChangesAfterBackup) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hydrated, lastSavedAt, lastManualBackupAt]);
+
   const currentResult = pages[currentPage];
   const currentRevisionChat = revisionChats[currentPage] || [];
   const completedCount = PAGE_LIST.filter((p) => pages[p] && !pages[p].needsMoreInfo).length;
+  const hasChangesAfterBackup = !!lastSavedAt && (!lastManualBackupAt || lastSavedAt > lastManualBackupAt);
 
   return (
     <div className="min-h-full" style={{ backgroundColor: '#f0ebe4' }}>
@@ -2378,6 +2424,24 @@ export default function App() {
               )}
               {saveStatus === 'idle' && !lastSavedAt && (
                 <span style={{ color: '#94a3b8' }}>자동 저장 대기</span>
+              )}
+            </div>
+
+            {/* 수동 백업 상태/알림 */}
+            <div className="text-[11px] font-semibold flex items-center gap-1.5" title="다른 컴퓨터 이동/브라우저 문제 대비를 위해 JSON 수동 백업을 권장합니다.">
+              {hasChangesAfterBackup ? (
+                <button
+                  type="button"
+                  onClick={handleExportProject}
+                  className="px-2 py-1 rounded-lg border"
+                  style={{ borderColor: '#fdba74', backgroundColor: '#fff7ed', color: '#c2410c' }}
+                >
+                  ⚠️ 백업 필요 (지금 내보내기)
+                </button>
+              ) : (
+                <span style={{ color: '#64748b' }}>
+                  🛟 백업 {formatHourMinute(lastManualBackupAt)}
+                </span>
               )}
             </div>
 
