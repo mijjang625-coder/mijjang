@@ -147,6 +147,8 @@ export default function P6Material({
           <EditableText
             {...editPropsFor('P6.material.desc')}
             as="div"
+            enableResizeHandle
+            minResizeHeight={72}
             defaultStyle={{
               fontSize: 22,
               fontWeight: 500,
