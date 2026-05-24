@@ -142,7 +142,7 @@ export default function P6Material({
             onLayerAction={(action) => layer.handleLayerAction({ kind: 'main', id: matId }, action)}
           />
         </div>
-        {/* 소재 상세설명 — 정확히 2줄 고정, 폰트 80% 축소 (24 → 19pt) */}
+        {/* 소재 상세설명 — 글 길이에 맞춰 자연스럽게 높이 확장 (잘림 방지) */}
         <div style={{ marginTop: 20 }}>
           <EditableText
             {...editPropsFor('P6.material.desc')}
@@ -155,14 +155,10 @@ export default function P6Material({
               letterSpacing: '-0.015em',
               wordBreak: 'keep-all',
               whiteSpace: 'pre-line',
-              display: editMode ? 'block' : '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: editMode ? 'visible' : 'hidden',
-              textOverflow: 'ellipsis',
-              // 2줄 클램프 높이를 line-height(1.55)와 맞춰 잘림 방지
-              // 22px * 1.55 * 2 ≈ 68.2px → 여유 포함 70px
-              maxHeight: editMode ? 'none' : 70,
+              display: 'block',
+              overflow: 'visible',
+              paddingTop: 4,
+              paddingBottom: 4,
             }}
           >
             {material.desc}
