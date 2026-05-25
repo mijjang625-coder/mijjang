@@ -12,9 +12,35 @@ import {
   PROVIDER_KEY_DOCS,
 } from '../../lib/aiClient.js';
 
+function lazyWithRetry(importer, key) {
+  return lazy(async () => {
+    try {
+      const mod = await importer();
+      try { sessionStorage.removeItem(`lazy_retry_${key}`); } catch {}
+      return mod;
+    } catch (err) {
+      const msg = String(err?.message || '');
+      const chunkLoadFailed = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg);
+      if (chunkLoadFailed) {
+        try {
+          const retryKey = `lazy_retry_${key}`;
+          const alreadyRetried = sessionStorage.getItem(retryKey) === '1';
+          if (!alreadyRetried) {
+            sessionStorage.setItem(retryKey, '1');
+            window.location.reload();
+            return new Promise(() => {});
+          }
+          sessionStorage.removeItem(retryKey);
+        } catch {}
+      }
+      throw err;
+    }
+  });
+}
+
 // 🚀 분석 도구는 lazy load — 사이드바 섹션 펼쳐졌을 때만 로드 (xlsx + 분석 로직 포함)
-const ReviewAnalyzer = lazy(() => import('../ReviewAnalyzer.jsx'));
-const CompetitorAnalyzer = lazy(() => import('../CompetitorAnalyzer.jsx'));
+const ReviewAnalyzer = lazyWithRetry(() => import('../ReviewAnalyzer.jsx'), 'ReviewAnalyzer');
+const CompetitorAnalyzer = lazyWithRetry(() => import('../CompetitorAnalyzer.jsx'), 'CompetitorAnalyzer');
 
 // 분석 도구 로딩 표시
 function AnalyzerFallback({ icon = '🔍', label = '도구 로딩 중...' }) {
