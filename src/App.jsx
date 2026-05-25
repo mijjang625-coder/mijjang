@@ -2273,13 +2273,26 @@ export default function App() {
   const handleDownloadPsd = async (pageNumber) => {
     try {
       await flushPendingEditsForExport();
-      const node = pageRefs[pageNumber].current;
+      setShowExportPanel(true);
+      setPsdExportMounted(true);
+      setExportProgress({ done: 0, total: 1, label: `${pageNumber} PSD 레이어 준비 중...` });
+
+      // editMode=true 렌더를 포함한 PSD 전용 숨김 영역 마운트 대기
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      await new Promise((r) => setTimeout(r, 250));
+
+      const node = psdExportPageRefs[pageNumber]?.current;
       if (!node) throw new Error('PSD로 내보낼 페이지를 찾지 못했습니다.');
-      await downloadAllAsSeparatePsds(
-        [{ key: pageNumber, node }],
-        (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product',
-      );
-    } catch (err) { setError(err.message); }
+
+      const slug = (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product';
+      await downloadAllAsSeparatePsds([{ key: pageNumber, node }], slug, setExportProgress);
+      setTimeout(() => setExportProgress(null), 1500);
+    } catch (err) {
+      setError(err.message);
+      setExportProgress(null);
+    } finally {
+      setPsdExportMounted(false);
+    }
   };
 
   // ───── 전체 내보내기 (P1~P10) ─────
