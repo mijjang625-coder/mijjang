@@ -295,9 +295,7 @@ export default function P2Benefits({
                       margin: 0,
                       lineHeight: 1.3,
                       letterSpacing: '-0.03em',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
+                      whiteSpace: 'normal',
                     }}
                   >
                     {normalizedTitle}

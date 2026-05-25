@@ -2361,7 +2361,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             {/* 💰 이번 세션 누적 비용 */}
             <div
-              className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-amber-50"
+              className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-amber-50 whitespace-nowrap shrink-0"
               style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
               title={`이번 세션 OpenAI 비용 — ${costSummary.count}회 호출 / 합계 ${formatKRW(costSummary.totalKrw)}\n클릭 시 세션 리셋`}
               onClick={() => {
@@ -2384,7 +2384,7 @@ export default function App() {
             </div>
 
             {/* 자동 저장 상태 표시 */}
-            <div className="text-[11px] font-semibold flex items-center gap-1.5" title="작업 내용은 1초마다 브라우저에 자동 저장됩니다.">
+            <div className="text-[11px] font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0" title="작업 내용은 1초마다 브라우저에 자동 저장됩니다.">
               {saveStatus === 'saving' && (
                 <span style={{ color: '#0ea5e9' }}>💾 저장 중...</span>
               )}
@@ -2412,7 +2412,7 @@ export default function App() {
             {/* ❓ 온보딩 튜토리얼 다시 보기 */}
             <button
               onClick={() => handleOpenOnboarding(true)}
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border hover:bg-slate-50 flex items-center gap-1"
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border hover:bg-slate-50 flex items-center gap-1 whitespace-nowrap shrink-0"
               style={{ borderColor: '#e2ddd4', color: '#6b6660' }}
               title="온보딩 튜토리얼 다시 보기 (5분)"
             >
@@ -2439,7 +2439,7 @@ export default function App() {
               <button
                 onClick={handleCreateProject}
                 title="새 작업 만들기"
-                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0"
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
               >
                 ➕ 새 작업
@@ -2447,7 +2447,7 @@ export default function App() {
               <button
                 onClick={handleRenameProject}
                 title="현재 작업 이름 수정"
-                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0"
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
               >
                 ✏️ 이름 변경
@@ -2455,7 +2455,7 @@ export default function App() {
               <button
                 onClick={handleDeleteProject}
                 title="현재 작업 삭제"
-                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-red-50"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-red-50 whitespace-nowrap shrink-0"
                 style={{ color: '#dc2626', border: '1px solid #fecaca' }}
               >
                 🗑️ 작업 삭제
@@ -2463,7 +2463,7 @@ export default function App() {
               <button
                 onClick={handleExportProject}
                 title="프로젝트 JSON 파일 저장"
-                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0"
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
               >
                 💾 내보내기
@@ -2482,7 +2482,7 @@ export default function App() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 title="프로젝트 JSON 파일 불러오기"
-                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0"
                 style={{ color: '#2F2A26', border: '1px solid #e2ddd4' }}
               >
                 📂 불러오기
@@ -2490,7 +2490,7 @@ export default function App() {
               <button
                 onClick={handleClearAll}
                 title="현재 작업 입력/이미지/제작 결과 초기화 (되돌릴 수 없음)"
-                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-red-50"
+                className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors hover:bg-red-50 whitespace-nowrap shrink-0"
                 style={{ color: '#dc2626', border: '1px solid #fecaca' }}
               >
                 ♻️ 현재 작업 초기화
@@ -2501,7 +2501,7 @@ export default function App() {
               <button
                 onClick={() => setShowExportPanel((v) => !v)}
                 title="P1~P10 전체를 한꺼번에 내보내기"
-                className="px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+                className="px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition-opacity hover:opacity-90 whitespace-nowrap shrink-0"
                 style={{ backgroundColor: '#2F2A26' }}
                 disabled={completedCount === 0}
               >
