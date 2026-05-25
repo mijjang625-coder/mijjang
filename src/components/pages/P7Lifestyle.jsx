@@ -194,8 +194,10 @@ export default function P7Lifestyle({
             const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
             const captionId = `P7.modules.${i}.caption`;
             // P7 모듈 캡션은 본문 흐름 텍스트로 고정:
-            // 과거 드래그 offset 값이 남아있어도 레이아웃이 깨지지 않도록 offset은 무시한다.
-            const captionOverride = { ...(overrides[captionId] || {}), offset: { x: 0, y: 0 } };
+            // 과거 저장된 offset/frame 값이 남아 있어도 레이아웃 흐름을 깨지 않도록 무시한다.
+            const rawCaptionOverride = overrides[captionId] || {};
+            const { offset: _legacyOffset, frame: _legacyFrame, ...captionRest } = rawCaptionOverride;
+            const captionOverride = { ...captionRest, offset: { x: 0, y: 0 } };
             return (
               <div key={i}>
                 <div style={{
@@ -223,11 +225,7 @@ export default function P7Lifestyle({
                     pointerEvents: editMode ? 'auto' : 'inherit',
                     position: 'relative',
                     zIndex: 1200, // 캡션은 항상 이미지 위에 표시
-                    minHeight: i < 2 ? 124 : 84,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '8px 0',
+                    padding: i < 2 ? '26px 0 24px' : '18px 0 14px',
                   }}
                 >
                   <EditableText
