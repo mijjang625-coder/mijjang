@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BRAND } from '../../lib/theme.js';
 import { PageFrame } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
@@ -50,6 +51,45 @@ export default function P7Lifestyle({
   onSetActiveLayer = () => {},
 }) {
   const { title = '일상에 자연스럽게', subTitle = '', modules = [] } = copy;
+  const CAPTION_LAYOUT_STYLE_KEYS = [
+    'position', 'top', 'left', 'right', 'bottom', 'transform',
+    'height', 'minHeight', 'maxHeight', 'overflow', 'zIndex',
+  ];
+
+  const sanitizeCaptionStyle = (style = {}) => {
+    if (!style || typeof style !== 'object') return {};
+    const next = { ...style };
+    CAPTION_LAYOUT_STYLE_KEYS.forEach((k) => {
+      if (Object.prototype.hasOwnProperty.call(next, k)) delete next[k];
+    });
+    return next;
+  };
+
+  const normalizeCaptionOverride = (raw = {}) => {
+    const { offset: _legacyOffset, frame: _legacyFrame, style, ...rest } = raw || {};
+    const cleanedStyle = sanitizeCaptionStyle(style);
+    return {
+      ...rest,
+      ...(Object.keys(cleanedStyle).length ? { style: cleanedStyle } : { style: {} }),
+      offset: { x: 0, y: 0 },
+      frame: null,
+    };
+  };
+
+  const sanitizeCaptionPartial = (partial = {}) => {
+    const next = { ...partial };
+    if (Object.prototype.hasOwnProperty.call(next, 'offset')) {
+      next.offset = { x: 0, y: 0 };
+    }
+    if (Object.prototype.hasOwnProperty.call(next, 'frame')) {
+      next.frame = null;
+    }
+    if (Object.prototype.hasOwnProperty.call(next, 'style')) {
+      next.style = sanitizeCaptionStyle(next.style || {});
+    }
+    return next;
+  };
+
   const editPropsFor = (id) => ({
     id, editMode,
     override: overrides[id] || {},
@@ -120,6 +160,25 @@ export default function P7Lifestyle({
       if (xk !== yk) return xk - yk;
       return (x.id || '').localeCompare(y.id || '');
     });
+
+  // 기존 로컬 저장 상태에 남아 있는 legacy 캡션 값(offset/frame/absolute style)을
+  // 실제 저장값에서도 정규화해서 이후 편집에서도 자동 흐름이 깨지지 않게 고정한다.
+  useEffect(() => {
+    modules.slice(0, 3).forEach((_, i) => {
+      const captionId = `P7.modules.${i}.caption`;
+      const raw = overrides[captionId] || {};
+      const normalized = normalizeCaptionOverride(raw);
+      const rawStyle = raw?.style || {};
+      const cleanedRawStyle = sanitizeCaptionStyle(rawStyle);
+      const hasLegacyStyle = Object.keys(rawStyle).length !== Object.keys(cleanedRawStyle).length;
+      const hasLegacyOffset = !!raw?.offset && ((raw.offset.x || 0) !== 0 || (raw.offset.y || 0) !== 0);
+      const hasLegacyFrame = raw?.frame != null;
+
+      if (hasLegacyStyle || hasLegacyOffset || hasLegacyFrame) {
+        onOverrideChange(captionId, normalized);
+      }
+    });
+  }, [modules, overrides, onOverrideChange]);
 
   const renderSlot = (slotKey) => {
     const list = sortSlot(slotImages[slotKey] || []);
@@ -193,11 +252,7 @@ export default function P7Lifestyle({
             const isImgActive = layer.isLayerActive('main', imgId);
             const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
             const captionId = `P7.modules.${i}.caption`;
-            // P7 모듈 캡션은 본문 흐름 텍스트로 고정:
-            // 과거 저장된 offset/frame 값이 남아 있어도 레이아웃 흐름을 깨지 않도록 무시한다.
-            const rawCaptionOverride = overrides[captionId] || {};
-            const { offset: _legacyOffset, frame: _legacyFrame, ...captionRest } = rawCaptionOverride;
-            const captionOverride = { ...captionRest, offset: { x: 0, y: 0 } };
+            const captionOverride = normalizeCaptionOverride(overrides[captionId] || {});
             return (
               <div key={i}>
                 <div style={{
@@ -232,9 +287,19 @@ export default function P7Lifestyle({
                     id={captionId}
                     editMode={editMode}
                     override={captionOverride}
-                    onChange={(partial) => onOverrideChange(captionId, partial)}
+                    onChange={(partial) => onOverrideChange(captionId, sanitizeCaptionPartial(partial))}
                     as="div"
                     draggable={false}
+                    style={{
+                      position: 'static',
+                      transform: 'none',
+                      width: '100%',
+                      height: 'auto',
+                      minHeight: 0,
+                      maxHeight: 'none',
+                      overflow: 'visible',
+                      display: 'block',
+                    }}
                     defaultStyle={{
                       textAlign: 'center',
                       fontSize: 26,
