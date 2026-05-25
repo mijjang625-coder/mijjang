@@ -406,7 +406,12 @@ function createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight }) {
 function extractEditableTextLayers(pageNode) {
   if (!pageNode) return [];
   const pageRect = pageNode.getBoundingClientRect();
-  const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'));
+
+  // nested data-editable 중 가장 안쪽(leaf)만 사용해 중복 텍스트 레이어 방지
+  const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'))
+    .filter((el) => !el.querySelector('[data-editable="true"]'));
+
+  const dedupe = new Set();
 
   return editableEls
     .map((el, idx) => {
@@ -423,6 +428,19 @@ function extractEditableTextLayers(pageNode) {
       if (!rawText.trim()) return null;
 
       const rect = source.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8) return null;
+
+      // 동일 위치/동일 텍스트 중복 제거
+      const sig = [
+        Math.round(rect.left - pageRect.left),
+        Math.round(rect.top - pageRect.top),
+        Math.round(rect.width),
+        Math.round(rect.height),
+        rawText,
+      ].join('|');
+      if (dedupe.has(sig)) return null;
+      dedupe.add(sig);
+
       const cs = window.getComputedStyle(source);
       const fontSize = parseFloat(cs.fontSize) || 22;
       const fontWeight = parseFloat(cs.fontWeight) || 400;
@@ -464,13 +482,36 @@ function extractEditableTextLayers(pageNode) {
     .map((it) => it.layer);
 }
 
-async function captureNodeCanvas(node, customOptions = {}) {
+function hideEditableTextsForBackground(rootNode) {
+  if (!rootNode) return () => {};
+  const restored = [];
+  try {
+    const nodes = rootNode.querySelectorAll('[data-editable="true"]');
+    nodes.forEach((el) => {
+      const prevVisibility = el.style.visibility;
+      const prevPointerEvents = el.style.pointerEvents;
+      restored.push({ el, prop: 'visibility', value: prevVisibility });
+      restored.push({ el, prop: 'pointerEvents', value: prevPointerEvents });
+      el.style.visibility = 'hidden';
+      el.style.pointerEvents = 'none';
+    });
+  } catch {}
+
+  return () => {
+    for (const r of restored) {
+      try { r.el.style[r.prop] = r.value; } catch {}
+    }
+  };
+}
+
+async function captureNodeCanvas(node, customOptions = {}, extraOptions = {}) {
   const htmlToImage = await getHtmlToImage();
   await waitForImages(node);
 
   const removeClass = applyCaptureClass(node);
   const restoreHeight = lockHeightForCapture(node);
   const restoreChrome = stripEditingChrome(node);
+  const restoreEditableTexts = extraOptions?.hideEditableTexts ? hideEditableTextsForBackground(node) : () => {};
 
   await new Promise((r) => requestAnimationFrame(() => r()));
 
@@ -489,6 +530,7 @@ async function captureNodeCanvas(node, customOptions = {}) {
     });
     return canvas;
   } finally {
+    restoreEditableTexts();
     restoreChrome();
     restoreHeight();
     removeClass();
@@ -666,7 +708,8 @@ export async function downloadAllAsSeparatePsds(pages, productName = 'product', 
       const { key, node } = pages[i];
       onProgress?.({ done: i, total: pages.length, label: `${key} PSD 생성 중...` });
 
-      const backgroundCanvas = await captureNodeCanvas(node, { pixelRatio: 1 });
+      // 배경에는 editable 텍스트를 숨겨 "배경 텍스트 + 텍스트 레이어" 이중 노출 방지
+      const backgroundCanvas = await captureNodeCanvas(node, { pixelRatio: 1 }, { hideEditableTexts: true });
       const textLayers = extractEditableTextLayers(node);
 
       const psd = {
