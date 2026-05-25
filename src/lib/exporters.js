@@ -407,9 +407,9 @@ function extractEditableTextLayers(pageNode) {
   if (!pageNode) return [];
   const pageRect = pageNode.getBoundingClientRect();
 
-  // nested data-editable 중 가장 안쪽(leaf)만 사용해 중복 텍스트 레이어 방지
+  // nested data-editable 중 가장 바깥(top-level)만 사용해 좌표 기준을 안정화
   const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'))
-    .filter((el) => !el.querySelector('[data-editable="true"]'));
+    .filter((el) => !el.parentElement?.closest?.('[data-editable="true"]'));
 
   const dedupe = new Set();
 
