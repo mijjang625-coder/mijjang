@@ -219,6 +219,7 @@ export default function P7Lifestyle({
                   style={{
                     pointerEvents: editMode ? 'auto' : 'inherit',
                     position: 'relative',
+                    zIndex: 1200, // 캡션은 항상 이미지 위에 표시 (겹침 시 가독성 보장)
                     height: i < 2 ? 124 : 84,
                   }}
                 >
