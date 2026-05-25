@@ -223,8 +223,8 @@ export default function P3Target({
               <div
                 key={i}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  height: 60, padding: '0 6px',
+                  display: 'flex', alignItems: 'flex-start', gap: 14,
+                  minHeight: 60, padding: '10px 6px',
                   borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
                 }}
               >
