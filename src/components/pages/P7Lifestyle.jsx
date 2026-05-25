@@ -193,6 +193,9 @@ export default function P7Lifestyle({
             const isImgActive = layer.isLayerActive('main', imgId);
             const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
             const captionId = `P7.modules.${i}.caption`;
+            // P7 모듈 캡션은 본문 흐름 텍스트로 고정:
+            // 과거 드래그 offset 값이 남아있어도 레이아웃이 깨지지 않도록 offset은 무시한다.
+            const captionOverride = { ...(overrides[captionId] || {}), offset: { x: 0, y: 0 } };
             return (
               <div key={i}>
                 <div style={{
@@ -219,38 +222,34 @@ export default function P7Lifestyle({
                   style={{
                     pointerEvents: editMode ? 'auto' : 'inherit',
                     position: 'relative',
-                    height: i < 2 ? 124 : 84,
+                    zIndex: 1200, // 캡션은 항상 이미지 위에 표시
+                    minHeight: i < 2 ? 124 : 84,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '8px 0',
                   }}
                 >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: 0,
-                      right: 0,
-                      transform: 'translateY(-50%)',
+                  <EditableText
+                    id={captionId}
+                    editMode={editMode}
+                    override={captionOverride}
+                    onChange={(partial) => onOverrideChange(captionId, partial)}
+                    as="div"
+                    draggable={false}
+                    defaultStyle={{
+                      textAlign: 'center',
+                      fontSize: 26,
+                      lineHeight: 1.2,
+                      fontWeight: 700,
+                      color: BRAND.colors.text,
+                      letterSpacing: '-0.02em',
+                      width: '100%',
+                      margin: 0,
                     }}
                   >
-                    <EditableText
-                      id={captionId}
-                      editMode={editMode}
-                      override={overrides[captionId] || {}}
-                      onChange={(partial) => onOverrideChange(captionId, partial)}
-                      as="div"
-                      defaultStyle={{
-                        textAlign: 'center',
-                        fontSize: 26,
-                        lineHeight: 1.2,
-                        fontWeight: 700,
-                        color: BRAND.colors.text,
-                        letterSpacing: '-0.02em',
-                        width: '100%',
-                        margin: 0,
-                      }}
-                    >
-                      {m.caption}
-                    </EditableText>
-                  </div>
+                    {m.caption}
+                  </EditableText>
                 </div>
                 {/* 모듈 사이 슬롯 */}
                 {i === 0 && renderSlot('between-0-1')}
