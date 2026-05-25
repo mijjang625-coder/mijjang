@@ -2270,6 +2270,18 @@ export default function App() {
     } catch (err) { setError(err.message); }
   };
 
+  const handleDownloadPsd = async (pageNumber) => {
+    try {
+      await flushPendingEditsForExport();
+      const node = pageRefs[pageNumber].current;
+      if (!node) throw new Error('PSD로 내보낼 페이지를 찾지 못했습니다.');
+      await downloadAllAsSeparatePsds(
+        [{ key: pageNumber, node }],
+        (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product',
+      );
+    } catch (err) { setError(err.message); }
+  };
+
   // ───── 전체 내보내기 (P1~P10) ─────
   const [exportProgress, setExportProgress] = useState(null); // { done, total, label } | null
   const [showExportPanel, setShowExportPanel] = useState(false);
@@ -2680,6 +2692,14 @@ export default function App() {
                   title={`${currentPage} 페이지를 HTML 파일로 다운로드`}
                 >
                   📄 HTML
+                </button>
+                <button
+                  onClick={() => handleDownloadPsd(currentPage)}
+                  className="px-3 py-2 rounded-lg text-xs font-bold border"
+                  style={{ borderColor: '#2F2A26', color: '#2F2A26', backgroundColor: '#fff' }}
+                  title={`${currentPage} 페이지를 PSD(텍스트 레이어)로 다운로드`}
+                >
+                  🧾 PSD
                 </button>
               </>
             )}
