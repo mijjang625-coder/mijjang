@@ -369,6 +369,13 @@ function parseLineHeight(lineHeightCss = '', fontSize = 22) {
   return Math.max(1, fontSize * 1.35);
 }
 
+function getPsdTextAnchorX(rect, textAlign = '') {
+  const a = toCanvasTextAlign(textAlign);
+  if (a === 'center') return Math.round(rect.left + rect.width / 2);
+  if (a === 'right') return Math.round(rect.right);
+  return Math.round(rect.left);
+}
+
 function createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight }) {
   const pad = 2;
   const width = Math.max(1, Math.ceil(rect.width) + pad * 2);
@@ -462,7 +469,14 @@ function extractEditableTextLayers(pageNode) {
             text: rawText,
             transform: [
               1, 0, 0, 1,
-              Math.round(rect.left - pageRect.left),
+              getPsdTextAnchorX(
+                {
+                  left: rect.left - pageRect.left,
+                  right: rect.right - pageRect.left,
+                  width: rect.width,
+                },
+                cs.textAlign,
+              ),
               Math.round(rect.top - pageRect.top),
             ],
             style: {
