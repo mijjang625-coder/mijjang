@@ -408,8 +408,8 @@ function extractEditableTextLayers(pageNode) {
   const pageRect = pageNode.getBoundingClientRect();
 
   // nested data-editable 중 가장 바깥(top-level)만 사용해 좌표 기준을 안정화
-  const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'))
-    .filter((el) => !el.parentElement?.closest?.('[data-editable="true"]'));
+  const editableEls = Array.from(pageNode.querySelectorAll('[data-editable], [data-free-text="true"]'))
+    .filter((el) => !el.parentElement?.closest?.('[data-editable], [data-free-text="true"]'));
 
   const dedupe = new Set();
 
@@ -486,7 +486,7 @@ function hideEditableTextsForBackground(rootNode) {
   if (!rootNode) return () => {};
   const restored = [];
   try {
-    const nodes = rootNode.querySelectorAll('[data-editable="true"]');
+    const nodes = rootNode.querySelectorAll('[data-editable], [data-free-text="true"]');
     nodes.forEach((el) => {
       const prevVisibility = el.style.visibility;
       const prevPointerEvents = el.style.pointerEvents;
@@ -711,6 +711,9 @@ export async function downloadAllAsSeparatePsds(pages, productName = 'product', 
       // 배경에는 editable 텍스트를 숨겨 "배경 텍스트 + 텍스트 레이어" 이중 노출 방지
       const backgroundCanvas = await captureNodeCanvas(node, { pixelRatio: 1 }, { hideEditableTexts: true });
       const textLayers = extractEditableTextLayers(node);
+      if (!textLayers.length) {
+        console.warn('[PSD] 텍스트 레이어 추출 결과가 0개입니다:', key);
+      }
 
       const psd = {
         width: backgroundCanvas.width,
