@@ -313,14 +313,21 @@ function parseCssColorToRgb(css = '') {
 function toPsdFontName(fontFamily = '', fontWeight = 400) {
   const rawFirst = String(fontFamily || '').split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') || '';
   const normalized = rawFirst.toLowerCase();
+
+  // PSD 호환성 우선: NanumSquare는 사용자 환경(Photoshop)에 없는 경우가 많아
+  // 열자마자 경고/깨진 글리프가 발생할 수 있음.
+  // 한글 호환 폰트명으로 안전 매핑.
   if (normalized.includes('nanumsquare') || normalized.includes('나눔스퀘어')) {
-    return Number(fontWeight) >= 700 ? 'NanumSquareOTFExtraBold' : 'NanumSquareOTFRegular';
+    return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
   }
-  if (normalized.includes('malgun')) return 'MalgunGothic';
+
+  if (normalized.includes('malgun')) return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
   if (normalized.includes('apple sd gothic')) return 'AppleSDGothicNeo-Regular';
   if (normalized.includes('arial')) return 'ArialMT';
   if (normalized.includes('helvetica')) return 'Helvetica';
-  return rawFirst || 'ArialMT';
+
+  // 알 수 없는 폰트는 한글 지원이 비교적 안정적인 MalgunGothic으로 폴백
+  return 'MalgunGothic';
 }
 
 function toPsdJustification(textAlign = '') {
@@ -349,6 +356,53 @@ function extractTextSource(el) {
   return el;
 }
 
+function toCanvasTextAlign(textAlign = '') {
+  const a = String(textAlign || '').toLowerCase();
+  if (a === 'center') return 'center';
+  if (a === 'right' || a === 'end') return 'right';
+  return 'left';
+}
+
+function parseLineHeight(lineHeightCss = '', fontSize = 22) {
+  const lh = parseFloat(String(lineHeightCss || ''));
+  if (Number.isFinite(lh) && lh > 0) return lh;
+  return Math.max(1, fontSize * 1.35);
+}
+
+function createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight }) {
+  const pad = 2;
+  const width = Math.max(1, Math.ceil(rect.width) + pad * 2);
+  const height = Math.max(1, Math.ceil(rect.height) + pad * 2);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return { canvas: null, pad };
+
+  const lineHeight = parseLineHeight(cs.lineHeight, fontSize);
+  const textAlign = toCanvasTextAlign(cs.textAlign);
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.textBaseline = 'top';
+  ctx.textAlign = textAlign;
+  ctx.fillStyle = cs.color || '#2F2A26';
+  ctx.font = `${Number(fontWeight) >= 700 ? '700' : '400'} ${fontSize}px ${cs.fontFamily || 'sans-serif'}`;
+
+  const lines = String(rawText || '').split('\n');
+  const x = textAlign === 'center' ? Math.round(width / 2) : textAlign === 'right' ? width - pad : pad;
+
+  for (let i = 0; i < lines.length; i++) {
+    const y = pad + i * lineHeight;
+    if (y > height) break;
+    const line = lines[i] && lines[i].length ? lines[i] : ' ';
+    ctx.fillText(line, x, y, Math.max(1, width - pad * 2));
+  }
+
+  return { canvas, pad };
+}
+
 function extractEditableTextLayers(pageNode) {
   if (!pageNode) return [];
   const pageRect = pageNode.getBoundingClientRect();
@@ -374,11 +428,18 @@ function extractEditableTextLayers(pageNode) {
       const fontWeight = parseFloat(cs.fontWeight) || 400;
       const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
 
+      const { canvas: textCanvas, pad } = createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight });
+      const layerLeft = Math.round(rect.left - pageRect.left) - pad;
+      const layerTop = Math.round(rect.top - pageRect.top) - pad;
+
       return {
         order: idx,
         zIndex,
         layer: {
           name: `Text ${String(idx + 1).padStart(2, '0')}`,
+          left: layerLeft,
+          top: layerTop,
+          ...(textCanvas ? { canvas: textCanvas } : {}),
           text: {
             text: rawText,
             transform: [
