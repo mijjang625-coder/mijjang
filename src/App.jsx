@@ -13,6 +13,7 @@ import {
 import {
   downloadAsImage, downloadAsHtml,
   downloadAllAsSinglePng, downloadAllAsSeparatePngs,
+  downloadAllAsSeparatePsds,
   downloadAllAsHtml,
 } from './lib/exporters.js';
 import AISynthesisFloatingButton from './components/AISynthesisFloatingButton.jsx';
@@ -2272,9 +2273,10 @@ export default function App() {
   // ───── 전체 내보내기 (P1~P10) ─────
   const [exportProgress, setExportProgress] = useState(null); // { done, total, label } | null
   const [showExportPanel, setShowExportPanel] = useState(false);
+  const [psdExportMounted, setPsdExportMounted] = useState(false);
 
   /** 모든 페이지가 mount 되도록 잠시 기다리고, 완성된 페이지의 ref 노드 배열을 반환 */
-  const collectAllPageNodes = async () => {
+  const collectAllPageNodesFromRefs = async (refsMap) => {
     // 한 프레임 대기 — 숨겨진 export 영역의 페이지들이 DOM에 들어올 시간
     await new Promise((r) => requestAnimationFrame(() => r()));
     await new Promise((r) => setTimeout(r, 200));
@@ -2282,11 +2284,13 @@ export default function App() {
     for (const key of PAGE_LIST) {
       const result = pages[key];
       if (!result?.copy || result?.needsMoreInfo) continue;
-      const node = exportPageRefs[key]?.current;
+      const node = refsMap[key]?.current;
       if (node) list.push({ key, node });
     }
     return list;
   };
+
+  const collectAllPageNodes = () => collectAllPageNodesFromRefs(exportPageRefs);
 
   const productSlug = (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product';
 
@@ -2327,8 +2331,42 @@ export default function App() {
     } catch (err) { setError(err.message); setExportProgress(null); }
   };
 
+  const handleExportAllPsd = async () => {
+    try {
+      await flushPendingEditsForExport();
+      setShowExportPanel(true);
+      setPsdExportMounted(true);
+      setExportProgress({ done: 0, total: 1, label: 'PSD 레이어 준비 중...' });
+
+      // editMode=true 렌더를 포함한 PSD 전용 숨김 영역 마운트 대기
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      await new Promise((r) => setTimeout(r, 250));
+
+      const list = await collectAllPageNodesFromRefs(psdExportPageRefs);
+      if (!list.length) {
+        setError('완성된 페이지가 없습니다.');
+        setExportProgress(null);
+        setPsdExportMounted(false);
+        return;
+      }
+
+      await downloadAllAsSeparatePsds(list, productSlug, setExportProgress);
+      setTimeout(() => setExportProgress(null), 1500);
+    } catch (err) {
+      setError(err.message);
+      setExportProgress(null);
+    } finally {
+      setPsdExportMounted(false);
+    }
+  };
+
   // 숨겨진 전체 페이지 렌더링용 refs (편집 UI 없이 순수 렌더)
   const exportPageRefs = {
+    P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),
+    P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
+  };
+
+  const psdExportPageRefs = {
     P1: useRef(null), P2: useRef(null), P3: useRef(null), P4: useRef(null), P5: useRef(null),
     P6: useRef(null), P7: useRef(null), P8: useRef(null), P9: useRef(null), P10: useRef(null),
   };
@@ -2528,6 +2566,14 @@ export default function App() {
                     style={{ color: '#2F2A26' }}
                   >
                     🗂️ <div><div>페이지별 PNG (10장)</div><div className="text-[10px] font-normal text-slate-500">P1.png ~ P10.png 따로</div></div>
+                  </button>
+                  <button
+                    onClick={() => { handleExportAllPsd(); }}
+                    disabled={!!exportProgress || completedCount === 0}
+                    className="w-full text-left px-3 py-2 rounded text-[12px] font-bold hover:bg-slate-100 disabled:opacity-50 flex items-center gap-2"
+                    style={{ color: '#2F2A26' }}
+                  >
+                    🧾 <div><div>페이지별 PSD (텍스트 레이어)</div><div className="text-[10px] font-normal text-slate-500">P1.psd ~ P10.psd (수정용)</div></div>
                   </button>
                   <button
                     onClick={() => { handleExportAllHtml(); }}
@@ -3534,6 +3580,63 @@ export default function App() {
           );
         })}
       </div>
+
+      {psdExportMounted && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            left: -200000,
+            top: 0,
+            width: 780,
+            pointerEvents: 'none',
+            opacity: 0,
+          }}
+        >
+          {PAGE_LIST.map((p) => {
+            const r = pages[p];
+            if (!r?.copy || r?.needsMoreInfo) return null;
+            return (
+              <div key={`psd-export-${p}`} style={{ width: 780 }}>
+                <PageRenderer
+                  ref={psdExportPageRefs[p]}
+                  pageNumber={p}
+                  copy={{ ...r.copy, p1CardSettings: brief.p1CardSettings }}
+                  images={images}
+                  version={p5Version}
+                  variant={pageVariants[p] || 0}
+                  editMode={true}
+                  overrides={textOverrides[p] || {}}
+                  onOverrideChange={() => {}}
+                  imageOverrides={imageOverrides[p] || {}}
+                  onImageOverrideChange={() => {}}
+                  freeImages={freeImages[p] || []}
+                  onAddFreeImage={() => {}}
+                  onAddFreeImageToSlot={() => {}}
+                  onUpdateFreeImage={() => {}}
+                  onDeleteFreeImage={() => {}}
+                  freeTexts={freeTexts[p] || []}
+                  onAddFreeText={() => {}}
+                  onUpdateFreeText={() => {}}
+                  onDeleteFreeText={() => {}}
+                  shapes={shapes[p] || []}
+                  onAddShape={() => {}}
+                  onUpdateShape={() => {}}
+                  onDeleteShape={() => {}}
+                  onChangeLayer={() => {}}
+                  onChangeLayerKind={() => {}}
+                  onReorderLayers={() => {}}
+                  onToggleLayerVisibility={() => {}}
+                  layerNames={layerNames[p] || {}}
+                  onSetLayerName={() => {}}
+                  activeLayerId={null}
+                  onSetActiveLayer={() => {}}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* 🎨 AI 사진 합성 플로팅 버튼 (편집모드에서만, '도형 추가' 바로 밑) */}
       <AISynthesisFloatingButton

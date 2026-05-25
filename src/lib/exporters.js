@@ -16,6 +16,14 @@ async function getHtmlToImage() {
   return _htmlToImage;
 }
 
+let _agPsd = null;
+async function getAgPsd() {
+  if (_agPsd) return _agPsd;
+  const mod = await import('ag-psd');
+  _agPsd = mod;
+  return _agPsd;
+}
+
 const NANUMSQUARE_CSS_URL =
   'https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css';
 
@@ -266,6 +274,166 @@ function getCaptureWidth(node) {
   return Math.ceil(node.scrollWidth || node.offsetWidth || 780);
 }
 
+function parseCssColorToRgb(css = '') {
+  const s = String(css || '').trim();
+  if (!s) return { r: 47, g: 42, b: 38 };
+
+  const hexMatch = s.match(/^#([0-9a-f]{3,8})$/i);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    if (hex.length === 3) {
+      return {
+        r: parseInt(hex[0] + hex[0], 16),
+        g: parseInt(hex[1] + hex[1], 16),
+        b: parseInt(hex[2] + hex[2], 16),
+      };
+    }
+    if (hex.length >= 6) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+      };
+    }
+  }
+
+  const rgbMatch = s.match(/rgba?\(([^)]+)\)/i);
+  if (rgbMatch) {
+    const nums = rgbMatch[1].split(',').map((v) => parseFloat(v.trim()));
+    return {
+      r: Number.isFinite(nums[0]) ? Math.max(0, Math.min(255, Math.round(nums[0]))) : 47,
+      g: Number.isFinite(nums[1]) ? Math.max(0, Math.min(255, Math.round(nums[1]))) : 42,
+      b: Number.isFinite(nums[2]) ? Math.max(0, Math.min(255, Math.round(nums[2]))) : 38,
+    };
+  }
+
+  return { r: 47, g: 42, b: 38 };
+}
+
+function toPsdFontName(fontFamily = '', fontWeight = 400) {
+  const rawFirst = String(fontFamily || '').split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') || '';
+  const normalized = rawFirst.toLowerCase();
+  if (normalized.includes('nanumsquare') || normalized.includes('나눔스퀘어')) {
+    return Number(fontWeight) >= 700 ? 'NanumSquareOTFExtraBold' : 'NanumSquareOTFRegular';
+  }
+  if (normalized.includes('malgun')) return 'MalgunGothic';
+  if (normalized.includes('apple sd gothic')) return 'AppleSDGothicNeo-Regular';
+  if (normalized.includes('arial')) return 'ArialMT';
+  if (normalized.includes('helvetica')) return 'Helvetica';
+  return rawFirst || 'ArialMT';
+}
+
+function toPsdJustification(textAlign = '') {
+  const a = String(textAlign || '').toLowerCase();
+  if (a === 'center') return 'center';
+  if (a === 'right' || a === 'end') return 'right';
+  return 'left';
+}
+
+function isDisplayHidden(el) {
+  try {
+    const cs = window.getComputedStyle(el);
+    if (!cs) return false;
+    if (cs.display === 'none') return true;
+    if (cs.visibility === 'hidden') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function extractTextSource(el) {
+  if (el?.matches?.('[data-free-text="true"]')) {
+    return el.querySelector('[contenteditable]') || el;
+  }
+  return el;
+}
+
+function extractEditableTextLayers(pageNode) {
+  if (!pageNode) return [];
+  const pageRect = pageNode.getBoundingClientRect();
+  const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'));
+
+  return editableEls
+    .map((el, idx) => {
+      if (!el || isDisplayHidden(el)) return null;
+
+      const source = extractTextSource(el);
+      if (!source || isDisplayHidden(source)) return null;
+
+      const rawText = String(source.innerText || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r\n?/g, '\n')
+        .replace(/\s+$/g, '');
+
+      if (!rawText.trim()) return null;
+
+      const rect = source.getBoundingClientRect();
+      const cs = window.getComputedStyle(source);
+      const fontSize = parseFloat(cs.fontSize) || 22;
+      const fontWeight = parseFloat(cs.fontWeight) || 400;
+      const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
+
+      return {
+        order: idx,
+        zIndex,
+        layer: {
+          name: `Text ${String(idx + 1).padStart(2, '0')}`,
+          text: {
+            text: rawText,
+            transform: [
+              1, 0, 0, 1,
+              Math.round(rect.left - pageRect.left),
+              Math.round(rect.top - pageRect.top),
+            ],
+            style: {
+              font: { name: toPsdFontName(cs.fontFamily, fontWeight) },
+              fontSize: Math.max(1, Math.round(fontSize * 100) / 100),
+              fillColor: parseCssColorToRgb(cs.color),
+            },
+            paragraphStyle: {
+              justification: toPsdJustification(cs.textAlign),
+            },
+          },
+        },
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.zIndex - b.zIndex) || (a.order - b.order))
+    .map((it) => it.layer);
+}
+
+async function captureNodeCanvas(node, customOptions = {}) {
+  const htmlToImage = await getHtmlToImage();
+  await waitForImages(node);
+
+  const removeClass = applyCaptureClass(node);
+  const restoreHeight = lockHeightForCapture(node);
+  const restoreChrome = stripEditingChrome(node);
+
+  await new Promise((r) => requestAnimationFrame(() => r()));
+
+  try {
+    const captureH = getCaptureHeight(node);
+    const captureW = getCaptureWidth(node);
+    const canvas = await htmlToImage.toCanvas(node, {
+      ...CAPTURE_OPTIONS,
+      ...customOptions,
+      width: captureW,
+      height: captureH,
+      style: {
+        width: `${captureW}px`,
+        height: `${captureH}px`,
+      },
+    });
+    return canvas;
+  } finally {
+    restoreChrome();
+    restoreHeight();
+    removeClass();
+  }
+}
+
 /* ───────── 단일 페이지 ───────── */
 
 /** Render a DOM node to a PNG image and trigger download. */
@@ -417,6 +585,54 @@ export async function downloadAllAsSeparatePngs(pages, productName = 'product', 
     // 브라우저가 동시 다운로드 차단 안 하도록 약간 대기
     await new Promise((r) => setTimeout(r, 250));
   }
+  onProgress?.({ done: pages.length, total: pages.length, label: '완료' });
+}
+
+/**
+ * 페이지별 PSD 내보내기 (텍스트 레이어 editable 우선)
+ * - 배경: 페이지 전체를 캔버스로 래스터화
+ * - 텍스트: [data-editable] 요소를 PSD 텍스트 레이어로 추가
+ */
+export async function downloadAllAsSeparatePsds(pages, productName = 'product', onProgress) {
+  if (!pages?.length) throw new Error('내보낼 페이지가 없습니다.');
+  const { writePsdUint8Array } = await getAgPsd();
+
+  await prepareForCapture();
+  const restoreStylesheets = disableExternalStylesheets();
+
+  try {
+    for (let i = 0; i < pages.length; i++) {
+      const { key, node } = pages[i];
+      onProgress?.({ done: i, total: pages.length, label: `${key} PSD 생성 중...` });
+
+      const backgroundCanvas = await captureNodeCanvas(node, { pixelRatio: 1 });
+      const textLayers = extractEditableTextLayers(node);
+
+      const psd = {
+        width: backgroundCanvas.width,
+        height: backgroundCanvas.height,
+        children: [
+          {
+            name: `${key} Background`,
+            canvas: backgroundCanvas,
+          },
+          ...textLayers,
+        ],
+      };
+
+      const psdBytes = writePsdUint8Array(psd, { invalidateTextLayers: true });
+      const blob = new Blob([psdBytes], { type: 'image/vnd.adobe.photoshop' });
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, `${productName}-${key}.psd`);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      // 브라우저 다운로드 차단 방지 대기
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } finally {
+    restoreStylesheets();
+  }
+
   onProgress?.({ done: pages.length, total: pages.length, label: '완료' });
 }
 
