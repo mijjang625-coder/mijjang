@@ -58,6 +58,48 @@ export default function P10Faq({
     // (필수표기사항과 중복 — 2025-04 사용자 요청으로 제거)
   } = copy;
 
+  // A/S 연락처는 항상 포함되어야 하는 고정 문구
+  const REQUIRED_AS_CONTACT_TEXT = '쿠팡고객센터 1577-7011';
+  const REQUIRED_AS_CONTACT_REGEX = /쿠팡\s*고객센터\s*1577\s*[-]?\s*7011/;
+  const ensureAsContactText = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return REQUIRED_AS_CONTACT_TEXT;
+    if (REQUIRED_AS_CONTACT_REGEX.test(text)) return text;
+    return `${REQUIRED_AS_CONTACT_TEXT} / ${text}`;
+  };
+
+  const normalizeAsContactOverride = (override) => {
+    if (!override || typeof override !== 'object') return override || {};
+    const next = { ...override };
+
+    if (typeof next.text === 'string') {
+      next.text = ensureAsContactText(next.text);
+    }
+
+    if (typeof next.html === 'string') {
+      const plain = next.html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .trim();
+      if (!REQUIRED_AS_CONTACT_REGEX.test(plain)) {
+        next.html = `${REQUIRED_AS_CONTACT_TEXT} / ${next.html}`;
+      }
+    }
+
+    return next;
+  };
+
+  const editValuePropsFor = (key) => {
+    const id = `P10.compliance.value.${key}`;
+    const base = editPropsFor(id);
+    if (key !== 'asContact') return base;
+    return {
+      ...base,
+      override: normalizeAsContactOverride(base.override),
+    };
+  };
+
   // 필수표기사항 항목 정의 (표시 순서 + 라벨 + override 식별 key)
   // key 는 EditableText id 에 사용 — 'P10.compliance.label.{key}' / 'P10.compliance.value.{key}'
   const complianceRows = [
@@ -70,8 +112,10 @@ export default function P10Faq({
     { key: 'asContact',     label: 'A/S 책임자 및 연락처', value: compliance.asContact },
   ].map((r) => ({
     ...r,
-    // 빈 값은 '상세페이지 참조'로 대체 (안전한 기본값)
-    value: r.value?.trim() ? r.value : '상세페이지 참조',
+    // A/S 연락처는 항상 고정 문구 포함, 나머지는 빈 값일 때 '상세페이지 참조'
+    value: r.key === 'asContact'
+      ? ensureAsContactText(r.value)
+      : (r.value?.trim() ? r.value : '상세페이지 참조'),
   }));
 
   const mainImgId = 'P10.componentImage';
@@ -373,7 +417,7 @@ export default function P10Faq({
                 }}
               >
                 <EditableText
-                  {...editPropsFor(`P10.compliance.value.${row.key}`)}
+                  {...editValuePropsFor(row.key)}
                   as="span"
                   defaultStyle={{
                     fontSize: 16,
