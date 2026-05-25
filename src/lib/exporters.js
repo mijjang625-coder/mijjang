@@ -453,9 +453,8 @@ function extractEditableTextLayers(pageNode) {
       const fontWeight = parseFloat(cs.fontWeight) || 400;
       const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
 
-      const { canvas: textCanvas, pad } = createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight });
-      const layerLeft = Math.round(rect.left - pageRect.left) - pad;
-      const layerTop = Math.round(rect.top - pageRect.top) - pad;
+      const layerLeft = Math.round(rect.left - pageRect.left);
+      const layerTop = Math.round(rect.top - pageRect.top);
 
       return {
         order: idx,
@@ -464,7 +463,6 @@ function extractEditableTextLayers(pageNode) {
           name: `Text ${String(idx + 1).padStart(2, '0')}`,
           left: layerLeft,
           top: layerTop,
-          ...(textCanvas ? { canvas: textCanvas } : {}),
           text: {
             text: rawText,
             transform: [
