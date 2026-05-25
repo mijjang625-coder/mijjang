@@ -1,19 +1,45 @@
 import { forwardRef, lazy, Suspense } from 'react';
 
+function lazyWithRetry(importer, key) {
+  return lazy(async () => {
+    try {
+      const mod = await importer();
+      try { sessionStorage.removeItem(`lazy_retry_${key}`); } catch {}
+      return mod;
+    } catch (err) {
+      const msg = String(err?.message || '');
+      const chunkLoadFailed = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg);
+      if (chunkLoadFailed) {
+        try {
+          const retryKey = `lazy_retry_${key}`;
+          const alreadyRetried = sessionStorage.getItem(retryKey) === '1';
+          if (!alreadyRetried) {
+            sessionStorage.setItem(retryKey, '1');
+            window.location.reload();
+            return new Promise(() => {});
+          }
+          sessionStorage.removeItem(retryKey);
+        } catch {}
+      }
+      throw err;
+    }
+  });
+}
+
 // 🚀 P1~P10 페이지 컴포넌트 lazy load
 //   - 첫 진입 시 P1만 빠르게 로드
 //   - 사용자가 다른 페이지 탭 클릭하면 그 페이지만 추가 로드
 //   - "전체 미리보기" 모드에서는 모두 동시 로드 (Suspense가 알아서 처리)
-const P1Hero      = lazy(() => import('./pages/P1Hero.jsx'));
-const P2Benefits  = lazy(() => import('./pages/P2Benefits.jsx'));
-const P3Target    = lazy(() => import('./pages/P3Target.jsx'));
-const P4Reviews   = lazy(() => import('./pages/P4Reviews.jsx'));
-const P5Compare   = lazy(() => import('./pages/P5Compare.jsx'));
-const P6Material  = lazy(() => import('./pages/P6Material.jsx'));
-const P7Lifestyle = lazy(() => import('./pages/P7Lifestyle.jsx'));
-const P8Usages    = lazy(() => import('./pages/P8Usages.jsx'));
-const P9HowTo     = lazy(() => import('./pages/P9HowTo.jsx'));
-const P10Faq      = lazy(() => import('./pages/P10Faq.jsx'));
+const P1Hero      = lazyWithRetry(() => import('./pages/P1Hero.jsx'), 'P1Hero');
+const P2Benefits  = lazyWithRetry(() => import('./pages/P2Benefits.jsx'), 'P2Benefits');
+const P3Target    = lazyWithRetry(() => import('./pages/P3Target.jsx'), 'P3Target');
+const P4Reviews   = lazyWithRetry(() => import('./pages/P4Reviews.jsx'), 'P4Reviews');
+const P5Compare   = lazyWithRetry(() => import('./pages/P5Compare.jsx'), 'P5Compare');
+const P6Material  = lazyWithRetry(() => import('./pages/P6Material.jsx'), 'P6Material');
+const P7Lifestyle = lazyWithRetry(() => import('./pages/P7Lifestyle.jsx'), 'P7Lifestyle');
+const P8Usages    = lazyWithRetry(() => import('./pages/P8Usages.jsx'), 'P8Usages');
+const P9HowTo     = lazyWithRetry(() => import('./pages/P9HowTo.jsx'), 'P9HowTo');
+const P10Faq      = lazyWithRetry(() => import('./pages/P10Faq.jsx'), 'P10Faq');
 
 // 페이지 로딩 fallback (스켈레톤)
 function PageFallback({ pageNumber }) {

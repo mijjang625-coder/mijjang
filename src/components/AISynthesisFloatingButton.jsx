@@ -1,7 +1,33 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 
+function lazyWithRetry(importer, key) {
+  return lazy(async () => {
+    try {
+      const mod = await importer();
+      try { sessionStorage.removeItem(`lazy_retry_${key}`); } catch {}
+      return mod;
+    } catch (err) {
+      const msg = String(err?.message || '');
+      const chunkLoadFailed = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg);
+      if (chunkLoadFailed) {
+        try {
+          const retryKey = `lazy_retry_${key}`;
+          const alreadyRetried = sessionStorage.getItem(retryKey) === '1';
+          if (!alreadyRetried) {
+            sessionStorage.setItem(retryKey, '1');
+            window.location.reload();
+            return new Promise(() => {});
+          }
+          sessionStorage.removeItem(retryKey);
+        } catch {}
+      }
+      throw err;
+    }
+  });
+}
+
 // 🚀 AISynthesisPanel은 lazy load — 모달 열릴 때만 로드 (nano-banana 합성 라이브러리 무거움)
-const AISynthesisPanel = lazy(() => import('./AISynthesisPanel.jsx'));
+const AISynthesisPanel = lazyWithRetry(() => import('./AISynthesisPanel.jsx'), 'AISynthesisPanel');
 
 /**
  * AISynthesisFloatingButton
