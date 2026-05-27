@@ -2417,7 +2417,7 @@ export default function App() {
                 쿠팡 상세페이지 제작 에이전트 v3.3
               </h1>
               <p className="text-[11px] text-slate-500">
-                생활용품/인테리어용품 · P1~P10 순차 제작 · 브랜드 고정값 적용
+                생활용품/인테리어용품
               </p>
             </div>
           </div>
