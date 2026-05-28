@@ -504,22 +504,25 @@ export default function EditableText({
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
 
-    let rafId = 0;
+    let commitTimer = 0;
     const obs = new ResizeObserver((entries) => {
       const nextH = Math.round(entries?.[0]?.contentRect?.height || 0);
       if (!Number.isFinite(nextH) || nextH <= 0) return;
       const prevH = Math.round(Number(override?.frame?.h) || 0);
       if (Math.abs(nextH - prevH) < 1) return;
 
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
+      // 네이티브 resize 드래그 중 매 프레임 setState를 태우면
+      // 높이가 즉시 되돌아오는 "줄였다 늘었다" 현상이 생길 수 있어
+      // 마지막 변화만 debounce 저장한다.
+      clearTimeout(commitTimer);
+      commitTimer = window.setTimeout(() => {
         onChange({ frame: { ...(override?.frame || {}), h: nextH } });
-      });
+      }, 120);
     });
 
     obs.observe(el);
     return () => {
-      cancelAnimationFrame(rafId);
+      clearTimeout(commitTimer);
       obs.disconnect();
     };
   }, [editMode, enableResizeHandle, onChange, override?.frame]);
