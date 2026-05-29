@@ -527,6 +527,45 @@ export default function EditableText({
     };
   }, [editMode, enableResizeHandle, onChange, override?.frame]);
 
+  // 리사이즈 핸들이 켜진 텍스트는 내용이 늘어났을 때 자동으로 높이를 확장해
+  // 아래 블록(체크리스트/표)과 겹치거나 잘리는 현상을 방지한다.
+  useEffect(() => {
+    if (!editMode) return;
+    if (!enableResizeHandle) return;
+    const el = ref.current;
+    if (!el) return;
+
+    const rafId = window.requestAnimationFrame(() => {
+      const contentH = Math.ceil(el.scrollHeight || 0);
+      if (!Number.isFinite(contentH) || contentH <= 0) return;
+
+      const minH = Math.max(resolvedMinResizeHeight, contentH);
+      const currentH = Math.round(frameHeight || el.getBoundingClientRect().height || 0);
+
+      // 사용자가 박스를 더 크게 잡아둔 경우는 유지하고,
+      // 내용이 현재 높이를 넘칠 때만 자동 확장한다.
+      if (minH <= currentH + 1) return;
+
+      onChange({
+        frame: {
+          ...(override?.frame || {}),
+          h: minH,
+        },
+      });
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [
+    editMode,
+    enableResizeHandle,
+    mergedHtml,
+    mergedText,
+    frameHeight,
+    resolvedMinResizeHeight,
+    onChange,
+    override?.frame,
+  ]);
+
   // 🆕 (2026-05-03) 가시성 토글 (포토샵 방식) — visibility:hidden (PNG 캡처에도 반영)
   const isHidden = !!override?.hidden;
 
