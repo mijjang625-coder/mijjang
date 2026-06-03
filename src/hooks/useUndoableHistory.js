@@ -34,9 +34,20 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function isSameState(a, b) {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
 export function useUndoableHistory(initialState) {
   // setter 매핑 (setState 함수들을 외부에서 등록)
   const settersRef = useRef({});
+  // 현재 화면 상태 getter (App에서 등록)
+  const currentStateGetterRef = useRef(null);
 
   // history 배열: [{ state, label, timestamp }]
   const historyRef = useRef([{ state: deepClone(initialState), label: '초기 상태', timestamp: Date.now() }]);
@@ -50,6 +61,11 @@ export function useUndoableHistory(initialState) {
   // setter 등록 — App.jsx 에서 useEffect 안에서 호출
   const registerSetters = useCallback((setters) => {
     settersRef.current = setters;
+  }, []);
+
+  // 현재 화면 스냅샷 getter 등록
+  const registerCurrentStateGetter = useCallback((getter) => {
+    currentStateGetterRef.current = typeof getter === 'function' ? getter : null;
   }, []);
 
   // 현재 상태를 history에 푸시
@@ -81,6 +97,30 @@ export function useUndoableHistory(initialState) {
 
   // 한 단계 뒤로
   const undo = useCallback(() => {
+    // 포인터가 끝(최신)일 때 현재 live 상태가 history 꼬리에 없으면 먼저 저장
+    if (pointerRef.current === historyRef.current.length - 1) {
+      const getter = currentStateGetterRef.current;
+      if (typeof getter === 'function') {
+        try {
+          const liveState = deepClone(getter());
+          const tailState = historyRef.current[pointerRef.current]?.state;
+          if (!isSameState(tailState, liveState)) {
+            historyRef.current.push({
+              state: liveState,
+              label: '현재 상태',
+              timestamp: Date.now(),
+            });
+            if (historyRef.current.length > MAX_HISTORY) {
+              historyRef.current = historyRef.current.slice(-MAX_HISTORY);
+            }
+            pointerRef.current = historyRef.current.length - 1;
+          }
+        } catch {
+          // getter 실패 시 기존 동작 유지
+        }
+      }
+    }
+
     if (pointerRef.current <= 0) return false;
     pointerRef.current -= 1;
     const target = historyRef.current[pointerRef.current];
@@ -128,6 +168,7 @@ export function useUndoableHistory(initialState) {
     redo,
     reset,
     registerSetters,
+    registerCurrentStateGetter,
     canUndo,
     canRedo,
     lastLabel,
