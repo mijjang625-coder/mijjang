@@ -468,14 +468,15 @@ export default function App() {
   }, [undoHistory, getCurrentSnapshot]);
 
   // 🔄 연속 동작용 debounce snapshot
-  // 같은 키(예: 'P1.heroImage.move')로 연속 호출되면 첫 번째만 스냅샷 (드래그 한 묶음)
-  // 다른 키가 오거나 800ms 후에는 새 스냅샷 가능
+  // 같은 키(예: 'P1.heroImage.move')로 연속 호출되면 짧은 시간 안의 호출은 묶어서 저장
+  // 이동/조정을 여러 번 빠르게 해도 Ctrl+Z가 단계적으로 동작하도록 간격을 짧게 유지
+  const HISTORY_DEBOUNCE_MS = 120;
   const lastActionRef = useRef({ key: null, timestamp: 0 });
   const pushHistoryDebounced = useCallback((key, label) => {
     const now = Date.now();
     const last = lastActionRef.current;
-    // 같은 key + 800ms 이내 → 무시 (연속 동작)
-    if (last.key === key && now - last.timestamp < 800) {
+    // 같은 key + 짧은 시간 이내 → 무시 (과도한 히스토리 누적 방지)
+    if (last.key === key && now - last.timestamp < HISTORY_DEBOUNCE_MS) {
       lastActionRef.current = { key, timestamp: now };
       return;
     }
