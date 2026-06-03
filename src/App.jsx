@@ -325,8 +325,48 @@ export default function App() {
     layerNames,
   }), [pages, textOverrides, imageOverrides, freeImages, freeTexts, shapes, layerNames]);
 
+  // undo 시 최신 화면 상태를 tail 캡처할 수 있도록 getter 등록
+  useEffect(() => {
+    undoHistory.registerCurrentStateGetter(() => getCurrentSnapshot());
+  }, [undoHistory, getCurrentSnapshot]);
+
+  // undo/redo 상태 복원 중에는 자동 보정(onChange 등)으로
+  // 새 history가 쌓이지 않게 보호 (redo 스택 보존)
+  const isHistoryNavigatingRef = useRef(false);
+  const historyLockUntilRef = useRef(0);
+
+  const lockHistorySnapshots = useCallback((ms = 280) => {
+    historyLockUntilRef.current = Date.now() + ms;
+  }, []);
+
+  const releaseHistoryNavigating = useCallback(() => {
+    window.setTimeout(() => {
+      isHistoryNavigatingRef.current = false;
+    }, 0);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (!undoHistory.canUndo) return false;
+    lockHistorySnapshots();
+    isHistoryNavigatingRef.current = true;
+    const changed = undoHistory.undo();
+    releaseHistoryNavigating();
+    lockHistorySnapshots();
+    return changed;
+  }, [undoHistory, releaseHistoryNavigating, lockHistorySnapshots]);
+
+  const handleRedo = useCallback(() => {
+    if (!undoHistory.canRedo) return false;
+    lockHistorySnapshots();
+    isHistoryNavigatingRef.current = true;
+    const changed = undoHistory.redo();
+    releaseHistoryNavigating();
+    lockHistorySnapshots();
+    return changed;
+  }, [undoHistory, releaseHistoryNavigating, lockHistorySnapshots]);
+
   // 키보드 단축키 등록 (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z)
-  useUndoRedoKeyboard(undoHistory.undo, undoHistory.redo);
+  useUndoRedoKeyboard(handleUndo, handleRedo);
 
   // ─── 📋 Ctrl+C / Ctrl+V 복사·붙여넣기 ─────────────────────────────
   // activeLayerId 기준으로 현재 선택 요소를 복사 → 붙여넣기 시 +20,+20 오프셋으로 추가
@@ -422,6 +462,8 @@ export default function App() {
   // 편집 액션 직전에 호출 — 변경 후 자동으로 그 상태가 다음 history 항목이 됨
   // pattern: pushHistory('라벨'); 그 다음 setState(...)
   const pushHistory = useCallback((label) => {
+    if (isHistoryNavigatingRef.current) return;
+    if (Date.now() < historyLockUntilRef.current) return;
     undoHistory.snapshot(getCurrentSnapshot(), label);
   }, [undoHistory, getCurrentSnapshot]);
 
@@ -756,11 +798,16 @@ export default function App() {
   }, [pushHistory]);
 
   const updateShape = (pageNum, id, partial) => {
+    const safePartial = { ...(partial || {}) };
+    if (safePartial.zIndex !== undefined) {
+      safePartial.zIndex = Math.max(31, Number(safePartial.zIndex) || 31);
+    }
+
     setShapes((prev) => {
       const list = prev[pageNum] || [];
       return {
         ...prev,
-        [pageNum]: list.map((it) => (it.id === id ? { ...it, ...partial } : it)),
+        [pageNum]: list.map((it) => (it.id === id ? { ...it, ...safePartial } : it)),
       };
     });
   };
@@ -880,10 +927,12 @@ export default function App() {
       return { ...prev, [pageNum]: list };
     });
     // 도형(shape) z-index 적용
+    // 편집 가능한 도형은 content(z=30) 뒤로 내려가면 직접 선택이 어려워지므로
+    // 최소 z=31을 유지해 "맨 뒤" 동작도 content 바로 위까지만 허용한다.
     setShapes((prev) => {
       const list = (prev[pageNum] || []).map((it) => {
         const z = zMap[`shape:${it.id}`];
-        return z !== undefined ? { ...it, zIndex: z } : it;
+        return z !== undefined ? { ...it, zIndex: Math.max(CONTENT_Z + 1, z) } : it;
       });
       return { ...prev, [pageNum]: list };
     });
@@ -947,6 +996,16 @@ export default function App() {
     else if (action === 'forward')  newIdx = Math.max(0, idx - 1);  // 한 단계 앞
     else if (action === 'backward') newIdx = Math.min(next.length, idx + 1); // 한 단계 뒤
     else newIdx = idx;
+
+    // 도형은 content(z=30) 뒤로 내려가지 않도록 제한.
+    // (뒤로 보내도 content 바로 위까지만 이동)
+    if (kind === 'shape') {
+      const contentIdx = next.findIndex((l) => l.kind === 'content');
+      if (contentIdx >= 0) {
+        newIdx = Math.min(newIdx, contentIdx);
+      }
+    }
+
     next.splice(newIdx, 0, target);
     applyNormalizedZ(pageNum, next);
   };
@@ -2273,13 +2332,26 @@ export default function App() {
   const handleDownloadPsd = async (pageNumber) => {
     try {
       await flushPendingEditsForExport();
-      const node = pageRefs[pageNumber].current;
+      setShowExportPanel(true);
+      setPsdExportMounted(true);
+      setExportProgress({ done: 0, total: 1, label: `${pageNumber} PSD 레이어 준비 중...` });
+
+      // editMode=true 렌더를 포함한 PSD 전용 숨김 영역 마운트 대기
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      await new Promise((r) => setTimeout(r, 250));
+
+      const node = psdExportPageRefs[pageNumber]?.current;
       if (!node) throw new Error('PSD로 내보낼 페이지를 찾지 못했습니다.');
-      await downloadAllAsSeparatePsds(
-        [{ key: pageNumber, node }],
-        (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product',
-      );
-    } catch (err) { setError(err.message); }
+
+      const slug = (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product';
+      await downloadAllAsSeparatePsds([{ key: pageNumber, node }], slug, setExportProgress);
+      setTimeout(() => setExportProgress(null), 1500);
+    } catch (err) {
+      setError(err.message);
+      setExportProgress(null);
+    } finally {
+      setPsdExportMounted(false);
+    }
   };
 
   // ───── 전체 내보내기 (P1~P10) ─────
@@ -2404,7 +2476,7 @@ export default function App() {
                 쿠팡 상세페이지 제작 에이전트 v3.3
               </h1>
               <p className="text-[11px] text-slate-500">
-                생활용품/인테리어용품 · P1~P10 순차 제작 · 브랜드 고정값 적용
+                생활용품/인테리어용품
               </p>
             </div>
           </div>
@@ -3075,7 +3147,7 @@ export default function App() {
                 {/* 🔄 Undo/Redo 버튼 — 항상 표시 */}
                 <div className="flex items-center gap-1 mr-1">
                   <button
-                    onClick={undoHistory.undo}
+                    onClick={handleUndo}
                     disabled={!undoHistory.canUndo}
                     className="text-[11px] font-bold px-2 py-1 rounded border transition-all"
                     style={{
@@ -3093,7 +3165,7 @@ export default function App() {
                     ⏪ 실행취소
                   </button>
                   <button
-                    onClick={undoHistory.redo}
+                    onClick={handleRedo}
                     disabled={!undoHistory.canRedo}
                     className="text-[11px] font-bold px-2 py-1 rounded border transition-all"
                     style={{
@@ -3788,15 +3860,15 @@ export default function App() {
                     if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
                       e.preventDefault();
                       if (e.shiftKey) {
-                        if (undoHistory.canRedo) undoHistory.redo();
+                        handleRedo();
                       } else {
-                        if (undoHistory.canUndo) undoHistory.undo();
+                        handleUndo();
                       }
                       return;
                     }
                     if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || e.key === 'Y')) {
                       e.preventDefault();
-                      if (undoHistory.canRedo) undoHistory.redo();
+                      handleRedo();
                       return;
                     }
                   }}
@@ -3820,7 +3892,7 @@ export default function App() {
                 <div className="flex gap-2 mt-2">
                   <button
                     type="button"
-                    onClick={undoHistory.undo}
+                    onClick={handleUndo}
                     disabled={!undoHistory.canUndo || isRevising}
                     className="flex-1 px-3 py-1.5 rounded-lg border font-bold disabled:opacity-50"
                     style={{
@@ -3841,7 +3913,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={undoHistory.redo}
+                    onClick={handleRedo}
                     disabled={!undoHistory.canRedo || isRevising}
                     className="flex-1 px-3 py-1.5 rounded-lg border font-bold disabled:opacity-50"
                     style={{

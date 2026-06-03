@@ -72,7 +72,36 @@ export default function P4Reviews({
   });
 
   const Star = () => (
-    <span style={{ color: BRAND.colors.accent, fontSize: 33, letterSpacing: 3, lineHeight: 1, display: 'inline-block' }}>★★★★★</span>
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '6px 14px',
+        borderRadius: 999,
+        background: '#FFF7E8',
+      }}
+    >
+      {Array.from({ length: 5 }).map((_, idx) => (
+        <span
+          key={idx}
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            background: '#FFEFC9',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 21,
+            lineHeight: 1,
+            boxShadow: '0 2px 6px rgba(255, 182, 55, 0.18)',
+          }}
+        >
+          <span style={{ transform: 'translateY(0.5px)' }}>⭐</span>
+        </span>
+      ))}
+    </div>
   );
 
   return (
