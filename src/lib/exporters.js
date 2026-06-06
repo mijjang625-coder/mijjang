@@ -16,6 +16,14 @@ async function getHtmlToImage() {
   return _htmlToImage;
 }
 
+let _agPsd = null;
+async function getAgPsd() {
+  if (_agPsd) return _agPsd;
+  const mod = await import('ag-psd');
+  _agPsd = mod;
+  return _agPsd;
+}
+
 const NANUMSQUARE_CSS_URL =
   'https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css';
 
@@ -246,6 +254,283 @@ function getCaptureWidth(node) {
   return Math.ceil(node.scrollWidth || node.offsetWidth || 780);
 }
 
+function parseCssColorToRgb(css = '') {
+  const s = String(css || '').trim();
+  if (!s) return { r: 47, g: 42, b: 38 };
+
+  const hexMatch = s.match(/^#([0-9a-f]{3,8})$/i);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    if (hex.length === 3) {
+      return {
+        r: parseInt(hex[0] + hex[0], 16),
+        g: parseInt(hex[1] + hex[1], 16),
+        b: parseInt(hex[2] + hex[2], 16),
+      };
+    }
+    if (hex.length >= 6) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+      };
+    }
+  }
+
+  const rgbMatch = s.match(/rgba?\(([^)]+)\)/i);
+  if (rgbMatch) {
+    const nums = rgbMatch[1].split(',').map((v) => parseFloat(v.trim()));
+    return {
+      r: Number.isFinite(nums[0]) ? Math.max(0, Math.min(255, Math.round(nums[0]))) : 47,
+      g: Number.isFinite(nums[1]) ? Math.max(0, Math.min(255, Math.round(nums[1]))) : 42,
+      b: Number.isFinite(nums[2]) ? Math.max(0, Math.min(255, Math.round(nums[2]))) : 38,
+    };
+  }
+
+  return { r: 47, g: 42, b: 38 };
+}
+
+function toPsdFontName(fontFamily = '', fontWeight = 400) {
+  const rawFirst = String(fontFamily || '').split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') || '';
+  const normalized = rawFirst.toLowerCase();
+
+  // PSD 호환성 우선: NanumSquare는 사용자 환경(Photoshop)에 없는 경우가 많아
+  // 열자마자 경고/깨진 글리프가 발생할 수 있음.
+  // 한글 호환 폰트명으로 안전 매핑.
+  if (normalized.includes('nanumsquare') || normalized.includes('나눔스퀘어')) {
+    return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
+  }
+
+  if (normalized.includes('malgun')) return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
+  if (normalized.includes('apple sd gothic')) return 'AppleSDGothicNeo-Regular';
+  if (normalized.includes('arial')) return 'ArialMT';
+  if (normalized.includes('helvetica')) return 'Helvetica';
+
+  // 알 수 없는 폰트는 한글 지원이 비교적 안정적인 MalgunGothic으로 폴백
+  return 'MalgunGothic';
+}
+
+function toPsdJustification(textAlign = '') {
+  const a = String(textAlign || '').toLowerCase();
+  if (a === 'center') return 'center';
+  if (a === 'right' || a === 'end') return 'right';
+  return 'left';
+}
+
+function isDisplayHidden(el) {
+  try {
+    const cs = window.getComputedStyle(el);
+    if (!cs) return false;
+    if (cs.display === 'none') return true;
+    if (cs.visibility === 'hidden') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function extractTextSource(el) {
+  if (el?.matches?.('[data-free-text="true"]')) {
+    return el.querySelector('[contenteditable]') || el;
+  }
+  return el;
+}
+
+function toCanvasTextAlign(textAlign = '') {
+  const a = String(textAlign || '').toLowerCase();
+  if (a === 'center') return 'center';
+  if (a === 'right' || a === 'end') return 'right';
+  return 'left';
+}
+
+function parseLineHeight(lineHeightCss = '', fontSize = 22) {
+  const lh = parseFloat(String(lineHeightCss || ''));
+  if (Number.isFinite(lh) && lh > 0) return lh;
+  return Math.max(1, fontSize * 1.35);
+}
+
+function getPsdTextAnchorX(rect, textAlign = '') {
+  const a = toCanvasTextAlign(textAlign);
+  if (a === 'center') return Math.round(rect.left + rect.width / 2);
+  if (a === 'right') return Math.round(rect.right);
+  return Math.round(rect.left);
+}
+
+function createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight }) {
+  const pad = 2;
+  const width = Math.max(1, Math.ceil(rect.width) + pad * 2);
+  const height = Math.max(1, Math.ceil(rect.height) + pad * 2);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return { canvas: null, pad };
+
+  const lineHeight = parseLineHeight(cs.lineHeight, fontSize);
+  const textAlign = toCanvasTextAlign(cs.textAlign);
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.textBaseline = 'top';
+  ctx.textAlign = textAlign;
+  ctx.fillStyle = cs.color || '#2F2A26';
+  ctx.font = `${Number(fontWeight) >= 700 ? '700' : '400'} ${fontSize}px ${cs.fontFamily || 'sans-serif'}`;
+
+  const lines = String(rawText || '').split('\n');
+  const x = textAlign === 'center' ? Math.round(width / 2) : textAlign === 'right' ? width - pad : pad;
+
+  for (let i = 0; i < lines.length; i++) {
+    const y = pad + i * lineHeight;
+    if (y > height) break;
+    const line = lines[i] && lines[i].length ? lines[i] : ' ';
+    ctx.fillText(line, x, y, Math.max(1, width - pad * 2));
+  }
+
+  return { canvas, pad };
+}
+
+function extractEditableTextLayers(pageNode) {
+  if (!pageNode) return [];
+  const pageRect = pageNode.getBoundingClientRect();
+
+  // nested data-editable 중 가장 바깥(top-level)만 사용해 좌표 기준을 안정화
+  const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'))
+    .filter((el) => !el.parentElement?.closest?.('[data-editable="true"]'));
+
+  const dedupe = new Set();
+
+  return editableEls
+    .map((el, idx) => {
+      if (!el || isDisplayHidden(el)) return null;
+
+      const source = extractTextSource(el);
+      if (!source || isDisplayHidden(source)) return null;
+
+      const rawText = String(source.innerText || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r\n?/g, '\n')
+        .replace(/\s+$/g, '');
+
+      if (!rawText.trim()) return null;
+
+      const rect = source.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8) return null;
+
+      // 동일 위치/동일 텍스트 중복 제거
+      const sig = [
+        Math.round(rect.left - pageRect.left),
+        Math.round(rect.top - pageRect.top),
+        Math.round(rect.width),
+        Math.round(rect.height),
+        rawText,
+      ].join('|');
+      if (dedupe.has(sig)) return null;
+      dedupe.add(sig);
+
+      const cs = window.getComputedStyle(source);
+      const fontSize = parseFloat(cs.fontSize) || 22;
+      const fontWeight = parseFloat(cs.fontWeight) || 400;
+      const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
+
+      const { canvas: textCanvas, pad } = createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight });
+      const layerLeft = Math.round(rect.left - pageRect.left) - pad;
+      const layerTop = Math.round(rect.top - pageRect.top) - pad;
+
+      return {
+        order: idx,
+        zIndex,
+        layer: {
+          name: `Text ${String(idx + 1).padStart(2, '0')}`,
+          left: layerLeft,
+          top: layerTop,
+          ...(textCanvas ? { canvas: textCanvas } : {}),
+          text: {
+            text: rawText,
+            transform: [
+              1, 0, 0, 1,
+              getPsdTextAnchorX(
+                {
+                  left: rect.left - pageRect.left,
+                  right: rect.right - pageRect.left,
+                  width: rect.width,
+                },
+                cs.textAlign,
+              ),
+              Math.round(rect.top - pageRect.top),
+            ],
+            style: {
+              font: { name: toPsdFontName(cs.fontFamily, fontWeight) },
+              fontSize: Math.max(1, Math.round(fontSize * 100) / 100),
+              fillColor: parseCssColorToRgb(cs.color),
+            },
+            paragraphStyle: {
+              justification: toPsdJustification(cs.textAlign),
+            },
+          },
+        },
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.zIndex - b.zIndex) || (a.order - b.order))
+    .map((it) => it.layer);
+}
+
+function hideEditableTextsForBackground(rootNode) {
+  if (!rootNode) return () => {};
+  const restored = [];
+  try {
+    const nodes = rootNode.querySelectorAll('[data-editable="true"]');
+    nodes.forEach((el) => {
+      const prevVisibility = el.style.visibility;
+      const prevPointerEvents = el.style.pointerEvents;
+      restored.push({ el, prop: 'visibility', value: prevVisibility });
+      restored.push({ el, prop: 'pointerEvents', value: prevPointerEvents });
+      el.style.visibility = 'hidden';
+      el.style.pointerEvents = 'none';
+    });
+  } catch {}
+
+  return () => {
+    for (const r of restored) {
+      try { r.el.style[r.prop] = r.value; } catch {}
+    }
+  };
+}
+
+async function captureNodeCanvas(node, customOptions = {}, extraOptions = {}) {
+  const htmlToImage = await getHtmlToImage();
+  await waitForImages(node);
+
+  const removeClass = applyCaptureClass(node);
+  const restoreHeight = lockHeightForCapture(node);
+  const restoreChrome = stripEditingChrome(node);
+  const restoreEditableTexts = extraOptions?.hideEditableTexts ? hideEditableTextsForBackground(node) : () => {};
+
+  await new Promise((r) => requestAnimationFrame(() => r()));
+
+  try {
+    const captureH = getCaptureHeight(node);
+    const captureW = getCaptureWidth(node);
+    const canvas = await htmlToImage.toCanvas(node, {
+      ...CAPTURE_OPTIONS,
+      ...customOptions,
+      width: captureW,
+      height: captureH,
+      style: {
+        width: `${captureW}px`,
+        height: `${captureH}px`,
+      },
+    });
+    return canvas;
+  } finally {
+    restoreEditableTexts();
+    restoreChrome();
+    restoreHeight();
+    removeClass();
+  }
+}
+
 /* ───────── 단일 페이지 ───────── */
 
 /** Render a DOM node to a PNG image and trigger download. */
@@ -401,12 +686,52 @@ export async function downloadAllAsSeparatePngs(pages, productName = 'product', 
 }
 
 /**
- * PSD 내보내기 호환 함수.
- * 현재 안정화 롤백에서는 PNG 품질 문제를 우선 해결하기 위해
- * 예전 캡처 파이프라인으로 되돌렸고, PSD는 추후 재적용 예정.
+ * 페이지별 PSD 내보내기 (텍스트 레이어 editable 우선)
+ * - 배경: 페이지 전체를 캔버스로 래스터화
+ * - 텍스트: [data-editable] 요소를 PSD 텍스트 레이어로 추가
  */
-export async function downloadAllAsSeparatePsds() {
-  throw new Error('현재 버전에서는 PSD 내보내기가 일시 비활성화되었습니다. PNG로 먼저 저장해 주세요.');
+export async function downloadAllAsSeparatePsds(pages, productName = 'product', onProgress) {
+  if (!pages?.length) throw new Error('내보낼 페이지가 없습니다.');
+  const { writePsdUint8Array } = await getAgPsd();
+
+  await prepareForCapture();
+  const restoreStylesheets = disableExternalStylesheets();
+
+  try {
+    for (let i = 0; i < pages.length; i++) {
+      const { key, node } = pages[i];
+      onProgress?.({ done: i, total: pages.length, label: `${key} PSD 생성 중...` });
+
+      // 배경에는 editable 텍스트를 숨겨 "배경 텍스트 + 텍스트 레이어" 이중 노출 방지
+      const backgroundCanvas = await captureNodeCanvas(node, { pixelRatio: 1 }, { hideEditableTexts: true });
+      const textLayers = extractEditableTextLayers(node);
+
+      const psd = {
+        width: backgroundCanvas.width,
+        height: backgroundCanvas.height,
+        children: [
+          {
+            name: `${key} Background`,
+            canvas: backgroundCanvas,
+          },
+          ...textLayers,
+        ],
+      };
+
+      const psdBytes = writePsdUint8Array(psd, { invalidateTextLayers: true });
+      const blob = new Blob([psdBytes], { type: 'image/vnd.adobe.photoshop' });
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, `${productName}-${key}.psd`);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      // 브라우저 다운로드 차단 방지 대기
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } finally {
+    restoreStylesheets();
+  }
+
+  onProgress?.({ done: pages.length, total: pages.length, label: '완료' });
 }
 
 /** P1~P10 전체를 하나의 HTML 문서로 내보내기 */
