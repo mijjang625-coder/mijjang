@@ -415,6 +415,38 @@ ${JSON.stringify(previousCopy || {}, null, 2)}`;
   return normalizeP4Copy(focusedParsed, previousCopy);
 }
 
+function detectDirectRevisionIntent(userMessage = '') {
+  const msg = String(userMessage || '').trim();
+  if (!msg) return false;
+
+  // "가능해?", "왜 안돼?" 같은 상태/문의성 문장은 우선 chat로 보냄
+  const pureQuestionPattern = /(가능|되나|돼|될까|왜|원인|이유|문제|오류|버그|안되)/;
+  const imperativeEndingPattern = /(해줘|해주세요|해 줘|해 주세요|바꿔줘|수정해줘|고쳐줘|다시 써줘|삭제해줘|추가해줘|줄여줘|늘려줘|맞춰줘)/;
+
+  const targetKeywordPattern = /(문구|카피|텍스트|문장|제목|본문|표현|톤|길이|레이아웃|문단|섹션|표|이미지|사진|배치|간격|폰트|크기|색상)/;
+  const actionKeywordPattern = /(수정|변경|교체|바꿔|고쳐|다시|지워|삭제|추가|줄여|늘려|정리|맞춰|반영|적용|만들어)/;
+
+  const hasTarget = targetKeywordPattern.test(msg);
+  const hasAction = actionKeywordPattern.test(msg);
+  const hasImperative = imperativeEndingPattern.test(msg);
+
+  // 명령형이면서 타깃+행동이 있으면 무조건 revise
+  if ((hasImperative && hasAction) || (hasTarget && hasAction)) {
+    // 단순 문의형(예: "수정 가능해?")은 chat으로 남김
+    if (pureQuestionPattern.test(msg) && msg.includes('?') && !hasImperative) return false;
+    return true;
+  }
+
+  // 짧은 직설 수정 명령도 revise 처리
+  const shortDirectCommands = [
+    '다시 만들어줘', '다시 만들어 줘', '다시 써줘', '다시 써 줘',
+    '문구 바꿔줘', '문구 수정해줘', '카피 바꿔줘', '제목 바꿔줘',
+  ];
+  if (shortDirectCommands.some((kw) => msg.includes(kw))) return true;
+
+  return false;
+}
+
 export async function classifyRevisionChatIntent({
   apiKey,
   model = 'gpt-4o-mini',
@@ -426,6 +458,17 @@ export async function classifyRevisionChatIntent({
 }) {
   const _provider = provider || detectProviderFromModel(model);
   if (!apiKey) throw new Error('AI API 키가 필요합니다.');
+
+  // 1차 안전장치: 문구/텍스트 수정형 지시는 분류 AI를 거치지 않고 즉시 revise
+  if (detectDirectRevisionIntent(userMessage)) {
+    return {
+      action: 'revise',
+      assistantMessage: '수정 요청으로 인식했습니다. 바로 반영할게요.',
+      revisionRequest: pageNumber === 'P4'
+        ? buildP4RevisionRequest({ userMessage, revisionRequest: userMessage })
+        : userMessage,
+    };
+  }
 
   const normalizedChats = (revisionChats || [])
     .filter((m) => m && typeof m.text === 'string' && m.text.trim())
