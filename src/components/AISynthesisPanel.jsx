@@ -14,7 +14,7 @@ const QUICK_PROMPTS = [
   { emoji: '🖼️', label: '배경 교체', mode: 'background', bg: 'studio', mood: 'clean',    text: '흰색 스튜디오 배경으로 교체해줘' },
   { emoji: '🚿', label: '욕실 배경', mode: 'background', bg: 'bathroom', mood: 'clean',  text: '욕실 배경으로 바꿔줘' },
   { emoji: '🍳', label: '주방 배경', mode: 'background', bg: 'kitchen', mood: 'clean',   text: '주방 배경으로 바꿔줘' },
-  { emoji: '🧽', label: '사용 장면', mode: 'usage',      bg: 'bathroom', mood: 'natural', text: '실제로 사용하는 장면 만들어줘' },
+  { emoji: '🧽', label: '사용 장면', mode: 'usage',      bg: 'studio', mood: 'natural', text: '실제로 사용하는 장면 만들어줘' },
   { emoji: '✨', label: 'Before/After', mode: 'beforeAfter', bg: 'bathroom', mood: 'clean', text: '청소 전후 비교 사진 만들어줘' },
   { emoji: '🤚', label: '손에 쥔 컷', mode: 'handHeld',  bg: 'studio', mood: 'modern',  text: '손에 들고 있는 컷 만들어줘' },
   { emoji: '🔄', label: '다각도', mode: 'multiAngle',    bg: 'studio', mood: 'clean',    text: '다양한 각도로 찍어줘' },
@@ -394,6 +394,17 @@ export default function AISynthesisPanel({
   /* ── 결과 이미지 라이브러리 추가 ── */
   const handleAddOne = (url) => onAddImages([url]);
   const handleAddAll = (images) => onAddImages(images.map((i) => i.url));
+  const handleUseGeneratedResult = (url, idx) => {
+    const label = `AI 결과 #${idx + 1}`;
+    setAttachedImage({ url, label });
+    setShowImagePicker(false);
+    addMsg({
+      role: 'assistant',
+      type: 'text',
+      content: `이제 **${label}**를 현재 기준 이미지로 잡았어요.\n이어서 수정하고 싶은 내용을 자유롭게 입력해 주세요.\n예) "배경을 더 밝게", "손에 쥔 장면으로 바꿔줘"`,
+    });
+    inputRef.current?.focus();
+  };
 
   const downloadOne = (url, idx) => {
     const a = document.createElement('a');
@@ -544,6 +555,7 @@ export default function AISynthesisPanel({
             onAddOne={handleAddOne}
             onAddAll={handleAddAll}
             onDownload={downloadOne}
+            onUseAsReference={handleUseGeneratedResult}
           />
         ))}
         <div ref={bottomRef} />
@@ -893,7 +905,7 @@ export default function AISynthesisPanel({
 /* ─────────────────────────────────────────────────────────────
    채팅 메시지 컴포넌트
 ───────────────────────────────────────────────────────────── */
-function ChatMessage({ msg, onAddOne, onAddAll, onDownload }) {
+function ChatMessage({ msg, onAddOne, onAddAll, onDownload, onUseAsReference }) {
   const isUser = msg.role === 'user';
 
   return (
@@ -963,6 +975,7 @@ function ChatMessage({ msg, onAddOne, onAddAll, onDownload }) {
             onAddOne={onAddOne}
             onAddAll={onAddAll}
             onDownload={onDownload}
+            onUseAsReference={onUseAsReference}
           />
         )}
       </div>
@@ -973,7 +986,7 @@ function ChatMessage({ msg, onAddOne, onAddAll, onDownload }) {
 /* ─────────────────────────────────────────────────────────────
    이미지 결과 그리드 컴포넌트
 ───────────────────────────────────────────────────────────── */
-function ImageResultGrid({ images, mode, onAddOne, onAddAll, onDownload }) {
+function ImageResultGrid({ images, mode, onAddOne, onAddAll, onDownload, onUseAsReference }) {
   const [added, setAdded] = useState(new Set());
 
   const handleAddOne = (url, idx) => {
@@ -1055,36 +1068,55 @@ function ImageResultGrid({ images, mode, onAddOne, onAddAll, onDownload }) {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', borderTop: '1px solid #e2ddd4' }}>
+            <div style={{ borderTop: '1px solid #e2ddd4' }}>
               <button
                 type="button"
-                onClick={() => handleAddOne(item.url, idx)}
+                onClick={() => onUseAsReference(item.url, idx)}
                 style={{
-                  flex: 1, padding: '7px 0',
+                  width: '100%',
+                  padding: '8px 10px',
                   border: 'none',
-                  backgroundColor: added.has(idx) ? '#d1fae5' : '#E87A2B',
-                  color: added.has(idx) ? '#065F46' : '#fff',
-                  fontSize: 10, fontWeight: 700,
+                  borderBottom: '1px solid #e2ddd4',
+                  backgroundColor: '#FFF8F0',
+                  color: '#C2410C',
+                  fontSize: 10,
+                  fontWeight: 800,
                   cursor: 'pointer',
                 }}
               >
-                {added.has(idx) ? '✓ 추가됨' : '⬆️ 프로젝트에 추가'}
+                ✨ 이 결과로 이어서 수정
               </button>
-              <button
-                type="button"
-                onClick={() => onDownload(item.url, idx)}
-                style={{
-                  flex: 1, padding: '7px 0',
-                  border: 'none',
-                  borderLeft: '1px solid #e2ddd4',
-                  backgroundColor: '#fff',
-                  color: '#555',
-                  fontSize: 10, fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                💾 결과 저장
-              </button>
+              <div style={{ display: 'flex' }}>
+                <button
+                  type="button"
+                  onClick={() => handleAddOne(item.url, idx)}
+                  style={{
+                    flex: 1, padding: '7px 0',
+                    border: 'none',
+                    backgroundColor: added.has(idx) ? '#d1fae5' : '#E87A2B',
+                    color: added.has(idx) ? '#065F46' : '#fff',
+                    fontSize: 10, fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {added.has(idx) ? '✓ 추가됨' : '⬆️ 프로젝트에 추가'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDownload(item.url, idx)}
+                  style={{
+                    flex: 1, padding: '7px 0',
+                    border: 'none',
+                    borderLeft: '1px solid #e2ddd4',
+                    backgroundColor: '#fff',
+                    color: '#555',
+                    fontSize: 10, fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  💾 결과 저장
+                </button>
+              </div>
             </div>
           </div>
         ))}
