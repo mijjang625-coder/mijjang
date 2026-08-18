@@ -120,6 +120,9 @@ export default function P10Faq({
 
   const mainImgId = 'P10.componentImage';
   const mainLayers = [{ id: mainImgId, defaultName: '🖼 구성품 사진', defaultZ: 80 }];
+  const componentBullets = (components.bullets || []).slice(0, 4);
+  const componentBulletFontSize = componentBullets.length >= 4 ? 16 : componentBullets.length === 3 ? 18 : 20;
+  const componentBulletGridColumns = `repeat(${Math.max(componentBullets.length, 1)}, minmax(0, 1fr))`;
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
     (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
@@ -200,39 +203,51 @@ export default function P10Faq({
             marginTop: 24,
             backgroundColor: BRAND.colors.sub,
             borderRadius: 16,
-            padding: '22px 24px',
+            padding: '22px 20px',
           }}
         >
-          {(components.bullets || []).slice(0, 4).map((b, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                padding: '10px 4px',
-                borderBottom:
-                  i === Math.min((components.bullets || []).length, 4) - 1
-                    ? 'none'
-                    : `1px solid ${BRAND.colors.neutral}`,
-              }}
-            >
-              <CheckIcon size={26} variant={variant} />
-              <EditableText
-                {...editPropsFor(`P10.components.bullets.${i}`)}
-                as="span"
-                defaultStyle={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: BRAND.colors.text,
-                  letterSpacing: '-0.02em',
-                  wordBreak: 'keep-all',
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: componentBulletGridColumns,
+              alignItems: 'stretch',
+              gap: 10,
+            }}
+          >
+            {componentBullets.map((b, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  minWidth: 0,
+                  padding: '8px 10px',
+                  borderLeft: i === 0 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
                 }}
               >
-                {b}
-              </EditableText>
-            </div>
-          ))}
+                <CheckIcon size={22} variant={variant} />
+                <EditableText
+                  {...editPropsFor(`P10.components.bullets.${i}`)}
+                  as="span"
+                  defaultStyle={{
+                    fontSize: componentBulletFontSize,
+                    fontWeight: 700,
+                    color: BRAND.colors.text,
+                    letterSpacing: '-0.02em',
+                    wordBreak: 'keep-all',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    textAlign: 'center',
+                  }}
+                >
+                  {b}
+                </EditableText>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
