@@ -428,6 +428,13 @@ export default function FreeImage({
   // 툴바 위치: 박스가 페이지 상단에 있으면 박스 아래에 표시
   const toolbarBelow = y < 50;
 
+  const openAiSynthesisPanel = (e) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('ai-synthesis:open', {
+      detail: { sourceUrl: src || null },
+    }));
+  };
+
   return (
     <div
       ref={wrapRef}
@@ -570,6 +577,12 @@ export default function FreeImage({
             fontSize: 10, fontWeight: 900,
           }}>z{zIndex}</span>
           <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+          <button
+            onClick={openAiSynthesisPanel}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={btnLabel('#E87A2B')}
+            title="현재 선택한 사진으로 AI 이미지 합성 열기"
+          >🪄 AI 이미지</button>
           <button
             onClick={(e) => { e.stopPropagation(); setShowAdjust((s) => !s); }}
             onMouseDown={(e) => e.stopPropagation()}

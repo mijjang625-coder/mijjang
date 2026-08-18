@@ -153,7 +153,7 @@ export const THEME_PRESETS = {
 export const CATEGORY_VISUAL_PRESETS = {
   '청소도구형': {
     themeId: 'oceanBlue',
-    fontId: 'nanumGothic',
+    fontId: 'pretendard',
     p1CardSettings: { iconVariant: 1, cardRadius: 10, cardGap: 14, cardMinHeight: 205 },
     previewSkin: {
       surface: '#EAF3FA',
@@ -177,7 +177,7 @@ export const CATEGORY_VISUAL_PRESETS = {
   },
   '욕실/위생형': {
     themeId: 'oceanBlue',
-    fontId: 'notoSansKR',
+    fontId: 'pretendard',
     p1CardSettings: { iconVariant: 0, cardRadius: 24, cardGap: 18, cardMinHeight: 220 },
     previewSkin: {
       surface: '#E7F6FF',
@@ -189,7 +189,7 @@ export const CATEGORY_VISUAL_PRESETS = {
   },
   '주방정리형': {
     themeId: 'softSage',
-    fontId: 'gowunDodum',
+    fontId: 'pretendard',
     p1CardSettings: { iconVariant: 4, cardRadius: 16, cardGap: 16, cardMinHeight: 214 },
     previewSkin: {
       surface: '#EEF6EA',
@@ -201,7 +201,7 @@ export const CATEGORY_VISUAL_PRESETS = {
   },
   '소모품형': {
     themeId: 'deepNavy',
-    fontId: 'notoSansKR',
+    fontId: 'pretendard',
     p1CardSettings: { iconVariant: 3, cardRadius: 6, cardGap: 12, cardMinHeight: 196 },
     previewSkin: {
       surface: '#EEF2F8',
@@ -213,7 +213,7 @@ export const CATEGORY_VISUAL_PRESETS = {
   },
   '생활보조형': {
     themeId: 'warmBeige',
-    fontId: 'nanumGothic',
+    fontId: 'pretendard',
     p1CardSettings: { iconVariant: 5, cardRadius: 22, cardGap: 20, cardMinHeight: 226 },
     previewSkin: {
       surface: '#F8F1E8',
@@ -225,7 +225,7 @@ export const CATEGORY_VISUAL_PRESETS = {
   },
   '인테리어소품형': {
     themeId: 'softPink',
-    fontId: 'gaegu',
+    fontId: 'pretendard',
     p1CardSettings: { iconVariant: 5, cardRadius: 28, cardGap: 22, cardMinHeight: 232 },
     previewSkin: {
       surface: '#FDF0F4',

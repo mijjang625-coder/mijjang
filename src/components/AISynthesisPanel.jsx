@@ -598,49 +598,116 @@ export default function AISynthesisPanel({
         </div>
       </div>
 
-      {/* ── 첨부 이미지 미리보기 칩 ── */}
-      {attachedImage && (
-        <div style={{
-          flexShrink: 0,
-          padding: '4px 12px 0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-        }}>
+      {/* ── 현재 기준 이미지 상태 ── */}
+      <div style={{
+        flexShrink: 0,
+        padding: '8px 12px 0',
+      }}>
+        {attachedImage ? (
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
-            padding: '4px 8px 4px 4px',
-            borderRadius: 10,
-            border: '1.5px solid #E87A2B',
-            backgroundColor: '#FFF8F0',
-            fontSize: 11,
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '10px 12px',
+            borderRadius: 14,
+            border: '1.5px solid #F3C6A7',
+            background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFDF9 100%)',
+            boxShadow: '0 4px 10px rgba(232,122,43,0.08)',
           }}>
-            <img
-              src={attachedImage.url}
-              alt=""
-              style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6 }}
-            />
-            <span style={{ color: '#C2410C', fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {attachedImage.label}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <img
+                src={attachedImage.url}
+                alt={attachedImage.label}
+                style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 10, flexShrink: 0, border: '1px solid #f2d6c2' }}
+              />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#C2410C' }}>현재 기준 이미지</span>
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: '#fff',
+                    backgroundColor: '#E87A2B',
+                    borderRadius: 999,
+                    padding: '2px 6px',
+                    lineHeight: 1.2,
+                  }}>생성에 사용 중</span>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#2F2A26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {attachedImage.label}
+                </div>
+                <div style={{ fontSize: 10, color: '#7C6F65', marginTop: 2 }}>
+                  지금 보내는 요청은 이 이미지를 기준으로 생성돼요.
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setShowImagePicker(true)}
+                style={{
+                  border: '1px solid #E87A2B',
+                  backgroundColor: '#fff',
+                  color: '#C2410C',
+                  borderRadius: 8,
+                  padding: '6px 8px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >변경</button>
+              <button
+                type="button"
+                onClick={() => setAttachedImage(null)}
+                style={{
+                  border: '1px solid #e2ddd4',
+                  backgroundColor: '#fff',
+                  color: '#666',
+                  borderRadius: 8,
+                  padding: '6px 8px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >해제</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '10px 12px',
+            borderRadius: 14,
+            border: '1px dashed #e2ddd4',
+            backgroundColor: '#fafaf9',
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#666', marginBottom: 2 }}>현재 기준 이미지 없음</div>
+              <div style={{ fontSize: 10, color: '#999' }}>사진을 선택하면 그 사진을 기준으로 더 안정적으로 생성할 수 있어요.</div>
+            </div>
             <button
               type="button"
-              onClick={() => setAttachedImage(null)}
+              onClick={() => setShowImagePicker(true)}
               style={{
-                width: 16, height: 16, borderRadius: '50%',
-                backgroundColor: '#C2410C', color: '#fff',
-                border: 'none', cursor: 'pointer',
-                fontSize: 10, fontWeight: 900,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                lineHeight: 1,
+                border: '1px solid #e2ddd4',
+                backgroundColor: '#fff',
+                color: '#555',
+                borderRadius: 8,
+                padding: '6px 8px',
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
               }}
-            >×</button>
+            >사진 선택</button>
           </div>
-          <span style={{ fontSize: 10, color: '#888' }}>기준 사진으로 사용</span>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── 이미지 피커 (라이브러리) ── */}
       {showImagePicker && (
@@ -816,7 +883,7 @@ export default function AISynthesisPanel({
           </button>
         </div>
         <div style={{ fontSize: 9, color: '#bbb', marginTop: 4, textAlign: 'center' }}>
-          Enter로 전송 · Shift+Enter 줄바꿈 · 사진을 첨부하면 해당 사진 기반으로 생성
+          Enter로 전송 · Shift+Enter 줄바꿈 · 현재 기준 이미지가 있으면 해당 사진을 기준으로 생성
         </div>
       </div>
     </div>
@@ -1001,7 +1068,7 @@ function ImageResultGrid({ images, mode, onAddOne, onAddAll, onDownload }) {
                   cursor: 'pointer',
                 }}
               >
-                {added.has(idx) ? '✓ 추가됨' : '⬆️ 추가'}
+                {added.has(idx) ? '✓ 추가됨' : '⬆️ 프로젝트에 추가'}
               </button>
               <button
                 type="button"
@@ -1016,7 +1083,7 @@ function ImageResultGrid({ images, mode, onAddOne, onAddAll, onDownload }) {
                   cursor: 'pointer',
                 }}
               >
-                💾 저장
+                💾 결과 저장
               </button>
             </div>
           </div>

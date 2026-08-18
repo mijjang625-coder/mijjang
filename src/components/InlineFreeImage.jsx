@@ -396,6 +396,12 @@ export default function InlineFreeImage({
     };
   }, [movingInline, onMoveUp, onMoveDown]);
 
+  const openAiSynthesisPanel = () => {
+    window.dispatchEvent(new CustomEvent('ai-synthesis:open', {
+      detail: { sourceUrl: src || null },
+    }));
+  };
+
   // 좌우 정렬 → marginLeft/marginRight 자동 결정 (col flex 컨테이너)
   const containerStyle = {
     position: 'relative',
@@ -584,6 +590,14 @@ export default function InlineFreeImage({
             style={btnIcon(align === 'center' ? '#10b981' : '#475569')} title="가운데 정렬">⬌</button>
           <button onClick={() => onUpdate({ align: 'right' })}
             style={btnIcon(align === 'right' ? '#10b981' : '#475569')} title="오른쪽 정렬">➡</button>
+          <span style={sep} />
+
+          {/* 🪄 AI 이미지 */}
+          <button
+            onClick={openAiSynthesisPanel}
+            style={btnLabel('#E87A2B')}
+            title="현재 선택한 사진으로 AI 이미지 합성 열기"
+          >🪄 AI 이미지</button>
           <span style={sep} />
 
           {/* 🎨 색상 */}
