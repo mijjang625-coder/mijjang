@@ -147,6 +147,13 @@ export default function EditableImage({
     onChange({ zIndex: newZ });
   };
 
+  const openAiSynthesisPanel = (e) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('ai-synthesis:open', {
+      detail: { sourceUrl: currentSrc || null },
+    }));
+  };
+
   // wrapper 초기 크기 측정
   // 🐛 (2026-04-28) FIX: getBoundingClientRect() 는 transform 적용 후의 크기를 반환하므로,
   //   부모가 `transform: scale(0.46)` 인 모바일 미리보기에서 박스가 절반으로 측정되어
@@ -894,6 +901,15 @@ export default function EditableImage({
             padding: '2px 5px', borderRadius: 4,
             fontSize: 9, fontWeight: 900,
           }}>z{customZ ?? 1}</span>
+          <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
+
+          {/* 🪄 AI 이미지 — 우측 플로팅 패널과 동일 기능 */}
+          <button
+            onClick={openAiSynthesisPanel}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={toolbarBtnStyle('#E87A2B')}
+            title="현재 선택한 사진으로 AI 이미지 합성 열기"
+          >🪄 AI 이미지</button>
           <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
 
           {/* 🎨 색상 — InlineFreeImage 와 동일 */}

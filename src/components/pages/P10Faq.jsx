@@ -120,9 +120,21 @@ export default function P10Faq({
 
   const mainImgId = 'P10.componentImage';
   const mainLayers = [{ id: mainImgId, defaultName: '🖼 구성품 사진', defaultZ: 80 }];
-  const componentBullets = (components.bullets || []).slice(0, 4);
+  const hiddenComponentBulletPatterns = [
+    /거울\s*프레임\s*및\s*받침대/i,
+    /사용\s*설명서\s*1?부/i,
+  ];
+  const componentBullets = (components.bullets || [])
+    .slice(0, 4)
+    .map((bullet) => String(bullet || '').trim())
+    .filter(Boolean)
+    .filter((bullet) => !hiddenComponentBulletPatterns.some((pattern) => pattern.test(bullet)))
+    .slice(0, 1);
   const componentBulletFontSize = componentBullets.length >= 4 ? 16 : componentBullets.length === 3 ? 18 : 20;
-  const componentBulletGridColumns = `repeat(${Math.max(componentBullets.length, 1)}, minmax(0, 1fr))`;
+  const isSingleComponentBullet = componentBullets.length <= 1;
+  const componentBulletGridColumns = isSingleComponentBullet
+    ? 'max-content'
+    : `repeat(${Math.max(componentBullets.length, 1)}, minmax(0, 1fr))`;
   // 🟦 도형의 가장 아래 끝 → 페이지 baseHeight 자동 연장
   const shapesBottom = (shapes || []).reduce(
     (max, s) => Math.max(max, (s.y || 0) + (s.h || 0)),
@@ -211,6 +223,7 @@ export default function P10Faq({
               display: 'grid',
               gridTemplateColumns: componentBulletGridColumns,
               alignItems: 'stretch',
+              justifyContent: isSingleComponentBullet ? 'flex-start' : 'stretch',
               gap: 10,
             }}
           >
@@ -220,7 +233,7 @@ export default function P10Faq({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justifyContent: isSingleComponentBullet ? 'flex-start' : 'center',
                   gap: 8,
                   minWidth: 0,
                   padding: '8px 10px',

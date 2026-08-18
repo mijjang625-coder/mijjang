@@ -55,15 +55,32 @@ export default function AISynthesisFloatingButton({
   onAddImages = () => {},
 }) {
   const [open, setOpen] = useState(false);
+  const [requestedSourceUrl, setRequestedSourceUrl] = useState(null);
   const modalRef = useRef(null);
+
+  const closePanel = () => {
+    setOpen(false);
+    setRequestedSourceUrl(null);
+  };
 
   // ESC 로 닫기
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') closePanel(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
+
+  // 다른 이미지 툴바에서 "AI 이미지"를 눌렀을 때 동일 패널 재사용
+  useEffect(() => {
+    const handleOpenRequest = (e) => {
+      const sourceUrl = e?.detail?.sourceUrl || null;
+      setRequestedSourceUrl(sourceUrl);
+      setOpen(true);
+    };
+    window.addEventListener('ai-synthesis:open', handleOpenRequest);
+    return () => window.removeEventListener('ai-synthesis:open', handleOpenRequest);
+  }, []);
 
   if (!editMode) return null;
 
@@ -100,7 +117,7 @@ export default function AISynthesisFloatingButton({
       {/* 🪟 모달 */}
       {open && (
         <div
-          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) closePanel(); }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -135,7 +152,7 @@ export default function AISynthesisFloatingButton({
             }}>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closePanel}
                 style={{
                   width: 30, height: 30,
                   borderRadius: 8,
@@ -173,7 +190,7 @@ export default function AISynthesisFloatingButton({
                   falApiKey={falApiKey}
                   productName={productName}
                   uploadedImages={uploadedImages}
-                  initialSourceUrl={activeImageSrc}
+                  initialSourceUrl={requestedSourceUrl || activeImageSrc}
                   currentPage={currentPage}
                   onAddImages={(urls) => {
                     onAddImages(urls);
