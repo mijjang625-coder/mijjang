@@ -27,6 +27,32 @@ async function getAgPsd() {
 const NANUMSQUARE_CSS_URL =
   'https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css';
 
+const FONT_STYLESHEET_HOST_PATTERNS = [
+  /fonts\.googleapis\.com/i,
+  /fonts\.gstatic\.com/i,
+  /cdn\.jsdelivr\.net/i,
+  /pretendard/i,
+  /nanum/i,
+  /noto\+sans\+kr/i,
+  /gaegu/i,
+  /gowun/i,
+  /jua/i,
+];
+
+function shouldKeepExternalStylesheetEnabled(sheet) {
+  try {
+    const href = String(sheet?.href || '').trim();
+    if (!href) return false;
+
+    const owner = sheet.ownerNode;
+    const rel = String(owner?.getAttribute?.('rel') || '').toLowerCase();
+    if (rel.includes('stylesheet') && FONT_STYLESHEET_HOST_PATTERNS.some((pattern) => pattern.test(href))) {
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 // 🆕 캡처 직전 호출 — 폰트 로딩 + 추가 1프레임 대기
 // document.fonts.ready를 기다리지 않으면 fallback 폰트로 캡처되어
 // 한글 폰트의 ascent/descent가 달라지고 라벨/배지 텍스트가 위로/아래로 밀림.
@@ -47,7 +73,8 @@ async function prepareForCapture() {
 // cssRules 접근이 차단되어 SecurityError 발생 → 각 stylesheet마다 try/catch
 // 처리되지만 시간이 오래 걸리고 콘솔에 에러가 누적됨.
 // 해결: 캡처 직전에 외부 stylesheet의 disabled = true로 설정하고, 캡처 후 복원.
-// 이렇게 하면 라이브러리가 해당 stylesheet를 스킵해서 빠르고 깨끗하게 캡처됨.
+// 단, 폰트 stylesheet까지 꺼버리면 화면에서는 Pretendard로 보이는데 PNG에서는
+// fallback 폰트로 바뀌어 줄바꿈/글자폭이 깨질 수 있으므로 웹폰트 stylesheet는 유지한다.
 function disableExternalStylesheets() {
   const disabled = [];
   const sameOrigin = window.location.origin;
@@ -58,6 +85,7 @@ function disableExternalStylesheets() {
         if (!href) continue; // inline <style> — 동일 origin이므로 안전
         // 동일 origin이 아니면 외부 stylesheet
         if (!href.startsWith(sameOrigin)) {
+          if (shouldKeepExternalStylesheetEnabled(sheet)) continue;
           // cssRules 접근 시도 — SecurityError 나면 진짜 외부
           try {
             // eslint-disable-next-line no-unused-expressions
@@ -192,7 +220,8 @@ function stripEditingChrome(rootNode) {
 // - cacheBust: true (이미지 CORS/캐시 문제 회피)
 // - skipFonts: true (🚨 2026-05-03 수정: 외부 CSS의 cssRules 접근 시
 //                    SecurityError 발생 → PNG 생성 실패. 폰트 임베드 스킵하고
-//                    페이지에 이미 로드된 시스템/웹폰트로 렌더링.)
+//                    페이지에 이미 로드된 웹폰트를 그대로 사용.)
+//                    대신 캡처 직전에도 폰트 stylesheet는 비활성화하지 않는다.
 // - filter: 캡처에서 제외할 노드 (편집 UI 툴바)
 const CAPTURE_OPTIONS = {
   pixelRatio: 2,

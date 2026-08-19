@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   synthesizeBatch,
   BACKGROUND_PRESETS,
@@ -52,6 +52,91 @@ const QUICK_PROMPTS_DIRECT = [
   { emoji: '📸', label: '프로틉 변환', text: '일반 사진을 전문 제품 광고 사진 스타일로 변환해주세요.' },
   { emoji: '🏹', label: '배경 제거',  text: '배경을 투명하게 제거하고 제품만 남겨주세요.' },
 ];
+
+const MODE_LABELS = {
+  background: '배경 수정',
+  usage: '사용 장면',
+  beforeAfter: '전후 비교',
+  handHeld: '손에 쥔 컷',
+  multiAngle: '다각도',
+};
+
+const createEmptyConversationState = () => ({
+  referenceUrl: null,
+  referenceLabel: '',
+  requestHistory: [],
+});
+
+const normalizeRequestText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+function buildNextConversationState(prevState, attachedImage, nextRequest) {
+  const normalized = normalizeRequestText(nextRequest);
+  if (!normalized) return prevState;
+
+  const referenceUrl = attachedImage?.url || null;
+  const referenceLabel = attachedImage?.label || '';
+  const sameReference = referenceUrl
+    ? prevState.referenceUrl === referenceUrl
+    : !prevState.referenceUrl;
+  const baseHistory = sameReference ? (prevState.requestHistory || []) : [];
+
+  return {
+    referenceUrl,
+    referenceLabel,
+    requestHistory: [...baseHistory, normalized].filter(Boolean).slice(-6),
+  };
+}
+
+function buildConversationalExtraNote(requestHistory) {
+  const history = (requestHistory || []).map(normalizeRequestText).filter(Boolean);
+  const latest = history[history.length - 1] || '';
+  const previous = history.slice(0, -1);
+
+  return [
+    'This is a conversational follow-up image editing request.',
+    previous.length
+      ? `Keep previously accepted changes unless the latest request overrides them. Previous requests: ${previous.map((item, idx) => `[${idx + 1}] "${item}"`).join(' ')}`
+      : null,
+    latest ? `Latest user request: "${latest}"` : null,
+    'Preserve the product identity and keep the composition natural and realistic.',
+  ].filter(Boolean).join(' ');
+}
+
+function buildConversationalDirectPrompt({ attachedImage, requestHistory }) {
+  const history = (requestHistory || []).map(normalizeRequestText).filter(Boolean);
+  const latest = history[history.length - 1] || '';
+  const previous = history.slice(0, -1);
+
+  return [
+    attachedImage ? '현재 선택된 기준 이미지를 바탕으로 수정해주세요.' : '아래 요청에 맞는 새 이미지를 만들어주세요.',
+    previous.length ? `이전 대화에서 반영된 수정사항: ${previous.map((item, idx) => `${idx + 1}. ${item}`).join(' / ')}` : null,
+    '이전 요청에서 이미 괜찮았던 부분은 유지하고, 최신 요청을 가장 우선해서 반영해주세요.',
+    latest ? `최신 요청: ${latest}` : null,
+    attachedImage
+      ? '제품의 형태, 색상, 핵심 구도는 최대한 유지하면서 자연스럽게 수정해주세요.'
+      : '자연스럽고 상업용 제품 사진처럼 보이게 만들어주세요.',
+  ].filter(Boolean).join('\n');
+}
+
+function buildAssistantAck({ userText, attachedImage, parsed, requestHistory, modelKey }) {
+  const latest = normalizeRequestText(userText) || '사진 기준으로 자연스럽게 수정';
+  const hasHistory = (requestHistory || []).length > 1;
+  const backgroundLabel = parsed?.backgroundKey && BACKGROUND_PRESETS[parsed.backgroundKey]?.label;
+  const moodLabel = parsed?.moodKey && MOOD_PRESETS[parsed.moodKey]?.label;
+
+  return [
+    hasHistory ? '좋아요, 방금까지의 수정 흐름을 이어서 반영해볼게요.' : '좋아요, 요청한 방향으로 바로 수정해볼게요.',
+    attachedImage?.label ? `- 기준 이미지: ${attachedImage.label}` : '- 기준 이미지: 현재 대화 기준 이미지 없음',
+    parsed?.mode ? `- 작업 방식: ${MODE_LABELS[parsed.mode] || '이미지 수정'}` : null,
+    backgroundLabel ? `- 배경 방향: ${backgroundLabel}` : null,
+    moodLabel ? `- 분위기: ${moodLabel}` : null,
+    hasHistory ? `- 이전 대화 맥락 유지: ${(requestHistory || []).length - 1}개 요청 반영` : null,
+    `- 이번 요청: "${latest}"`,
+    modelKey === 'gpt-image-2'
+      ? '이 해석을 바탕으로 대화 맥락을 묶어서 다시 생성할게요.'
+      : '이 해석을 바탕으로 이전 수정 흐름을 유지하면서 다시 생성할게요.',
+  ].filter(Boolean).join('\n');
+}
 
 /* ─────────────────────────────────────────────────────────────
    메인 컴포넌트
@@ -118,6 +203,22 @@ export default function AISynthesisPanel({
   const [inputText, setInputText] = useState('');
   const [attachedImage, setAttachedImage] = useState(null); // { url, label }
   const [busy, setBusy] = useState(false);
+  const [conversationState, setConversationState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ai_synthesis_conversation_state');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            referenceUrl: parsed.referenceUrl || null,
+            referenceLabel: parsed.referenceLabel || '',
+            requestHistory: Array.isArray(parsed.requestHistory) ? parsed.requestHistory.slice(-6) : [],
+          };
+        }
+      }
+    } catch (_) {}
+    return createEmptyConversationState();
+  });
 
   /* ── 모델 드롭다운 표시 ── */
   const [showModelMenu, setShowModelMenu] = useState(false);
@@ -130,12 +231,42 @@ export default function AISynthesisPanel({
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const syncReferenceImage = useCallback((image) => {
+    setAttachedImage(image);
+    setShowImagePicker(false);
+    setConversationState(image
+      ? { referenceUrl: image.url, referenceLabel: image.label || '', requestHistory: [] }
+      : createEmptyConversationState());
+  }, []);
+
+  useEffect(() => {
+    if (!initialSourceUrl && !attachedImage && conversationState.referenceUrl) {
+      setAttachedImage({
+        url: conversationState.referenceUrl,
+        label: conversationState.referenceLabel || '이전 기준 이미지',
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ai_synthesis_conversation_state', JSON.stringify(conversationState));
+    } catch (_) {}
+  }, [conversationState]);
+
   /* ── initialSourceUrl 변경 시 첨부 이미지 자동 세팅 ── */
   useEffect(() => {
     if (initialSourceUrl) {
       const idx = uploadedImages.indexOf(initialSourceUrl);
       const label = idx >= 0 ? `사진 #${idx + 1}` : (currentPage ? `${currentPage} 미리보기 사진` : '선택한 사진');
       setAttachedImage({ url: initialSourceUrl, label });
+      setShowImagePicker(false);
+      setConversationState((prev) => (
+        prev.referenceUrl === initialSourceUrl
+          ? { ...prev, referenceLabel: label || prev.referenceLabel }
+          : { referenceUrl: initialSourceUrl, referenceLabel: label, requestHistory: [] }
+      ));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSourceUrl]);
@@ -234,7 +365,9 @@ export default function AISynthesisPanel({
       /* 로딩 → 결과로 교체 */
       updateLastMsg({
         type: 'images',
-        content: `✅ ${items.length}장 생성했어요!`,
+        content: userText?.trim()
+          ? `✅ 요청한 수정 방향을 반영해서 ${items.length}장 만들었어요.\n마음에 드는 결과가 있으면 **이 결과로 이어서 수정**을 눌러 계속 대화하며 다듬을 수 있어요.`
+          : `✅ ${items.length}장 생성했어요!\n마음에 드는 결과를 기준 이미지로 잡고 이어서 수정할 수 있어요.`,
         images: items,           // [{ url, prompt }]
         mode,
       });
@@ -252,37 +385,59 @@ export default function AISynthesisPanel({
      빠른 프롬프트 클릭 처리
   ───────────────────────────────────────────────────────── */
   const handleQuickPrompt = useCallback((qp) => {
+    const nextConversation = buildNextConversationState(conversationState, attachedImage, qp.text);
+    const parsed = {
+      mode: qp.mode,
+      backgroundKey: qp.bg,
+      moodKey: qp.mood,
+    };
+
     addMsg({
       role: 'user',
       type: 'text',
       content: qp.text,
       attachedImage: attachedImage || null,
     });
+    addMsg({
+      role: 'assistant',
+      type: 'text',
+      content: buildAssistantAck({
+        userText: qp.text,
+        attachedImage,
+        parsed,
+        requestHistory: nextConversation.requestHistory,
+        modelKey,
+      }),
+    });
+    setConversationState(nextConversation);
 
     if (isDirectMode(modelKey)) {
-      // GPT Image 2: 한국어 텍스트 그대로 전달
       runGenerate({
-        mode: 'background',
-        count: 1,
+        mode: qp.mode,
+        count: qp.mode === 'beforeAfter' ? 2 : 1,
         size: '1024x1024',
         sourceUrl: attachedImage?.url || null,
-        directPrompt: qp.text,
+        userText: qp.text,
+        directPrompt: buildConversationalDirectPrompt({
+          attachedImage,
+          requestHistory: nextConversation.requestHistory,
+        }),
       });
     } else {
-      // Nano Banana / GPT-1: 기존 모드 방식
       runGenerate({
         mode: qp.mode,
         backgroundKey: qp.bg,
         customBackground: '',
         moodKey: qp.mood,
-        extraNote: '',
+        extraNote: buildConversationalExtraNote(nextConversation.requestHistory),
         count: qp.mode === 'beforeAfter' ? 2 : 1,
         size: '1024x1024',
         sourceUrl: attachedImage?.url || null,
+        userText: qp.text,
       });
     }
     setInputText('');
-  }, [attachedImage, modelKey, addMsg, runGenerate]);
+  }, [attachedImage, conversationState, modelKey, addMsg, runGenerate]);
 
   /* ─────────────────────────────────────────────────────────
      자유 텍스트 전송 처리 (간단한 NLP 파싱)
@@ -334,7 +489,9 @@ export default function AISynthesisPanel({
     if (!text && !attachedImage) return;
     if (busy) return;
 
-    const displayText = text || '사진으로 생성해줘';
+    const displayText = text || '이 기준 이미지로 자연스럽게 다시 만들어줘';
+    const parsed = parseUserText(displayText);
+    const nextConversation = buildNextConversationState(conversationState, attachedImage, displayText);
 
     addMsg({
       role: 'user',
@@ -342,28 +499,43 @@ export default function AISynthesisPanel({
       content: displayText,
       attachedImage: attachedImage || null,
     });
+    addMsg({
+      role: 'assistant',
+      type: 'text',
+      content: buildAssistantAck({
+        userText: displayText,
+        attachedImage,
+        parsed,
+        requestHistory: nextConversation.requestHistory,
+        modelKey,
+      }),
+    });
+    setConversationState(nextConversation);
 
     if (isDirectMode(modelKey)) {
-      // GPT Image 2: 입력한 텍스트를 프롬프트 변환 없이 그대로 전달
       runGenerate({
-        mode: 'background',
-        count: 1,
+        mode: parsed.mode,
+        count: parsed.count,
         size: '1024x1024',
         sourceUrl: attachedImage?.url || null,
-        directPrompt: displayText,
+        userText: displayText,
+        directPrompt: buildConversationalDirectPrompt({
+          attachedImage,
+          requestHistory: nextConversation.requestHistory,
+        }),
       });
     } else {
-      // Nano Banana / GPT-1: 기존 NLP 파싱 방식
-      const parsed = parseUserText(displayText);
       runGenerate({
         ...parsed,
+        extraNote: buildConversationalExtraNote(nextConversation.requestHistory),
         size: '1024x1024',
         sourceUrl: attachedImage?.url || null,
+        userText: displayText,
       });
     }
 
     setInputText('');
-  }, [inputText, attachedImage, modelKey, busy, addMsg, runGenerate]);
+  }, [inputText, attachedImage, conversationState, modelKey, busy, addMsg, runGenerate]);
 
   /* ── Enter 전송 ── */
   const handleKeyDown = (e) => {
@@ -379,7 +551,7 @@ export default function AISynthesisPanel({
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      setAttachedImage({ url: reader.result, label: file.name });
+      syncReferenceImage({ url: reader.result, label: file.name });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -387,8 +559,7 @@ export default function AISynthesisPanel({
 
   /* ── 라이브러리에서 이미지 선택 ── */
   const handlePickImage = (url, idx) => {
-    setAttachedImage({ url, label: `사진 #${idx + 1}` });
-    setShowImagePicker(false);
+    syncReferenceImage({ url, label: `사진 #${idx + 1}` });
   };
 
   /* ── 결과 이미지 라이브러리 추가 ── */
@@ -396,12 +567,11 @@ export default function AISynthesisPanel({
   const handleAddAll = (images) => onAddImages(images.map((i) => i.url));
   const handleUseGeneratedResult = (url, idx) => {
     const label = `AI 결과 #${idx + 1}`;
-    setAttachedImage({ url, label });
-    setShowImagePicker(false);
+    syncReferenceImage({ url, label });
     addMsg({
       role: 'assistant',
       type: 'text',
-      content: `이제 **${label}**를 현재 기준 이미지로 잡았어요.\n이어서 수정하고 싶은 내용을 자유롭게 입력해 주세요.\n예) "배경을 더 밝게", "손에 쥔 장면으로 바꿔줘"`,
+      content: `이제 **${label}**를 현재 기준 이미지로 잡았어요.\n이 이미지 기준으로 계속 대화하면서 수정할 수 있어요.\n예) "손을 2개만 보이게 수정해줘", "구도는 유지하고 배경만 밝게 바꿔줘"`,
     });
     inputRef.current?.focus();
   };
@@ -442,8 +612,13 @@ export default function AISynthesisPanel({
             title="대화 초기화"
             onClick={() => {
               if (!window.confirm('대화 기록을 모두 삭제할까요?')) return;
-              try { localStorage.removeItem('ai_synthesis_messages'); } catch (_) {}
+              try {
+                localStorage.removeItem('ai_synthesis_messages');
+                localStorage.removeItem('ai_synthesis_conversation_state');
+              } catch (_) {}
               msgId = 0;
+              setConversationState(createEmptyConversationState());
+              setAttachedImage(null);
               setMessages([{
                 id: mkId(),
                 role: 'assistant',
@@ -672,7 +847,7 @@ export default function AISynthesisPanel({
               >변경</button>
               <button
                 type="button"
-                onClick={() => setAttachedImage(null)}
+                onClick={() => syncReferenceImage(null)}
                 style={{
                   border: '1px solid #e2ddd4',
                   backgroundColor: '#fff',
@@ -720,6 +895,37 @@ export default function AISynthesisPanel({
           </div>
         )}
       </div>
+
+      {conversationState.requestHistory.length > 0 && (
+        <div style={{
+          flexShrink: 0,
+          padding: '8px 12px 0',
+        }}>
+          <div style={{
+            borderRadius: 14,
+            border: '1px solid #E9E2D8',
+            backgroundColor: '#FCFAF7',
+            padding: '10px 12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#6B5B4D' }}>대화형 수정 컨텍스트</div>
+              <div style={{ fontSize: 10, color: '#A08F80' }}>다음 생성에도 이어서 반영</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {conversationState.requestHistory.map((item, idx) => (
+                <div key={`${item}-${idx}`} style={{
+                  fontSize: 11,
+                  color: idx === conversationState.requestHistory.length - 1 ? '#2F2A26' : '#7C6F65',
+                  fontWeight: idx === conversationState.requestHistory.length - 1 ? 700 : 500,
+                  lineHeight: 1.45,
+                }}>
+                  {idx === conversationState.requestHistory.length - 1 ? '👉 최신 요청' : `· 이전 요청 ${idx + 1}`} · {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 이미지 피커 (라이브러리) ── */}
       {showImagePicker && (
@@ -849,8 +1055,8 @@ export default function AISynthesisPanel({
             placeholder={
               busy ? '생성 중...' :
               isDirectMode(modelKey)
-                ? 'ChatGPT처럼 자유롭게 입력하세요. 예) "배경을 욕실로 바꿔줘", "밝기를 높여줘"'
-                : '원하는 사진을 설명하거나 빠른 메뉴를 클릭하세요...'
+                ? 'ChatGPT처럼 자유롭게 이어서 수정하세요. 예) "손은 2개만 남기고 다시 만들어줘"'
+                : '대화하듯 수정 요청을 입력하세요. 예) "구도는 유지하고 손만 자연스럽게 고쳐줘"'
             }
             disabled={busy}
             rows={1}
@@ -895,7 +1101,7 @@ export default function AISynthesisPanel({
           </button>
         </div>
         <div style={{ fontSize: 9, color: '#bbb', marginTop: 4, textAlign: 'center' }}>
-          Enter로 전송 · Shift+Enter 줄바꿈 · 현재 기준 이미지가 있으면 해당 사진을 기준으로 생성
+          Enter로 전송 · Shift+Enter 줄바꿈 · 현재 기준 이미지와 최근 대화 요청을 함께 반영해 생성
         </div>
       </div>
     </div>
