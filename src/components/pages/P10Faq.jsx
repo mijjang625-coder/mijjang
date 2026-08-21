@@ -312,6 +312,7 @@ export default function P10Faq({
                     fontWeight: 800,
                     color: BRAND.colors.text,
                     lineHeight: 1.4,
+                    wordBreak: 'keep-all',
                   }}
                 >
                   {f.q}
@@ -337,6 +338,7 @@ export default function P10Faq({
                     color: BRAND.colors.text,
                     margin: 0,
                     lineHeight: 1.6,
+                    wordBreak: 'keep-all',
                   }}
                 >
                   {f.a}

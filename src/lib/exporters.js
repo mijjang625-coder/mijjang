@@ -24,6 +24,12 @@ async function getAgPsd() {
   return _agPsd;
 }
 
+const FONT_EMBED_CSS_CACHE = new Map();
+const FONT_EMBED_CSS_BY_NODE = new WeakMap();
+const CAPTURE_FONT_OPTIONS = {
+  preferredFontFormat: 'woff2',
+};
+
 const NANUMSQUARE_CSS_URL =
   'https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css';
 
@@ -106,6 +112,73 @@ function disableExternalStylesheets() {
     for (const sheet of disabled) {
       try { sheet.disabled = false; } catch {}
     }
+  };
+}
+
+function getPrimaryFontFamilyName(fontFamily = '') {
+  return String(fontFamily || '')
+    .split(',')[0]
+    ?.trim()
+    .replace(/^['"]|['"]$/g, '')
+    .toLowerCase() || '';
+}
+
+function getCaptureFontSignature(node) {
+  if (!node) return 'default';
+
+  const families = new Set();
+  const nodes = [node, ...Array.from(node.querySelectorAll('*'))];
+  for (const el of nodes) {
+    try {
+      const family = getPrimaryFontFamilyName(window.getComputedStyle(el).fontFamily);
+      if (family) families.add(family);
+    } catch {}
+  }
+
+  return Array.from(families).sort().join('|') || 'default';
+}
+
+async function getCaptureFontEmbedCSS(node) {
+  if (!node) return '';
+
+  const cachedByNode = FONT_EMBED_CSS_BY_NODE.get(node);
+  if (cachedByNode) return cachedByNode;
+
+  const signature = getCaptureFontSignature(node);
+  const cachedBySignature = FONT_EMBED_CSS_CACHE.get(signature);
+  if (cachedBySignature) {
+    FONT_EMBED_CSS_BY_NODE.set(node, cachedBySignature);
+    return cachedBySignature;
+  }
+
+  const promise = (async () => {
+    try {
+      const htmlToImage = await getHtmlToImage();
+      return await htmlToImage.getFontEmbedCSS(node, CAPTURE_FONT_OPTIONS);
+    } catch (err) {
+      console.warn('[PNG] 웹폰트 임베드 CSS 생성 실패, skipFonts 폴백 사용:', err);
+      return '';
+    }
+  })();
+
+  FONT_EMBED_CSS_BY_NODE.set(node, promise);
+  FONT_EMBED_CSS_CACHE.set(signature, promise);
+  return promise;
+}
+
+async function warmCaptureFontEmbedCSS(nodes = []) {
+  const targets = Array.from(new Set((nodes || []).filter(Boolean)));
+  if (!targets.length) return;
+  await Promise.all(targets.map((node) => getCaptureFontEmbedCSS(node)));
+}
+
+async function buildCaptureOptions(node, customOptions = {}) {
+  const fontEmbedCSS = await getCaptureFontEmbedCSS(node);
+  return {
+    ...CAPTURE_OPTIONS,
+    ...CAPTURE_FONT_OPTIONS,
+    ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }),
+    ...customOptions,
   };
 }
 
@@ -218,16 +291,13 @@ function stripEditingChrome(rootNode) {
 // 🆕 공통 html-to-image 옵션
 // - pixelRatio: 2 (기존 html2canvas의 scale: 2와 동일한 효과 — 고해상도 PNG)
 // - cacheBust: true (이미지 CORS/캐시 문제 회피)
-// - skipFonts: true (🚨 2026-05-03 수정: 외부 CSS의 cssRules 접근 시
-//                    SecurityError 발생 → PNG 생성 실패. 폰트 임베드 스킵하고
-//                    페이지에 이미 로드된 웹폰트를 그대로 사용.)
-//                    대신 캡처 직전에도 폰트 stylesheet는 비활성화하지 않는다.
+// - preferredFontFormat: woff2 (가장 안정적인 최신 웹폰트 포맷 우선)
+// - fontEmbedCSS: 캡처 전 미리 계산해 clone 내부에 임베드, 줄바꿈 흔들림 방지
 // - filter: 캡처에서 제외할 노드 (편집 UI 툴바)
 const CAPTURE_OPTIONS = {
   pixelRatio: 2,
   cacheBust: true,
   backgroundColor: '#ffffff',
-  skipFonts: true,
   // 🆕 (2026-05-03) 편집용 툴바/패널 제외 — z-index 100000+ 영역
   filter: (node) => {
     if (!node || !node.getAttribute) return true;
@@ -530,6 +600,7 @@ function hideEditableTextsForBackground(rootNode) {
 async function captureNodeCanvas(node, customOptions = {}, extraOptions = {}) {
   const htmlToImage = await getHtmlToImage();
   await waitForImages(node);
+  const captureOptions = await buildCaptureOptions(node, customOptions);
 
   const removeClass = applyCaptureClass(node);
   const restoreHeight = lockHeightForCapture(node);
@@ -542,8 +613,7 @@ async function captureNodeCanvas(node, customOptions = {}, extraOptions = {}) {
     const captureH = getCaptureHeight(node);
     const captureW = getCaptureWidth(node);
     const canvas = await htmlToImage.toCanvas(node, {
-      ...CAPTURE_OPTIONS,
-      ...customOptions,
+      ...captureOptions,
       width: captureW,
       height: captureH,
       style: {
@@ -569,6 +639,8 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
   console.log('[PNG] 시작:', filename);
   await waitForImages(node);
   await prepareForCapture();
+  await warmCaptureFontEmbedCSS([node]);
+  const captureOptions = await buildCaptureOptions(node);
   const removeClass = applyCaptureClass(node);
   const restoreHeight = lockHeightForCapture(node);
   // 🆕 (2026-05-03) 편집 가이드(점선/border/크기라벨/핸들) DOM 직접 제거
@@ -583,7 +655,7 @@ export async function downloadAsImage(node, filename = 'coupang-detail.png') {
     const captureW = getCaptureWidth(node);
     console.log('[PNG] 캡처 크기:', captureW, 'x', captureH);
     const blob = await htmlToImage.toBlob(node, {
-      ...CAPTURE_OPTIONS,
+      ...captureOptions,
       width: captureW,
       height: captureH,
       style: {
@@ -637,6 +709,11 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
   const canvases = [];  // {width, height, dataUrl} 배열로 저장
   const htmlToImage = await getHtmlToImage();
   await prepareForCapture();
+  await warmCaptureFontEmbedCSS(pages.map(({ node }) => node));
+  const pageCaptureOptions = new Map();
+  for (const { key, node } of pages) {
+    pageCaptureOptions.set(key, await buildCaptureOptions(node));
+  }
   const cleanups = pages.map(({ node }) => applyCaptureClass(node));
   const heightRestores = [];
   const chromeRestores = [];
@@ -658,7 +735,7 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
       const captureW = getCaptureWidth(node);
       // html-to-image는 직접 canvas를 반환하는 toCanvas 메서드 제공
       const canvas = await htmlToImage.toCanvas(node, {
-        ...CAPTURE_OPTIONS,
+        ...pageCaptureOptions.get(key),
         width: captureW,
         height: captureH,
         style: {
@@ -724,6 +801,7 @@ export async function downloadAllAsSeparatePsds(pages, productName = 'product', 
   const { writePsdUint8Array } = await getAgPsd();
 
   await prepareForCapture();
+  await warmCaptureFontEmbedCSS(pages.map(({ node }) => node));
   const restoreStylesheets = disableExternalStylesheets();
 
   try {
