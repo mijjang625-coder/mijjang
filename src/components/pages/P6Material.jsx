@@ -171,17 +171,22 @@ export default function P6Material({
           {(material.safetyPoints || []).slice(0, 3).map((p, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <CheckIcon size={22} />
-              <div
-                style={{
+              <EditableText
+                {...editPropsFor(`P6.material.safetyPoints.${i}`)}
+                as="div"
+                defaultStyle={{
                   fontSize: 20,
                   fontWeight: 600,
                   color: BRAND.colors.text,
                   letterSpacing: '-0.02em',
                   wordBreak: 'keep-all',
+                  lineHeight: 1.45,
+                  margin: 0,
                 }}
+                placeholder={editMode ? '(안전 포인트)' : ''}
               >
                 {p}
-              </div>
+              </EditableText>
             </div>
           ))}
         </div>
