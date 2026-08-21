@@ -321,16 +321,19 @@ export default function P10Faq({
                   marginBottom: 12,
                 }}
               >
-                <span
-                  style={{
+                <EditableText
+                  {...editPropsFor(`P10.faq.${i}.qLabel`)}
+                  as="span"
+                  defaultStyle={{
                     fontSize: 28,
                     fontWeight: 900,
                     color: BRAND.colors.main,
                     lineHeight: 1,
+                    margin: 0,
                   }}
                 >
                   Q.
-                </span>
+                </EditableText>
                 <EditableText
                   {...editPropsFor(`P10.faq.${i}.q`)}
                   as="span"
@@ -346,16 +349,19 @@ export default function P10Faq({
                 </EditableText>
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <span
-                  style={{
+                <EditableText
+                  {...editPropsFor(`P10.faq.${i}.aLabel`)}
+                  as="span"
+                  defaultStyle={{
                     fontSize: 24,
                     fontWeight: 900,
                     color: BRAND.colors.text,
                     lineHeight: 1,
+                    margin: 0,
                   }}
                 >
                   A.
-                </span>
+                </EditableText>
                 <EditableText
                   {...editPropsFor(`P10.faq.${i}.a`)}
                   as="p"
