@@ -1,5 +1,5 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, SectionTitle, Divider, CheckIcon } from './Shared.jsx';
+import { PageFrame, Img, Divider, CheckIcon } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
@@ -271,10 +271,37 @@ export default function P10Faq({
       {/* ─────────── 2. FAQ 5개 ─────────── */}
       <div style={{ padding: '30px 30px 60px', pointerEvents: editMode ? 'auto' : 'inherit' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <SectionTitle size={30}>자주 묻는 질문</SectionTitle>
-          <div style={{ marginTop: 10, color: BRAND.colors.neutralText, fontSize: 22, fontWeight: 600 }}>
+          <EditableText
+            {...editPropsFor('P10.faq.title')}
+            as="h2"
+            defaultStyle={{
+              fontSize: 30,
+              fontWeight: 800,
+              color: BRAND.colors.main,
+              margin: 0,
+              textAlign: 'center',
+              lineHeight: 1.2,
+              letterSpacing: '-0.03em',
+              wordBreak: 'keep-all',
+            }}
+          >
+            자주 묻는 질문
+          </EditableText>
+          <EditableText
+            {...editPropsFor('P10.faq.subTitle')}
+            as="div"
+            defaultStyle={{
+              marginTop: 10,
+              color: BRAND.colors.neutralText,
+              fontSize: 22,
+              fontWeight: 600,
+              textAlign: 'center',
+              lineHeight: 1.35,
+              wordBreak: 'keep-all',
+            }}
+          >
             구매 전 궁금증을 모았어요
-          </div>
+          </EditableText>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {faq.slice(0, 5).map((f, i) => (
