@@ -289,13 +289,13 @@ function stripEditingChrome(rootNode) {
 }
 
 // 🆕 공통 html-to-image 옵션
-// - pixelRatio: 2 (기존 html2canvas의 scale: 2와 동일한 효과 — 고해상도 PNG)
+// - pixelRatio: 1 (실험: 화면 780px을 그대로 780px PNG로 저장)
 // - cacheBust: true (이미지 CORS/캐시 문제 회피)
 // - preferredFontFormat: woff2 (가장 안정적인 최신 웹폰트 포맷 우선)
 // - fontEmbedCSS: 캡처 전 미리 계산해 clone 내부에 임베드, 줄바꿈 흔들림 방지
 // - filter: 캡처에서 제외할 노드 (편집 UI 툴바)
 const CAPTURE_OPTIONS = {
-  pixelRatio: 2,
+  pixelRatio: 1,
   cacheBust: true,
   backgroundColor: '#ffffff',
   // 🆕 (2026-05-03) 편집용 툴바/패널 제외 — z-index 100000+ 영역
