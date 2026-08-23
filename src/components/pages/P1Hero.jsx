@@ -291,7 +291,7 @@ export default function P1Hero({
           style={{
             marginTop: 36,
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gap: 18,
             pointerEvents: editMode ? 'auto' : 'none',
           }}
