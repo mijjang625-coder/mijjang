@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, Img, CheckIcon } from './Shared.jsx';
+import { PageFrame, Img } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import FreeImage from '../FreeImage.jsx';
@@ -69,6 +69,9 @@ export default function P1Hero({
 
   // 체크 아이콘 모양: 사용자 선택 우선, 없으면 variant
   const checkVariant = (typeof cardCfg.iconVariant === 'number') ? cardCfg.iconVariant : variant;
+  const visibleStrengthCards = strengthCards.slice(0, 3);
+  const horizontalCardMinHeight = Math.max(112, Math.round(cardCfg.cardMinHeight * 0.58));
+  const horizontalCardRadius = Math.max(22, cardCfg.cardRadius + 4);
 
   // EditableText용 공통 props 헬퍼
   const editPropsFor = (id) => ({
@@ -303,123 +306,111 @@ export default function P1Hero({
             hasActiveOther={editMode && hasActiveLayer && !mainActive}
             onLayerAction={(action) => handleLayerAction({ kind: 'main', id: 'P1.heroImage' }, action)}
           />
-        </div>
-      </div>
 
-      {/* 하단 30% — 강점 카드 3개 */}
-      <div className={editMode ? 'p1-content-layer' : ''} style={{
-        position: 'relative',
-        zIndex: 30,
-        backgroundColor: BRAND.colors.sub, padding: '40px 30px 50px', marginTop: 20,
-        pointerEvents: 'none',
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: cardCfg.cardGap }}>
-          {strengthCards.slice(0, 3).map((c, i) => (
+          {!!visibleStrengthCards.length && (
             <div
-              key={i}
               style={{
-                backgroundColor: '#fff',
-                borderRadius: cardCfg.cardRadius,
-                padding: `${cardCfg.cardPaddingY}px ${cardCfg.cardPaddingX}px ${cardCfg.cardPaddingYBottom}px`,
-                minHeight: cardCfg.cardMinHeight,
+                position: 'absolute',
+                inset: '72px 58px 58px',
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                textAlign: 'center',
-                gap: 8,
-                boxShadow: '0 2px 6px rgba(47, 42, 38, 0.04)',
-                overflow: 'hidden',
-                boxSizing: 'border-box',
-                minWidth: 0,
+                justifyContent: 'center',
+                gap: Math.max(18, cardCfg.cardGap - 2),
+                pointerEvents: 'none',
+                zIndex: 3,
               }}
             >
-              {/* 체크 아이콘 — 모든 카드 동일 모양 (사용자가 1.사이드바에서 선택) */}
-              <CheckIcon
-                size={cardCfg.iconSize}
-                variant={checkVariant}
-                {...(cardCfg.iconColor ? { color: cardCfg.iconColor } : {})}
-              />
-
-              {/* 타이틀+설명을 시각적으로 한 박스로 묶음
-                    — 두 EditableText는 유지(데이터/AI 호환), 사이 gap을 0으로 설정해
-                      한 덩어리처럼 보이도록 함. */}
-              <div
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 0,
-                }}
-              >
-                {/* 타이틀 */}
-                <EditableText
-                  {...editPropsFor(`P1.strengthCards.${i}.title`)}
-                  as="div"
-                  defaultStyle={{
+              {visibleStrengthCards.map((c, i) => (
+                <div
+                  key={i}
+                  style={{
                     width: '100%',
-                    fontSize: 24,
-                    fontWeight: 900,
-                    color: BRAND.colors.main,
-                    lineHeight: 1.4,
-                    letterSpacing: '-0.04em',
-                    wordBreak: 'keep-all',
-                    whiteSpace: 'pre-line',
-                    overflow: 'visible',
-                    minHeight: 30,
+                    minHeight: horizontalCardMinHeight,
+                    background: 'rgba(0, 0, 0, 0.96)',
+                    borderRadius: horizontalCardRadius,
+                    padding: `${Math.max(18, cardCfg.cardPaddingY)}px ${Math.max(26, cardCfg.cardPaddingX + 16)}px ${Math.max(20, cardCfg.cardPaddingYBottom)}px`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
                     textAlign: 'center',
-                    marginBottom: 6,
+                    boxShadow: '0 18px 40px rgba(0, 0, 0, 0.16)',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
+                    minWidth: 0,
                   }}
                 >
-                  {c.title}
-                </EditableText>
+                  <EditableText
+                    {...editPropsFor(`P1.strengthCards.${i}.title`)}
+                    as="div"
+                    defaultStyle={{
+                      width: '100%',
+                      fontSize: 28,
+                      fontWeight: 900,
+                      color: '#FFFFFF',
+                      lineHeight: 1.25,
+                      letterSpacing: '-0.05em',
+                      wordBreak: 'keep-all',
+                      whiteSpace: 'pre-line',
+                      overflow: 'visible',
+                      textAlign: 'center',
+                      marginBottom: c.desc ? 8 : 0,
+                    }}
+                  >
+                    {c.title}
+                  </EditableText>
 
-                {/* 설명 */}
-                <EditableText
-                  {...editPropsFor(`P1.strengthCards.${i}.desc`)}
-                  as="div"
-                  defaultStyle={{
-                    width: '100%',
-                    fontSize: 22,
-                    fontWeight: 500,
-                    color: BRAND.colors.text,
-                    lineHeight: 1.5,
-                    letterSpacing: '-0.03em',
-                    wordBreak: 'keep-all',
-                    whiteSpace: 'pre-line',
-                    display: 'block',
-                    overflow: 'visible',
-                    minHeight: 100,
-                    textAlign: 'center',
-                  }}
-                >
-                  {c.desc}
-                </EditableText>
-              </div>
+                  <EditableText
+                    {...editPropsFor(`P1.strengthCards.${i}.desc`)}
+                    as="div"
+                    defaultStyle={{
+                      width: '100%',
+                      fontSize: 24,
+                      fontWeight: 800,
+                      color: '#FFFFFF',
+                      lineHeight: 1.35,
+                      letterSpacing: '-0.04em',
+                      wordBreak: 'keep-all',
+                      whiteSpace: 'pre-line',
+                      display: 'block',
+                      overflow: 'visible',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {c.desc}
+                  </EditableText>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-        {(trustLine || editMode) && (
-          <div style={{ marginTop: 28, textAlign: 'center' }}>
-            <EditableText
-              {...editPropsFor('P1.trustLine')}
-              as="span"
-              defaultStyle={{
-                display: 'inline-block',
-                fontSize: 22,
-                fontWeight: 700,
-                color: BRAND.colors.text,
-                letterSpacing: '-0.02em',
-                textAlign: 'center',
-              }}
-              placeholder={editMode ? '(신뢰 한 줄)' : ''}
-            >
-              {trustLine}
-            </EditableText>
-          </div>
-        )}
       </div>
+
+      {(trustLine || editMode) && (
+        <div className={editMode ? 'p1-content-layer' : ''} style={{
+          position: 'relative',
+          zIndex: 30,
+          marginTop: 26,
+          textAlign: 'center',
+          pointerEvents: 'none',
+        }}>
+          <EditableText
+            {...editPropsFor('P1.trustLine')}
+            as="span"
+            defaultStyle={{
+              display: 'inline-block',
+              fontSize: 22,
+              fontWeight: 700,
+              color: BRAND.colors.text,
+              letterSpacing: '-0.02em',
+              textAlign: 'center',
+            }}
+            placeholder={editMode ? '(신뢰 한 줄)' : ''}
+          >
+            {trustLine}
+          </EditableText>
+        </div>
+      )}
 
       {/* ─── 자유 배치 이미지 캠버스 (절대 위치) ─── */}
       {(freeImages || []).map((item) => {

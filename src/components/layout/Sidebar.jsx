@@ -451,7 +451,7 @@ export default function Sidebar({
           <Section title="폰트 (전체 페이지 일괄 변경)" emoji="🔤" collapsible defaultCollapsed flat forceCollapsed={allCollapsed}>
             <div className="text-[11px] text-slate-500 mb-2 leading-relaxed">
               선택한 폰트가 P1~P10 모든 페이지에 즉시 적용됩니다.
-              <br />5종 무료 상업용 한글 폰트 제공.
+              <br />{Object.keys(FONT_PRESETS).length}종 무료 상업용 한글 폰트 제공.
             </div>
             <div className="grid grid-cols-2 gap-2">
               {Object.values(FONT_PRESETS).map((f) => {

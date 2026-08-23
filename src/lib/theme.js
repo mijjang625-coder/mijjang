@@ -5,7 +5,7 @@
 export const FONT_FAMILY =
   "'Pretendard Variable','Pretendard','NanumSquare','나눔스퀘어','NanumSquareOTF',system-ui,-apple-system,sans-serif";
 
-// ─────────── 폰트 프리셋 5종 (무료 상업용 한글 폰트) ───────────
+// ─────────── 폰트 프리셋 6종 (무료 상업용 한글 폰트) ───────────
 // 사용자가 섹션 1에서 선택하면 전체 P1~P10에 일괄 적용됨.
 // 모두 CDN(Google Fonts / jsdelivr)에서 로드되며 상업적 사용이 가능합니다.
 export const FONT_PRESETS = {
