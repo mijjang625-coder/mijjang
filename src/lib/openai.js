@@ -179,6 +179,7 @@ export async function autoFillBrief({ apiKey, model = 'gpt-4o-mini', provider, b
 - 사용자가 이미 입력한 값은 절대 바꾸지 말고 그대로 두세요.
 - 과장/허위 금지. 제품명과 유형에서 자연스럽게 유추 가능한 내용만 작성.
 - 리뷰는 한국 고객 말투, 닉네임은 "도시락**", "루나***" 같은 마스킹, 날짜는 최근 3개월.
+- 리뷰 본문은 각 100자 안팎(대략 90~110자)으로 간결하게 작성.
 - FAQ 답변은 1-2문장, 친절한 존댓말.
 - 결과는 반드시 단일 JSON 오브젝트로만 반환.`;
 
@@ -192,7 +193,7 @@ ${JSON.stringify(currentBrief, null, 2)}
 - 위 JSON에서 비어있는 필드만 추론으로 채우고, 채워진 필드는 그대로 유지.
 - strengths, targetCustomers는 정확히 3개로 맞춤.
 - differences, generalProductFeatures, usages는 4개로 맞춤. generalProductFeatures[i]는 differences[i]에 해당하는 "일반 제품의 상태".
-- usageSteps는 3개, reviews는 4개 (각 {nickname, date, body}), faqs는 5개 (각 {q, a}).
+- usageSteps는 3개, reviews는 4개 (각 {nickname, date, body}, review.body는 100자 안팎 권장), faqs는 5개 (각 {q, a}).
 - photoTypes는 제품명과 유형에서 유추 ("제품 단독 사진, 사용 장면 사진, 디테일 컷" 등 한 줄).
 - material이 비어있으면 제품 유형에 맞는 흔한 소재 (예: "ABS 플라스틱", "실리콘", "스테인리스 304"), sizeSpec이 비어있으면 "가로 ○cm × 세로 ○cm" 같은 일반 예시.
 

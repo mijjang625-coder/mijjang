@@ -15,6 +15,7 @@ import {
   downloadAllAsSinglePng, downloadAllAsSeparatePngs,
   downloadAllAsSeparatePsds,
   downloadAllAsHtml,
+  warmExportAssets,
 } from './lib/exporters.js';
 import AISynthesisFloatingButton from './components/AISynthesisFloatingButton.jsx';
 import ScaledHeightWrap from './components/ui/ScaledHeightWrap.jsx';
@@ -2387,6 +2388,44 @@ export default function App() {
   const currentResult = pages[currentPage];
   const currentRevisionChat = revisionChats[currentPage] || [];
   const completedCount = PAGE_LIST.filter((p) => pages[p] && !pages[p].needsMoreInfo).length;
+
+  useEffect(() => {
+    if (!currentResult?.copy) return;
+
+    let cancelled = false;
+    let timeoutId = null;
+    let idleId = null;
+
+    const runWarmup = async () => {
+      const node = pageRefs[currentPage]?.current;
+      if (!node || cancelled) return;
+      try {
+        await warmExportAssets([node]);
+      } catch (err) {
+        console.warn('[export] warmup skipped:', err);
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(() => {
+        void runWarmup();
+      }, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(() => {
+        void runWarmup();
+      }, 400);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId !== null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [currentPage, currentResult, brief.fontId]);
 
   return (
     <div className="min-h-full" style={{ backgroundColor: '#f0ebe4' }}>

@@ -172,6 +172,13 @@ async function warmCaptureFontEmbedCSS(nodes = []) {
   await Promise.all(targets.map((node) => getCaptureFontEmbedCSS(node)));
 }
 
+export async function warmExportAssets(nodes = []) {
+  await getHtmlToImage();
+  if (!nodes?.length) return;
+  await prepareForCapture();
+  await warmCaptureFontEmbedCSS(nodes);
+}
+
 async function buildCaptureOptions(node, customOptions = {}) {
   const fontEmbedCSS = await getCaptureFontEmbedCSS(node);
   return {
@@ -781,13 +788,58 @@ export async function downloadAllAsSinglePng(pages, filename = 'coupang-all.png'
  */
 export async function downloadAllAsSeparatePngs(pages, productName = 'product', onProgress) {
   if (!pages?.length) throw new Error('내보낼 페이지가 없습니다.');
-  for (let i = 0; i < pages.length; i++) {
-    const { key, node } = pages[i];
-    onProgress?.({ done: i, total: pages.length, label: `${key} 저장 중...` });
-    await downloadAsImage(node, `${productName}-${key}.png`);
-    // 브라우저가 동시 다운로드 차단 안 하도록 약간 대기
-    await new Promise((r) => setTimeout(r, 250));
+
+  const htmlToImage = await getHtmlToImage();
+  await prepareForCapture();
+  await warmCaptureFontEmbedCSS(pages.map(({ node }) => node));
+
+  const pageCaptureOptions = new Map();
+  for (const { key, node } of pages) {
+    pageCaptureOptions.set(key, await buildCaptureOptions(node));
   }
+
+  const restoreStylesheets = disableExternalStylesheets();
+  try {
+    for (let i = 0; i < pages.length; i++) {
+      const { key, node } = pages[i];
+      onProgress?.({ done: i, total: pages.length, label: `${key} 저장 중...` });
+
+      await waitForImages(node);
+      const removeClass = applyCaptureClass(node);
+      const restoreHeight = lockHeightForCapture(node);
+      const restoreChrome = stripEditingChrome(node);
+      await new Promise((r) => requestAnimationFrame(() => r()));
+
+      try {
+        const captureH = getCaptureHeight(node);
+        const captureW = getCaptureWidth(node);
+        const blob = await htmlToImage.toBlob(node, {
+          ...pageCaptureOptions.get(key),
+          width: captureW,
+          height: captureH,
+          style: {
+            width: `${captureW}px`,
+            height: `${captureH}px`,
+          },
+        });
+
+        if (!blob) throw new Error(`${key} PNG 생성에 실패했습니다.`);
+        const url = URL.createObjectURL(blob);
+        triggerDownload(url, `${productName}-${key}.png`);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } finally {
+        restoreChrome();
+        restoreHeight();
+        removeClass();
+      }
+
+      // 브라우저가 동시 다운로드 차단 안 하도록 약간 대기
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } finally {
+    restoreStylesheets();
+  }
+
   onProgress?.({ done: pages.length, total: pages.length, label: '완료' });
 }
 
@@ -1003,7 +1055,20 @@ function triggerDownload(url, filename) {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.style.display = 'none';
   document.body.appendChild(a);
-  a.click();
+
+  try {
+    a.dispatchEvent(new MouseEvent('click', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+    }));
+  } catch {
+    a.click();
+  }
+
   a.remove();
 }

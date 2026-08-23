@@ -1,5 +1,5 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, CheckIcon } from './Shared.jsx';
+import { PageFrame } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
@@ -228,9 +228,29 @@ export default function P3Target({
                   borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${BRAND.colors.neutral}`,
                 }}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
-                  <CheckIcon size={24} variant={1} color="#E8590C" />
-                </span>
+                <EditableText
+                  {...editPropsFor(`P3.checklist.${i}.icon`)}
+                  as="span"
+                  defaultStyle={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 6,
+                    backgroundColor: '#E8590C',
+                    color: '#fff',
+                    fontSize: 18,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    letterSpacing: '-0.02em',
+                    textAlign: 'center',
+                    marginTop: 2,
+                  }}
+                >
+                  ✓
+                </EditableText>
                 <div style={{ flex: 1 }}>
                   <EditableText
                     {...editPropsFor(`P3.checklist.${i}`)}
