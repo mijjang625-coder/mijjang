@@ -5,6 +5,28 @@ import EditableImage from '../EditableImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
 import { useFreeImageLayer } from './freeImageLayer.jsx';
 
+function normalizeReviewBody(text = '', maxChars = 100) {
+  const compact = String(text || '')
+    .replace(/\r\n?/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (compact.length <= maxChars) return compact;
+
+  const sliced = compact.slice(0, maxChars);
+  const lastBoundary = Math.max(
+    sliced.lastIndexOf('. '),
+    sliced.lastIndexOf('! '),
+    sliced.lastIndexOf('? '),
+    sliced.lastIndexOf('다 '),
+    sliced.lastIndexOf('요 '),
+    sliced.lastIndexOf(' '),
+  );
+
+  const safe = lastBoundary >= 70 ? sliced.slice(0, lastBoundary + 1).trim() : sliced.trim();
+  return `${safe}…`;
+}
+
 // P4: 리뷰 4개 — 왼쪽 텍스트 / 오른쪽 사진
 export default function P4Reviews({
   copy = {},
@@ -97,6 +119,7 @@ export default function P4Reviews({
             const imgId = `P4.reviews.${i}.image`;
             const isImgActive = layer.isLayerActive('main', imgId);
             const z = imageOverrides[imgId]?.zIndex ?? (i + 1);
+            const reviewBody = normalizeReviewBody(r.body, 100);
             return (
               <div
                 key={i}
@@ -113,12 +136,14 @@ export default function P4Reviews({
                       {...editPropsFor(`P4.reviews.${i}.body`)}
                       as="div"
                       defaultStyle={{
-                        marginTop: 14, fontSize: 26, fontWeight: 500,
+                        marginTop: 14, fontSize: 24, fontWeight: 500,
                         color: BRAND.colors.text, lineHeight: 1.55,
                         letterSpacing: '-0.02em', wordBreak: 'keep-all',
+                        whiteSpace: 'normal',
+                        overflowWrap: 'anywhere',
                       }}
                     >
-                      {r.body}
+                      {reviewBody}
                     </EditableText>
                   </div>
                   <EditableText

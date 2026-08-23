@@ -20,7 +20,9 @@ function normalizeParagraphLines(text = '') {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .join('\n');
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function isGhostShape(shape) {
@@ -314,8 +316,10 @@ export default function P2Benefits({
                         margin: 0,
                         lineHeight: 1.5,
                         letterSpacing: '-0.01em',
-                        whiteSpace: 'pre-line',
+                        whiteSpace: 'normal',
+                        wordBreak: 'keep-all',
                         display: 'block',
+                        width: '100%',
                         overflow: 'hidden',
                         minHeight: '3em',
                       }}

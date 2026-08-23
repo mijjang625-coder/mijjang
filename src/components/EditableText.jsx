@@ -830,7 +830,9 @@ export default function EditableText({
           cursor: isEditing ? 'text' : 'pointer',
           position: 'relative',
           userSelect: isEditing ? 'text' : 'none',
-          backgroundColor: hovering && !isEditing ? 'rgba(96,165,250,0.08)' : undefined,
+          ...(hovering && !isEditing && !normalizedStyle.backgroundColor
+            ? { backgroundColor: 'rgba(96,165,250,0.08)' }
+            : null),
           transition: 'background-color 0.15s, outline-color 0.15s',
           // 🆕 (2026-05-06) 가시성 토글 — FreeText 와 동작 통일:
           //   hidden 상태일 때 편집 모드에서도 visibility:hidden 으로 완전히 숨김.
