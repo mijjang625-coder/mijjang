@@ -70,8 +70,9 @@ export default function P1Hero({
   // 체크 아이콘 모양: 사용자 선택 우선, 없으면 variant
   const checkVariant = (typeof cardCfg.iconVariant === 'number') ? cardCfg.iconVariant : variant;
   const visibleStrengthCards = strengthCards.slice(0, 3);
-  const horizontalCardMinHeight = Math.max(112, Math.round(cardCfg.cardMinHeight * 0.58));
+  const horizontalCardMinHeight = Math.max(96, Math.round(cardCfg.cardMinHeight * 0.5));
   const horizontalCardRadius = Math.max(22, cardCfg.cardRadius + 4);
+  const horizontalCardGap = Math.max(28, cardCfg.cardGap + 10);
 
   // EditableText용 공통 props 헬퍼
   const editPropsFor = (id) => ({
@@ -93,12 +94,16 @@ export default function P1Hero({
   const [editingNameId, setEditingNameId] = useState(null);
   const [editingNameVal, setEditingNameVal] = useState('');
   const validImages = (allImages || []).filter(Boolean);
+  const secondaryBaseImage =
+    validImages.find((src) => src && src !== image)
+    || validImages[1]
+    || image;
 
   // P1의 메인 레이어 정의 — 다른 페이지에서 재활용 시 변경 가능
-  const MAIN_LAYERS = [{ id: 'P1.heroImage', defaultName: '🖼 메인 사진', defaultZ: 80 }];
-
-  // 메인사진의 z-index (override가 없으면 기본 1)
-  const mainZ = imageOverrides['P1.heroImage']?.zIndex ?? 1;
+  const MAIN_LAYERS = [
+    { id: 'P1.heroImage', defaultName: '🖼 메인 사진 1', defaultZ: 80, baseSrc: image },
+    { id: 'P1.heroImageSecondary', defaultName: '🖼 메인 사진 2', defaultZ: 79, baseSrc: secondaryBaseImage },
+  ];
 
   // 모든 레이어 통합 목록 (z-index 내림차순 = 위에서 아래)
   // 1..N 정규화된 z-index 사용
@@ -108,7 +113,7 @@ export default function P1Hero({
       id: m.id,
       defaultName: m.defaultName,
       label: layerNames[m.id] || m.defaultName,
-      src: imageOverrides[m.id]?.src || image,
+      src: imageOverrides[m.id]?.src || m.baseSrc,
       zIndex: imageOverrides[m.id]?.zIndex ?? m.defaultZ,
       hidden: !!imageOverrides[m.id]?.hidden,
     })),
@@ -238,6 +243,7 @@ export default function P1Hero({
   //   - 그 외에는 콘텐츠 wrapper의 빈 공간은 통과 (pointer-events:none),
   //     실제 텍스트/이미지/카드만 화이트리스트로 활성화
   const mainActive = isLayerActive('main', 'P1.heroImage');
+  const secondaryMainActive = isLayerActive('main', 'P1.heroImageSecondary');
   return (
     <PageFrame height={pageHeight} bg={BRAND.colors.white} onClearActive={clearActiveLayer}>
       {/* 상단 70% — 기존 콘텐츠 */}
@@ -282,109 +288,140 @@ export default function P1Hero({
           </div>
         )}
         <div
-          data-edit-image
           style={{
             marginTop: 36,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: 18,
             pointerEvents: editMode ? 'auto' : 'none',
-            position: 'relative',
-            borderRadius: 0,  // 모서리 제거
-            // 🆕 (2026-05-03) 메인 이미지 가시성 토글 (PNG 캡처에도 반영)
-            visibility: imageOverrides['P1.heroImage']?.hidden ? 'hidden' : 'visible',
           }}
         >
-          <EditableImage
-            id="P1.heroImage"
-            src={image}
-            aspect="1 / 1"
-            radius={0}
-            editMode={editMode}
-            override={imageOverrides['P1.heroImage'] || {}}
-            onChange={(partial) => onImageOverrideChange('P1.heroImage', partial)}
-            availableImages={allImages.filter(Boolean)}
-            isActive={editMode ? mainActive : null}
-            onActivate={() => activateLayer('main', 'P1.heroImage')}
-            hasActiveOther={editMode && hasActiveLayer && !mainActive}
-            onLayerAction={(action) => handleLayerAction({ kind: 'main', id: 'P1.heroImage' }, action)}
-          />
+          <div
+            data-edit-image
+            style={{
+              position: 'relative',
+              borderRadius: 0,
+              visibility: imageOverrides['P1.heroImage']?.hidden ? 'hidden' : 'visible',
+            }}
+          >
+            <EditableImage
+              id="P1.heroImage"
+              src={image}
+              aspect="1 / 1"
+              radius={0}
+              editMode={editMode}
+              override={imageOverrides['P1.heroImage'] || {}}
+              onChange={(partial) => onImageOverrideChange('P1.heroImage', partial)}
+              availableImages={allImages.filter(Boolean)}
+              isActive={editMode ? mainActive : null}
+              onActivate={() => activateLayer('main', 'P1.heroImage')}
+              hasActiveOther={editMode && hasActiveLayer && !mainActive}
+              onLayerAction={(action) => handleLayerAction({ kind: 'main', id: 'P1.heroImage' }, action)}
+            />
+          </div>
 
-          {!!visibleStrengthCards.length && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: '72px 58px 58px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                gap: Math.max(18, cardCfg.cardGap - 2),
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            >
-              {visibleStrengthCards.map((c, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: '100%',
-                    minHeight: horizontalCardMinHeight,
-                    background: 'rgba(0, 0, 0, 0.96)',
-                    borderRadius: horizontalCardRadius,
-                    padding: `${Math.max(18, cardCfg.cardPaddingY)}px ${Math.max(26, cardCfg.cardPaddingX + 16)}px ${Math.max(20, cardCfg.cardPaddingYBottom)}px`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    boxShadow: '0 18px 40px rgba(0, 0, 0, 0.16)',
-                    boxSizing: 'border-box',
-                    overflow: 'hidden',
-                    minWidth: 0,
-                  }}
-                >
-                  <EditableText
-                    {...editPropsFor(`P1.strengthCards.${i}.title`)}
-                    as="div"
-                    defaultStyle={{
-                      width: '100%',
-                      fontSize: 28,
-                      fontWeight: 900,
-                      color: '#FFFFFF',
-                      lineHeight: 1.25,
-                      letterSpacing: '-0.05em',
-                      wordBreak: 'keep-all',
-                      whiteSpace: 'pre-line',
-                      overflow: 'visible',
-                      textAlign: 'center',
-                      marginBottom: c.desc ? 8 : 0,
-                    }}
-                  >
-                    {c.title}
-                  </EditableText>
-
-                  <EditableText
-                    {...editPropsFor(`P1.strengthCards.${i}.desc`)}
-                    as="div"
-                    defaultStyle={{
-                      width: '100%',
-                      fontSize: 24,
-                      fontWeight: 800,
-                      color: '#FFFFFF',
-                      lineHeight: 1.35,
-                      letterSpacing: '-0.04em',
-                      wordBreak: 'keep-all',
-                      whiteSpace: 'pre-line',
-                      display: 'block',
-                      overflow: 'visible',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {c.desc}
-                  </EditableText>
-                </div>
-              ))}
-            </div>
-          )}
+          <div
+            data-edit-image
+            style={{
+              position: 'relative',
+              borderRadius: 0,
+              visibility: imageOverrides['P1.heroImageSecondary']?.hidden ? 'hidden' : 'visible',
+            }}
+          >
+            <EditableImage
+              id="P1.heroImageSecondary"
+              src={secondaryBaseImage}
+              aspect="1 / 1"
+              radius={0}
+              editMode={editMode}
+              override={imageOverrides['P1.heroImageSecondary'] || {}}
+              onChange={(partial) => onImageOverrideChange('P1.heroImageSecondary', partial)}
+              availableImages={allImages.filter(Boolean)}
+              isActive={editMode ? secondaryMainActive : null}
+              onActivate={() => activateLayer('main', 'P1.heroImageSecondary')}
+              hasActiveOther={editMode && hasActiveLayer && !secondaryMainActive}
+              onLayerAction={(action) => handleLayerAction({ kind: 'main', id: 'P1.heroImageSecondary' }, action)}
+            />
+          </div>
         </div>
       </div>
+
+      {!!visibleStrengthCards.length && (
+        <div className={editMode ? 'p1-content-layer' : ''} style={{
+          position: 'relative',
+          zIndex: 30,
+          marginTop: 28,
+          padding: '0 68px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: horizontalCardGap,
+          pointerEvents: 'none',
+        }}>
+          {visibleStrengthCards.map((c, i) => (
+            <div
+              key={i}
+              style={{
+                width: '100%',
+                minHeight: horizontalCardMinHeight,
+                background: 'rgba(0, 0, 0, 0.96)',
+                borderRadius: horizontalCardRadius,
+                padding: `${Math.max(16, cardCfg.cardPaddingY - 2)}px ${Math.max(24, cardCfg.cardPaddingX + 14)}px ${Math.max(16, cardCfg.cardPaddingYBottom - 2)}px`,
+                display: 'flex',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                textAlign: 'center',
+                boxShadow: '0 18px 40px rgba(0, 0, 0, 0.16)',
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+                minWidth: 0,
+                gap: c.desc ? 10 : 0,
+              }}
+            >
+              <EditableText
+                {...editPropsFor(`P1.strengthCards.${i}.title`)}
+                as="div"
+                defaultStyle={{
+                  fontSize: 24,
+                  fontWeight: 900,
+                  color: '#FFFFFF',
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.05em',
+                  wordBreak: 'keep-all',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textAlign: 'center',
+                  flex: '0 1 auto',
+                  minWidth: 0,
+                }}
+              >
+                {c.title}
+              </EditableText>
+
+              <EditableText
+                {...editPropsFor(`P1.strengthCards.${i}.desc`)}
+                as="div"
+                defaultStyle={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  color: '#FFFFFF',
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.04em',
+                  wordBreak: 'keep-all',
+                  whiteSpace: 'nowrap',
+                  display: 'block',
+                  overflow: 'hidden',
+                  textAlign: 'center',
+                  flex: '0 1 auto',
+                  minWidth: 0,
+                }}
+              >
+                {c.desc}
+              </EditableText>
+            </div>
+          ))}
+        </div>
+      )}
 
       {(trustLine || editMode) && (
         <div className={editMode ? 'p1-content-layer' : ''} style={{
