@@ -508,6 +508,20 @@ function canvasToImageData(canvas) {
   }
 }
 
+async function canvasToBlob(canvas, type = 'image/png') {
+  if (!canvas) throw new Error('캔버스가 없어 파일로 변환할 수 없습니다.');
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('캔버스 Blob 생성에 실패했습니다.'));
+      }, type);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 function toPsdUnitsBounds(left, top, right, bottom) {
   return {
     top: { units: 'Pixels', value: Math.round(top) },
@@ -541,6 +555,165 @@ async function validateWrittenPsd(docKey, psdBytes, expected = {}) {
     console.warn(`[PSD] ${docKey} 구조 검증 실패:`, err);
     return null;
   }
+}
+
+function rgbToHex(color = {}) {
+  const toHex = (value) => Math.max(0, Math.min(255, Math.round(Number(value) || 0))).toString(16).padStart(2, '0');
+  return `${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`.toUpperCase();
+}
+
+function sanitizeJsonForScript(value) {
+  return JSON.stringify(value, null, 2)
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+function extractEditableTextDescriptors(pageNode) {
+  if (!pageNode) return [];
+  const pageRect = pageNode.getBoundingClientRect();
+  const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'))
+    .filter((el) => !el.parentElement?.closest?.('[data-editable="true"]'));
+  const dedupe = new Set();
+
+  return editableEls
+    .map((el, idx) => {
+      if (!el || isDisplayHidden(el)) return null;
+
+      const source = extractTextSource(el);
+      if (!source || isDisplayHidden(source)) return null;
+
+      const rawText = String(source.innerText || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r\n?/g, '\n')
+        .replace(/\s+$/g, '');
+
+      if (!rawText.trim()) return null;
+
+      const rect = source.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8) return null;
+
+      const left = Math.round(rect.left - pageRect.left);
+      const top = Math.round(rect.top - pageRect.top);
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      const sig = [left, top, width, height, rawText].join('|');
+      if (dedupe.has(sig)) return null;
+      dedupe.add(sig);
+
+      const cs = window.getComputedStyle(source);
+      const fontSize = parseFloat(cs.fontSize) || 22;
+      const fontWeight = parseFloat(cs.fontWeight) || 400;
+      const lineHeight = parseLineHeight(cs.lineHeight, fontSize);
+      const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
+      const primaryFont = toPsdFontName(cs.fontFamily, fontWeight);
+      const fontCandidates = Array.from(new Set([
+        primaryFont,
+        Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic',
+        'ArialMT',
+      ].filter(Boolean)));
+
+      return {
+        order: idx,
+        zIndex,
+        data: {
+          name: el.getAttribute('data-editable-id') || `Text ${String(idx + 1).padStart(2, '0')}`,
+          text: rawText,
+          left,
+          top,
+          width,
+          height,
+          fontSize: Math.max(1, Math.round(fontSize * 100) / 100),
+          lineHeight: Math.max(1, Math.round(lineHeight * 100) / 100),
+          justification: toPsdJustification(cs.textAlign),
+          colorHex: rgbToHex(parseCssColorToRgb(cs.color)),
+          fontCandidates,
+        },
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.zIndex - b.zIndex) || (a.order - b.order))
+    .map((item) => item.data);
+}
+
+function buildPhotoshopRebuildScript(spec) {
+  const specJson = sanitizeJsonForScript(spec);
+  return `#target photoshop
+app.bringToFront();
+
+var exportSpec = ${specJson};
+
+function getJustification(value) {
+  switch (String(value || '').toLowerCase()) {
+    case 'center': return Justification.CENTER;
+    case 'right': return Justification.RIGHT;
+    default: return Justification.LEFT;
+  }
+}
+
+function toSolidColor(hex) {
+  var color = new SolidColor();
+  color.rgb.hexValue = String(hex || '2F2A26').replace('#', '');
+  return color;
+}
+
+function applyFontWithFallback(textItem, fontCandidates) {
+  if (!fontCandidates || !fontCandidates.length) return;
+  for (var i = 0; i < fontCandidates.length; i++) {
+    try {
+      textItem.font = fontCandidates[i];
+      return;
+    } catch (e) {}
+  }
+}
+
+function addTextLayer(doc, item) {
+  var layer = doc.artLayers.add();
+  layer.kind = LayerKind.TEXT;
+  layer.name = item.name || 'Text Layer';
+  var textItem = layer.textItem;
+
+  try { textItem.kind = TextType.PARAGRAPHTEXT; } catch (e) {}
+  textItem.contents = item.text || '';
+  try { textItem.position = [UnitValue(item.left, 'px'), UnitValue(item.top, 'px')]; } catch (e) { textItem.position = [item.left, item.top]; }
+  try { textItem.width = UnitValue(item.width, 'px'); } catch (e) {}
+  try { textItem.height = UnitValue(Math.max(item.height, item.lineHeight * 1.2), 'px'); } catch (e) {}
+  try { textItem.size = UnitValue(item.fontSize, 'pt'); } catch (e) { try { textItem.size = item.fontSize; } catch (e2) {} }
+  try { textItem.leading = UnitValue(item.lineHeight, 'pt'); } catch (e) {}
+  try { textItem.justification = getJustification(item.justification); } catch (e) {}
+  try { textItem.color = toSolidColor(item.colorHex); } catch (e) {}
+  applyFontWithFallback(textItem, item.fontCandidates || []);
+}
+
+function main() {
+  if (!exportSpec || !exportSpec.pageKey) {
+    alert('내보내기 정보가 비어 있습니다.');
+    return;
+  }
+
+  var bgFile = File.openDialog('[' + exportSpec.pageKey + '] 배경 PNG를 선택하세요', '*.png');
+  if (!bgFile) return;
+
+  var doc = app.open(bgFile);
+  doc.activeLayer.name = exportSpec.pageKey + ' Background';
+
+  for (var i = 0; i < exportSpec.textLayers.length; i++) {
+    addTextLayer(doc, exportSpec.textLayers[i]);
+  }
+
+  var saveFile = File.saveDialog('[' + exportSpec.pageKey + '] 저장할 PSD 위치를 선택하세요', '*.psd');
+  if (!saveFile) return;
+
+  var saveOptions = new PhotoshopSaveOptions();
+  saveOptions.layers = true;
+  saveOptions.embedColorProfile = true;
+  saveOptions.alphaChannels = true;
+  doc.saveAs(saveFile, saveOptions, true, Extension.LOWERCASE);
+
+  alert('완료: ' + exportSpec.pageKey + ' PSD를 저장했습니다.');
+}
+
+main();
+`;
 }
 
 function extractEditableTextLayers(pageNode) {
@@ -954,6 +1127,64 @@ export async function downloadAllAsSeparatePsds(pages, productName = 'product', 
       triggerDownload(url, `${productName}-${key}.psd`);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
 
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } finally {
+    restoreStylesheets();
+  }
+
+  onProgress?.({ done: pages.length, total: pages.length, label: '완료' });
+}
+
+export async function downloadAllAsSeparatePhotoshopRebuilds(pages, productName = 'product', onProgress) {
+  if (!pages?.length) throw new Error('내보낼 페이지가 없습니다.');
+
+  await prepareForCapture();
+  await warmCaptureFontEmbedCSS(pages.map(({ node }) => node));
+  const restoreStylesheets = disableExternalStylesheets();
+
+  try {
+    const guide = [
+      'Photoshop 복원 패키지 사용법',
+      '',
+      '1) 다운로드된 *-photoshop-bg.png 와 *-photoshop-rebuild.jsx 를 같은 폴더에 둡니다.',
+      '2) Photoshop에서 File > Scripts > Browse... 로 .jsx 파일을 실행합니다.',
+      '3) 스크립트가 해당 페이지의 배경 PNG를 열고 텍스트 레이어를 다시 생성합니다.',
+      '4) 저장 위치를 고르면 편집 가능한 PSD로 저장됩니다.',
+      '',
+      '주의: 폰트가 PC에 없으면 Photoshop이 대체 폰트로 열 수 있습니다.',
+    ].join('\n');
+
+    const guideBlob = new Blob([guide], { type: 'text/plain;charset=utf-8' });
+    const guideUrl = URL.createObjectURL(guideBlob);
+    triggerDownload(guideUrl, `${productName}-photoshop-rebuild-guide.txt`);
+    setTimeout(() => URL.revokeObjectURL(guideUrl), 1000);
+    await new Promise((r) => setTimeout(r, 250));
+
+    for (let i = 0; i < pages.length; i++) {
+      const { key, node } = pages[i];
+      onProgress?.({ done: i, total: pages.length, label: `${key} Photoshop 복원 패키지 생성 중...` });
+
+      const backgroundCanvas = await captureNodeCanvas(node, { pixelRatio: 1 }, { hideEditableTexts: true });
+      const textLayers = extractEditableTextDescriptors(node);
+      const backgroundBlob = await canvasToBlob(backgroundCanvas, 'image/png');
+      const backgroundUrl = URL.createObjectURL(backgroundBlob);
+      const script = buildPhotoshopRebuildScript({
+        pageKey: key,
+        documentName: `${productName}-${key}`,
+        width: backgroundCanvas.width,
+        height: backgroundCanvas.height,
+        textLayers,
+      });
+      const scriptBlob = new Blob([script], { type: 'text/plain;charset=utf-8' });
+      const scriptUrl = URL.createObjectURL(scriptBlob);
+
+      triggerDownload(backgroundUrl, `${productName}-${key}-photoshop-bg.png`);
+      setTimeout(() => URL.revokeObjectURL(backgroundUrl), 1000);
+      await new Promise((r) => setTimeout(r, 250));
+
+      triggerDownload(scriptUrl, `${productName}-${key}-photoshop-rebuild.jsx`);
+      setTimeout(() => URL.revokeObjectURL(scriptUrl), 1000);
       await new Promise((r) => setTimeout(r, 250));
     }
   } finally {
