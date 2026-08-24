@@ -68,6 +68,7 @@ export default function FreeImage({
   const [snapV, setSnapV] = useState(null);
   // 🎨 색상/밝기/채도 조정 패널 (idle 모드에서)
   const [showAdjust, setShowAdjust] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { id, src, x = 0, y = 0, w = 200, h = 200, crop, zIndex = 100, adjust } = item;
   // 색상 조정 기본값
@@ -98,6 +99,7 @@ export default function FreeImage({
     if (!editMode) {
       setSelected(false);
       setMode('idle');
+      setShowDeleteConfirm(false);
     }
   }, [editMode]);
 
@@ -108,6 +110,7 @@ export default function FreeImage({
       if (!wrapRef.current) return;
       if (wrapRef.current.contains(e.target)) return;
       if (e.target.closest('[data-free-toolbar]')) return;
+      if (e.target.closest('[data-free-confirm]')) return;
       setSelected(false);
       setMode('idle');
     };
@@ -428,11 +431,30 @@ export default function FreeImage({
   // 툴바 위치: 박스가 페이지 상단에 있으면 박스 아래에 표시
   const toolbarBelow = y < 50;
 
+  useEffect(() => {
+    if (!showDeleteConfirm) return undefined;
+    const handleKeydown = (e) => {
+      if (e.key === 'Escape') setShowDeleteConfirm(false);
+    };
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [showDeleteConfirm]);
+
   const openAiSynthesisPanel = (e) => {
     e.stopPropagation();
     window.dispatchEvent(new CustomEvent('ai-synthesis:open', {
       detail: { sourceUrl: src || null },
     }));
+  };
+
+  const handleRequestDelete = (e) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteConfirm(false);
+    onDelete();
   };
 
   return (
@@ -593,7 +615,7 @@ export default function FreeImage({
           >🎨 색상{isAdjusted ? ' •' : ''}</button>
           <span style={{ width: 1, height: 18, backgroundColor: '#475569' }} />
           <button
-            onClick={(e) => { e.stopPropagation(); if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }}
+            onClick={handleRequestDelete}
             onMouseDown={(e) => e.stopPropagation()}
             style={btnLabel('#dc2626')} title="삭제"
           >🗑 삭제</button>
@@ -601,6 +623,80 @@ export default function FreeImage({
       )}
 
       {/* 🎨 색상 조정 패널 — idle 모드 + showAdjust ON 일 때 */}
+      {showDeleteConfirm && (
+        <div
+          data-free-confirm
+          role="presentation"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.target === e.currentTarget) setShowDeleteConfirm(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            backgroundColor: 'rgba(15,23,42,0.32)',
+            zIndex: 2147483647,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="사진 삭제 확인"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(420px, calc(100vw - 32px))',
+              backgroundColor: '#fff',
+              borderRadius: 20,
+              boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
+              border: '1px solid rgba(226,221,212,0.95)',
+              padding: '24px 24px 20px',
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#2F2A26', marginBottom: 10 }}>
+              사진 삭제
+            </div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: '#4b5563', marginBottom: 20 }}>
+              이 사진을 삭제할까요?<br />삭제 후에는 되돌릴 수 없습니다.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{
+                  border: 'none',
+                  backgroundColor: '#dbeafe',
+                  color: '#1d4ed8',
+                  borderRadius: 999,
+                  padding: '10px 18px',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >취소</button>
+              <button
+                onClick={handleConfirmDelete}
+                style={{
+                  border: 'none',
+                  backgroundColor: '#2563eb',
+                  color: '#fff',
+                  borderRadius: 999,
+                  padding: '10px 18px',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 20px rgba(37,99,235,0.22)',
+                }}
+              >확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showToolbar && showAdjust && (
         <div
           data-free-toolbar

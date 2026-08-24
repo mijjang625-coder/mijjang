@@ -291,7 +291,7 @@ export default function P1Hero({
           style={{
             marginTop: 36,
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gap: 18,
             pointerEvents: editMode ? 'auto' : 'none',
           }}
@@ -375,13 +375,14 @@ export default function P1Hero({
                 boxSizing: 'border-box',
                 overflow: 'hidden',
                 minWidth: 0,
-                gap: c.desc ? 10 : 0,
+                gap: 0,
               }}
             >
               <EditableText
                 {...editPropsFor(`P1.strengthCards.${i}.title`)}
-                as="div"
+                as="span"
                 defaultStyle={{
+                  display: 'inline',
                   fontSize: 24,
                   fontWeight: 900,
                   color: '#FFFFFF',
@@ -389,10 +390,11 @@ export default function P1Hero({
                   letterSpacing: '-0.05em',
                   wordBreak: 'keep-all',
                   whiteSpace: 'nowrap',
-                  overflow: 'hidden',
+                  overflow: 'visible',
                   textAlign: 'center',
                   flex: '0 1 auto',
                   minWidth: 0,
+                  marginRight: c.desc ? 6 : 0,
                 }}
               >
                 {c.title}
@@ -400,8 +402,9 @@ export default function P1Hero({
 
               <EditableText
                 {...editPropsFor(`P1.strengthCards.${i}.desc`)}
-                as="div"
+                as="span"
                 defaultStyle={{
+                  display: 'inline',
                   fontSize: 24,
                   fontWeight: 800,
                   color: '#FFFFFF',
@@ -409,8 +412,7 @@ export default function P1Hero({
                   letterSpacing: '-0.04em',
                   wordBreak: 'keep-all',
                   whiteSpace: 'nowrap',
-                  display: 'block',
-                  overflow: 'hidden',
+                  overflow: 'visible',
                   textAlign: 'center',
                   flex: '0 1 auto',
                   minWidth: 0,
