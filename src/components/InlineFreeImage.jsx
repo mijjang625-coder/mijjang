@@ -59,6 +59,7 @@ export default function InlineFreeImage({
   const [resizing, setResizing] = useState(null);
   const [showAdjust, setShowAdjust] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // 🔍 크롭 모드 (더블클릭 진입)
   const [mode, setMode] = useState('idle'); // 'idle' | 'cropping'
   const [draggingCrop, setDraggingCrop] = useState(null);
@@ -68,6 +69,7 @@ export default function InlineFreeImage({
   const closeOnOtherSelect = useCallback(() => {
     setShowAdjust(false);
     setShowReplace(false);
+    setShowDeleteConfirm(false);
     setMode('idle');
   }, []);
   useEditorSelectionListener(`inline-image:${item.id}`, closeOnOtherSelect);
@@ -194,6 +196,15 @@ export default function InlineFreeImage({
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
 
+  useEffect(() => {
+    if (!showDeleteConfirm) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setShowDeleteConfirm(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showDeleteConfirm]);
+
   const adj = {
     brightness: adjust?.brightness ?? 100,
     contrast:   adjust?.contrast   ?? 100,
@@ -205,16 +216,18 @@ export default function InlineFreeImage({
 
   // 외부 클릭 시 패널/크롭 닫기
   useEffect(() => {
-    if (!showAdjust && !showReplace && mode !== 'cropping') return;
+    if (!showAdjust && !showReplace && !showDeleteConfirm && mode !== 'cropping') return;
     const onDoc = (e) => {
       if (wrapRef.current?.contains(e.target)) return;
+      if (e.target.closest?.('[data-inline-confirm]')) return;
       setShowAdjust(false);
       setShowReplace(false);
+      setShowDeleteConfirm(false);
       setMode('idle');
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
-  }, [showAdjust, showReplace, mode]);
+  }, [showAdjust, showReplace, showDeleteConfirm, mode]);
 
   // 8개 핸들 리사이즈 (FreeImage 와 동일)
   // n / s: 높이만 / e / w: 너비만 / nw, ne, sw, se: 비율 유지(Shift=자유)
@@ -400,6 +413,15 @@ export default function InlineFreeImage({
     window.dispatchEvent(new CustomEvent('ai-synthesis:open', {
       detail: { sourceUrl: src || null },
     }));
+  };
+
+  const handleRequestDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteConfirm(false);
+    onDelete();
   };
 
   // 좌우 정렬 → marginLeft/marginRight 자동 결정 (col flex 컨테이너)
@@ -610,10 +632,84 @@ export default function InlineFreeImage({
 
           {/* 🗑 삭제 */}
           <button
-            onClick={() => { if (window.confirm('이 사진을 삭제할까요?')) onDelete(); }}
+            onClick={handleRequestDelete}
             style={btnIcon('#dc2626')}
             title="삭제"
           >🗑</button>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div
+          data-inline-confirm
+          role="presentation"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.target === e.currentTarget) setShowDeleteConfirm(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            backgroundColor: 'rgba(15,23,42,0.32)',
+            zIndex: 2147483647,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="사진 삭제 확인"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(420px, calc(100vw - 32px))',
+              backgroundColor: '#fff',
+              borderRadius: 20,
+              boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
+              border: '1px solid rgba(226,221,212,0.95)',
+              padding: '24px 24px 20px',
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#2F2A26', marginBottom: 10 }}>
+              사진 삭제
+            </div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: '#4b5563', marginBottom: 20 }}>
+              이 사진을 삭제할까요?<br />삭제 후에는 되돌릴 수 없습니다.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{
+                  border: 'none',
+                  backgroundColor: '#dbeafe',
+                  color: '#1d4ed8',
+                  borderRadius: 999,
+                  padding: '10px 18px',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >취소</button>
+              <button
+                onClick={handleConfirmDelete}
+                style={{
+                  border: 'none',
+                  backgroundColor: '#2563eb',
+                  color: '#fff',
+                  borderRadius: 999,
+                  padding: '10px 18px',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 20px rgba(37,99,235,0.22)',
+                }}
+              >확인</button>
+            </div>
+          </div>
         </div>
       )}
 

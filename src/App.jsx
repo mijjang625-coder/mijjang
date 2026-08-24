@@ -3251,7 +3251,7 @@ export default function App() {
                     imageOverrides={imageOverrides[currentPage] || {}}
                     onImageOverrideChange={(imageId, partial) => updateImageOverride(currentPage, imageId, partial)}
                     freeImages={freeImages[currentPage] || []}
-                    onAddFreeImage={(src) => addFreeImage(currentPage, src)}
+                    onAddFreeImage={(src, positionHint) => addFreeImage(currentPage, src, positionHint)}
                     onAddFreeImageToSlot={(slot, src) => addFreeImageToSlot(currentPage, slot, src)}
                     onUpdateFreeImage={(id, partial) => updateFreeImage(currentPage, id, partial)}
                     onDragStartFreeImage={(id) => onDragStartFreeImage(currentPage, id)}
