@@ -564,30 +564,40 @@ function extractEditableTextLayers(pageNode) {
       const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
 
       const { canvas: textCanvas, pad } = createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight });
-      const layerLeft = Math.round(rect.left - pageRect.left) - pad;
-      const layerTop = Math.round(rect.top - pageRect.top) - pad;
+      const textLeft = Math.round(rect.left - pageRect.left);
+      const textTop = Math.round(rect.top - pageRect.top);
+      const textWidth = Math.max(1, Math.round(rect.width));
+      const textHeight = Math.max(1, Math.round(rect.height));
+      const textRight = textLeft + textWidth;
+      const textBottom = textTop + textHeight;
+      const layerLeft = textLeft - pad;
+      const layerTop = textTop - pad;
 
       return {
         order: idx,
         zIndex,
         layer: {
-          name: `Text ${String(idx + 1).padStart(2, '0')}`,
+          name: el.getAttribute('data-editable-id') || `Text ${String(idx + 1).padStart(2, '0')}`,
           left: layerLeft,
           top: layerTop,
           ...(textCanvas ? { canvas: textCanvas } : {}),
           text: {
             text: rawText,
+            left: textLeft,
+            top: textTop,
+            right: textRight,
+            bottom: textBottom,
             transform: [
               1, 0, 0, 1,
               getPsdTextAnchorX(
                 {
-                  left: rect.left - pageRect.left,
-                  right: rect.right - pageRect.left,
+                  left: textLeft,
+                  right: textRight,
                   width: rect.width,
                 },
                 cs.textAlign,
               ),
-              Math.round(rect.top - pageRect.top),
+              textTop,
             ],
             style: {
               font: { name: toPsdFontName(cs.fontFamily, fontWeight) },
@@ -901,7 +911,10 @@ export async function downloadAllAsSeparatePsds(pages, productName = 'product', 
         ],
       };
 
-      const psdBytes = writePsdUint8Array(psd, { invalidateTextLayers: true });
+      // 새 PSD를 처음부터 생성하는 경우 invalidateTextLayers 옵션은 불필요하고,
+      // 일부 Photoshop 환경에서는 텍스트 추가정보가 덜 기록되어 레이어 패널이
+      // 비정상적으로 보일 수 있어 기본 쓰기 경로를 사용한다.
+      const psdBytes = writePsdUint8Array(psd);
       const blob = new Blob([psdBytes], { type: 'image/vnd.adobe.photoshop' });
       const url = URL.createObjectURL(blob);
       triggerDownload(url, `${productName}-${key}.psd`);
