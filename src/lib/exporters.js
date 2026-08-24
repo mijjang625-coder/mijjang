@@ -496,11 +496,57 @@ function createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight }) {
   return { canvas, pad };
 }
 
+function canvasToImageData(canvas) {
+  if (!canvas) return null;
+  try {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch (err) {
+    console.warn('[PSD] canvas → imageData 변환 실패:', err);
+    return null;
+  }
+}
+
+function toPsdUnitsBounds(left, top, right, bottom) {
+  return {
+    top: { units: 'Pixels', value: Math.round(top) },
+    left: { units: 'Pixels', value: Math.round(left) },
+    right: { units: 'Pixels', value: Math.round(right) },
+    bottom: { units: 'Pixels', value: Math.round(bottom) },
+  };
+}
+
+async function validateWrittenPsd(docKey, psdBytes, expected = {}) {
+  try {
+    const { readPsd } = await getAgPsd();
+    const buffer = psdBytes.buffer.slice(psdBytes.byteOffset, psdBytes.byteOffset + psdBytes.byteLength);
+    const parsed = readPsd(buffer, { useImageData: true });
+    const parsedChildren = Array.isArray(parsed?.children) ? parsed.children : [];
+    const parsedTextLayers = parsedChildren.filter((layer) => !!layer?.text);
+
+    console.info(`[PSD] ${docKey} 구조 검증`, {
+      expectedLayerCount: expected.expectedLayerCount,
+      parsedLayerCount: parsedChildren.length,
+      expectedTextLayerCount: expected.expectedTextLayerCount,
+      parsedTextLayerCount: parsedTextLayers.length,
+      layerNames: parsedChildren.map((layer) => layer?.name || '(unnamed)'),
+    });
+
+    return {
+      parsedLayerCount: parsedChildren.length,
+      parsedTextLayerCount: parsedTextLayers.length,
+    };
+  } catch (err) {
+    console.warn(`[PSD] ${docKey} 구조 검증 실패:`, err);
+    return null;
+  }
+}
+
 function extractEditableTextLayers(pageNode) {
   if (!pageNode) return [];
   const pageRect = pageNode.getBoundingClientRect();
 
-  // nested data-editable 중 가장 바깥(top-level)만 사용해 좌표 기준을 안정화
   const editableEls = Array.from(pageNode.querySelectorAll('[data-editable="true"]'))
     .filter((el) => !el.parentElement?.closest?.('[data-editable="true"]'));
 
@@ -523,52 +569,62 @@ function extractEditableTextLayers(pageNode) {
       const rect = source.getBoundingClientRect();
       if (rect.width < 8 || rect.height < 8) return null;
 
-      // 동일 위치/동일 텍스트 중복 제거
-      const sig = [
-        Math.round(rect.left - pageRect.left),
-        Math.round(rect.top - pageRect.top),
-        Math.round(rect.width),
-        Math.round(rect.height),
-        rawText,
-      ].join('|');
+      const textLeft = Math.round(rect.left - pageRect.left);
+      const textTop = Math.round(rect.top - pageRect.top);
+      const textWidth = Math.max(1, Math.round(rect.width));
+      const textHeight = Math.max(1, Math.round(rect.height));
+      const textRight = textLeft + textWidth;
+      const textBottom = textTop + textHeight;
+
+      const sig = [textLeft, textTop, textWidth, textHeight, rawText].join('|');
       if (dedupe.has(sig)) return null;
       dedupe.add(sig);
 
       const cs = window.getComputedStyle(source);
       const fontSize = parseFloat(cs.fontSize) || 22;
       const fontWeight = parseFloat(cs.fontWeight) || 400;
+      const lineHeight = parseLineHeight(cs.lineHeight, fontSize);
       const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
 
       const { canvas: textCanvas, pad } = createTextLayerCanvas({ rawText, rect, cs, fontSize, fontWeight });
-      const layerLeft = Math.round(rect.left - pageRect.left) - pad;
-      const layerTop = Math.round(rect.top - pageRect.top) - pad;
+      const layerImageData = canvasToImageData(textCanvas);
+      const layerLeft = textLeft - pad;
+      const layerTop = textTop - pad;
+      const layerWidth = textCanvas?.width || Math.max(1, textWidth + pad * 2);
+      const layerHeight = textCanvas?.height || Math.max(1, textHeight + pad * 2);
+      const layerRight = layerLeft + layerWidth;
+      const layerBottom = layerTop + layerHeight;
+      const layerName = el.getAttribute('data-editable-id') || `Text ${String(idx + 1).padStart(2, '0')}`;
+      const textBounds = toPsdUnitsBounds(textLeft, textTop, textRight, textBottom);
 
       return {
         order: idx,
         zIndex,
         layer: {
-          name: `Text ${String(idx + 1).padStart(2, '0')}`,
+          name: layerName,
           left: layerLeft,
           top: layerTop,
-          ...(textCanvas ? { canvas: textCanvas } : {}),
+          right: layerRight,
+          bottom: layerBottom,
+          ...(layerImageData ? { imageData: layerImageData } : textCanvas ? { canvas: textCanvas } : {}),
           text: {
             text: rawText,
-            transform: [
-              1, 0, 0, 1,
-              getPsdTextAnchorX(
-                {
-                  left: rect.left - pageRect.left,
-                  right: rect.right - pageRect.left,
-                  width: rect.width,
-                },
-                cs.textAlign,
-              ),
-              Math.round(rect.top - pageRect.top),
-            ],
+            left: textLeft,
+            top: textTop,
+            right: textRight,
+            bottom: textBottom,
+            transform: [1, 0, 0, 1, textLeft, textTop],
+            shapeType: 'box',
+            boxBounds: [0, 0, textWidth, textHeight],
+            bounds: textBounds,
+            boundingBox: textBounds,
             style: {
               font: { name: toPsdFontName(cs.fontFamily, fontWeight) },
               fontSize: Math.max(1, Math.round(fontSize * 100) / 100),
+              leading: Math.max(1, Math.round(lineHeight * 100) / 100),
               fillColor: parseCssColorToRgb(cs.color),
+              fillFlag: true,
+              strokeFlag: false,
             },
             paragraphStyle: {
               justification: toPsdJustification(cs.textAlign),
@@ -861,29 +917,43 @@ export async function downloadAllAsSeparatePsds(pages, productName = 'product', 
       const { key, node } = pages[i];
       onProgress?.({ done: i, total: pages.length, label: `${key} PSD 생성 중...` });
 
-      // 배경에는 editable 텍스트를 숨겨 "배경 텍스트 + 텍스트 레이어" 이중 노출 방지
       const backgroundCanvas = await captureNodeCanvas(node, { pixelRatio: 1 }, { hideEditableTexts: true });
+      const backgroundImageData = canvasToImageData(backgroundCanvas);
       const textLayers = extractEditableTextLayers(node);
 
       const psd = {
         width: backgroundCanvas.width,
         height: backgroundCanvas.height,
+        ...(backgroundImageData ? { imageData: backgroundImageData } : {}),
         children: [
           {
             name: `${key} Background`,
-            canvas: backgroundCanvas,
+            left: 0,
+            top: 0,
+            right: backgroundCanvas.width,
+            bottom: backgroundCanvas.height,
+            ...(backgroundImageData ? { imageData: backgroundImageData } : { canvas: backgroundCanvas }),
           },
           ...textLayers,
         ],
       };
 
-      const psdBytes = writePsdUint8Array(psd, { invalidateTextLayers: true });
+      const psdBytes = writePsdUint8Array(psd, {
+        noBackground: true,
+        trimImageData: false,
+        generateThumbnail: false,
+      });
+
+      await validateWrittenPsd(key, psdBytes, {
+        expectedLayerCount: 1 + textLayers.length,
+        expectedTextLayerCount: textLayers.length,
+      });
+
       const blob = new Blob([psdBytes], { type: 'image/vnd.adobe.photoshop' });
       const url = URL.createObjectURL(blob);
       triggerDownload(url, `${productName}-${key}.psd`);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-      // 브라우저 다운로드 차단 방지 대기
       await new Promise((r) => setTimeout(r, 250));
     }
   } finally {
