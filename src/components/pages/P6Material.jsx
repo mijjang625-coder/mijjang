@@ -1,5 +1,5 @@
 import { BRAND } from '../../lib/theme.js';
-import { PageFrame, CheckIcon, Divider } from './Shared.jsx';
+import { PageFrame, Divider } from './Shared.jsx';
 import EditableText from '../EditableText.jsx';
 import EditableImage from '../EditableImage.jsx';
 import ShapeLayer from '../ShapeLayer.jsx';
@@ -170,7 +170,30 @@ export default function P6Material({
         <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(material.safetyPoints || []).slice(0, 3).map((p, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <CheckIcon size={22} />
+              <EditableText
+                {...editPropsFor(`P6.material.safetyPoints.${i}.icon`)}
+                as="span"
+                defaultStyle={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 999,
+                  backgroundColor: '#E98A2B',
+                  color: '#fff',
+                  fontSize: 16,
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  letterSpacing: '-0.02em',
+                  textAlign: 'center',
+                }}
+                toolbarColorMode="both"
+                placeholder={editMode ? '(아이콘)' : ''}
+              >
+                ✓
+              </EditableText>
               <EditableText
                 {...editPropsFor(`P6.material.safetyPoints.${i}`)}
                 as="div"

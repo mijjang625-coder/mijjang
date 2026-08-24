@@ -397,22 +397,46 @@ function parseCssColorToRgb(css = '') {
 }
 
 function toPsdFontName(fontFamily = '', fontWeight = 400) {
-  const rawFirst = String(fontFamily || '').split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') || '';
-  const normalized = rawFirst.toLowerCase();
+  const families = String(fontFamily || '')
+    .split(',')
+    .map((part) => part.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
 
-  // PSD 호환성 우선: NanumSquare는 사용자 환경(Photoshop)에 없는 경우가 많아
-  // 열자마자 경고/깨진 글리프가 발생할 수 있음.
-  // 한글 호환 폰트명으로 안전 매핑.
-  if (normalized.includes('nanumsquare') || normalized.includes('나눔스퀘어')) {
-    return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
-  }
+  const genericFamilies = new Set([
+    'system-ui',
+    '-apple-system',
+    'blinkmacsystemfont',
+    'sans-serif',
+    'serif',
+    'cursive',
+    'monospace',
+    'ui-sans-serif',
+    'ui-serif',
+    'ui-monospace',
+  ]);
+
+  const firstSpecific = families.find((family) => !genericFamilies.has(family.toLowerCase())) || '';
+  const normalized = firstSpecific.toLowerCase();
+
+  // PSD 쪽도 웹 미리보기와 최대한 같은 폰트로 열리게 우선순위를 뒤집음.
+  // 사용자의 Photoshop 환경에 해당 폰트가 설치되어 있으면 레이아웃 차이가 크게 줄어든다.
+  if (normalized.includes('pretendard')) return 'Pretendard';
+  if (normalized.includes('nanum gothic') || normalized.includes('나눔고딕')) return 'NanumGothic';
+  if (normalized.includes('nanumsquare') || normalized.includes('나눔스퀘어')) return 'NanumSquare';
+  if (normalized.includes('noto sans kr')) return 'NotoSansKR';
+  if (normalized === 'jua') return 'Jua';
+  if (normalized === 'gaegu') return 'Gaegu';
+  if (normalized.includes('gowun dodum')) return 'GowunDodum';
 
   if (normalized.includes('malgun')) return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
   if (normalized.includes('apple sd gothic')) return 'AppleSDGothicNeo-Regular';
   if (normalized.includes('arial')) return 'ArialMT';
   if (normalized.includes('helvetica')) return 'Helvetica';
 
-  // 알 수 없는 폰트는 한글 지원이 비교적 안정적인 MalgunGothic으로 폴백
+  // 알려진 무료 한글폰트가 아니더라도 generic 이전의 실제 family 이름을 최대한 유지.
+  if (firstSpecific) return firstSpecific;
+
+  // 정말 알 수 없는 경우만 한글 호환 폴백 사용.
   return 'MalgunGothic';
 }
 
