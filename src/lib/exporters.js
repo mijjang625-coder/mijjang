@@ -1148,7 +1148,7 @@ export async function downloadAllAsSeparatePhotoshopRebuilds(pages, productName 
       'Photoshop 복원 패키지 사용법',
       '',
       '1) 다운로드된 *-photoshop-bg.png 와 *-photoshop-rebuild.jsx 를 같은 폴더에 둡니다.',
-      '2) Photoshop에서 File > Scripts > Browse... 로 .jsx 파일을 실행합니다.',
+      '2) Photoshop에서 File > Scripts > Browse... 로 .jsx 파일을 실행합니다. 만약 브라우저가 .txt로 받으면 확장자를 .jsx로 바꿔 실행하세요.',
       '3) 스크립트가 해당 페이지의 배경 PNG를 열고 텍스트 레이어를 다시 생성합니다.',
       '4) 저장 위치를 고르면 편집 가능한 PSD로 저장됩니다.',
       '',
@@ -1176,7 +1176,7 @@ export async function downloadAllAsSeparatePhotoshopRebuilds(pages, productName 
         height: backgroundCanvas.height,
         textLayers,
       });
-      const scriptBlob = new Blob([script], { type: 'text/plain;charset=utf-8' });
+      const scriptBlob = new Blob([`\uFEFF${script}`], { type: 'application/octet-stream' });
       const scriptUrl = URL.createObjectURL(scriptBlob);
 
       triggerDownload(backgroundUrl, `${productName}-${key}-photoshop-bg.png`);
