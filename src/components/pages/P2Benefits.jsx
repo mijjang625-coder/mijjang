@@ -279,14 +279,36 @@ export default function P2Benefits({
                 style={{
                   marginBottom: isLast ? 0 : 60,
                   paddingBottom: isLast ? 0 : 40,
-                  borderBottom: isLast ? 'none' : `1px solid ${BRAND.colors.neutral}`,
+                  borderBottom: 'none',
                 }}
               >
                 <div style={{ marginBottom: 22, pointerEvents: editMode ? 'auto' : 'inherit' }}>
-                  {/* 🆕 POINT 01/02/03 알약 라벨 제거 (사용자 요청 2026-04-28)
-                        — PNG 캡처 시 알약 박스 안의 글씨가 박스 아래로 밀려
-                          절반만 보이는 현상의 근본 해결.
-                        — 데이터 인덱스(i)는 그대로 사용되므로 AI/저장 호환성 유지. */}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+                    <EditableText
+                      {...editPropsFor(`P2.sections.${i}.pointLabel`)}
+                      as="div"
+                      defaultStyle={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 172,
+                        padding: '10px 26px',
+                        borderRadius: 999,
+                        backgroundColor: '#F5E8D8',
+                        color: '#8A5A2B',
+                        fontSize: 24,
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        whiteSpace: 'nowrap',
+                        textAlign: 'center',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      {`POINT ${i + 1}`}
+                    </EditableText>
+                  </div>
                   <EditableText
                     {...editPropsFor(`P2.sections.${i}.title`)}
                     as="h3"
@@ -298,6 +320,7 @@ export default function P2Benefits({
                       lineHeight: 1.3,
                       letterSpacing: '-0.03em',
                       whiteSpace: 'normal',
+                      textAlign: 'center',
                     }}
                   >
                     {normalizedTitle}
@@ -322,6 +345,7 @@ export default function P2Benefits({
                         width: '100%',
                         overflow: 'hidden',
                         minHeight: '3em',
+                        textAlign: 'center',
                       }}
                     >
                       {descText}
