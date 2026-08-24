@@ -98,6 +98,7 @@ export default function EditableText({
   enableResizeHandle = false,
   minResizeHeight = 0,
   lockDragWhenResizeHandle = true,
+  toolbarColorMode = 'text',
 }) {
   const ref = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -563,7 +564,7 @@ export default function EditableText({
     // 미니 툴바(셀 전체 스타일)에서 조정한 속성은
     // 기존 인라인 span style의 동일 속성을 제거해 실제 화면에 즉시 반영되게 함.
     const styleKeys = Object.keys(partial || {}).filter((k) => (
-      ['fontSize', 'fontWeight', 'color', 'fontFamily', 'textAlign', 'lineHeight', 'letterSpacing'].includes(k)
+      ['fontSize', 'fontWeight', 'color', 'backgroundColor', 'fontFamily', 'textAlign', 'lineHeight', 'letterSpacing'].includes(k)
     ));
     const cleanedHtml = stripInlineStylePropsFromHtml(mergedHtml, styleKeys);
 
@@ -848,6 +849,7 @@ export default function EditableText({
           pos={toolbarPos}
           currentStyle={normalizedStyle}
           isHidden={isHidden}
+          toolbarColorMode={toolbarColorMode}
           onApply={applyStyle}
           onReset={resetStyle}
           onHide={onHide}
@@ -1047,8 +1049,10 @@ function readSelectionLineHeight(sel, rootEl = null, fallbackLineHeight = 1.45) 
 }
 
 // ─────────── 셀 전체 툴바 (기존) ───────────
-function MiniToolbar({ pos, currentStyle, isHidden, onApply, onReset, onHide, onClose }) {
+function MiniToolbar({ pos, currentStyle, isHidden, toolbarColorMode = 'text', onApply, onReset, onHide, onClose }) {
   const currentFontSize = parseInt(currentStyle?.fontSize, 10) || 16;
+  const showTextColor = toolbarColorMode === 'text' || toolbarColorMode === 'both';
+  const showBackgroundColor = toolbarColorMode === 'background' || toolbarColorMode === 'both';
 
   return (
     <div
@@ -1128,21 +1132,41 @@ function MiniToolbar({ pos, currentStyle, isHidden, onApply, onReset, onHide, on
 
 
       {/* 색상 */}
-      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} title="글자 색">
-        <input
-          type="color"
-          defaultValue={currentStyle?.color || '#2F2A26'}
-          onChange={(e) => onApply({ color: e.target.value })}
-          style={{
-            width: 26,
-            height: 26,
-            border: 'none',
-            padding: 0,
-            background: 'transparent',
-            cursor: 'pointer',
-          }}
-        />
-      </label>
+      {showBackgroundColor && (
+        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} title="캡슐 색">
+          <input
+            type="color"
+            defaultValue={currentStyle?.backgroundColor || '#F5E8D8'}
+            onChange={(e) => onApply({ backgroundColor: e.target.value })}
+            style={{
+              width: 26,
+              height: 26,
+              border: '1px solid rgba(255,255,255,0.28)',
+              borderRadius: 4,
+              padding: 0,
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          />
+        </label>
+      )}
+      {showTextColor && (
+        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} title="글자 색">
+          <input
+            type="color"
+            defaultValue={currentStyle?.color || '#2F2A26'}
+            onChange={(e) => onApply({ color: e.target.value })}
+            style={{
+              width: 26,
+              height: 26,
+              border: 'none',
+              padding: 0,
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          />
+        </label>
+      )}
 
       {/* 정렬 */}
       <button style={toolbarBtnStyle} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onApply({ textAlign: 'left' }); }} title="왼쪽 정렬">

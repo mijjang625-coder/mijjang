@@ -287,6 +287,7 @@ export default function P2Benefits({
                     <EditableText
                       {...editPropsFor(`P2.sections.${i}.pointLabel`)}
                       as="div"
+                      toolbarColorMode="both"
                       defaultStyle={{
                         display: 'inline-flex',
                         alignItems: 'center',
