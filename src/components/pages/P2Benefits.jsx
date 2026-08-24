@@ -273,11 +273,15 @@ export default function P2Benefits({
           const isLast = i === sections.length - 1 || i === 2;
           const normalizedTitle = normalizeMultilineText(s.title);
           const descText = normalizeParagraphLines(s.desc ?? '');
+          const slotBeforeKey = i === 0 ? 'top' : i === 1 ? 'between-0-1' : 'between-1-2';
+          const hasInlineBefore = (slotImages[slotBeforeKey] || []).length > 0;
+          const extraTopSpacing = hasInlineBefore ? 92 : 0;
           return (
             <div key={i}>
               <div
                 style={{
                   marginBottom: isLast ? 0 : 60,
+                  paddingTop: extraTopSpacing,
                   paddingBottom: isLast ? 0 : 40,
                   borderBottom: 'none',
                 }}
