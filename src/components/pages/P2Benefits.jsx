@@ -283,7 +283,7 @@ export default function P2Benefits({
                 }}
               >
                 <div style={{ marginBottom: 22, pointerEvents: editMode ? 'auto' : 'inherit' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 56 }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 112 }}>
 
                     <EditableText
                       {...editPropsFor(`P2.sections.${i}.pointLabel`)}
