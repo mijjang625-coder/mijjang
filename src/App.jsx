@@ -13,7 +13,7 @@ import {
 import {
   downloadAsImage, downloadAsHtml,
   downloadAllAsSinglePng, downloadAllAsSeparatePngs,
-  downloadAllAsSeparatePsds,
+  downloadAllAsSeparatePhotoshopRebuilds,
   downloadAllAsHtml,
   warmExportAssets,
 } from './lib/exporters.js';
@@ -2275,13 +2275,27 @@ export default function App() {
   const handleDownloadPsd = async (pageNumber) => {
     try {
       await flushPendingEditsForExport();
-      const node = pageRefs[pageNumber].current;
-      if (!node) throw new Error('PSD로 내보낼 페이지를 찾지 못했습니다.');
-      await downloadAllAsSeparatePsds(
+      setPsdExportMounted(true);
+      setExportProgress({ done: 0, total: 1, label: '포토샵 복원 패키지 준비 중...' });
+
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      await new Promise((r) => setTimeout(r, 250));
+
+      const node = psdExportPageRefs[pageNumber].current;
+      if (!node) throw new Error('포토샵 복원용 페이지를 찾지 못했습니다.');
+
+      await downloadAllAsSeparatePhotoshopRebuilds(
         [{ key: pageNumber, node }],
         (brief.productName || 'product').replace(/[^\w가-힣]+/g, '_').slice(0, 40) || 'product',
+        setExportProgress,
       );
-    } catch (err) { setError(err.message); }
+      setTimeout(() => setExportProgress(null), 1500);
+    } catch (err) {
+      setError(err.message);
+      setExportProgress(null);
+    } finally {
+      setPsdExportMounted(false);
+    }
   };
 
   // ───── 전체 내보내기 (P1~P10) ─────
@@ -2350,9 +2364,8 @@ export default function App() {
       await flushPendingEditsForExport();
       setShowExportPanel(true);
       setPsdExportMounted(true);
-      setExportProgress({ done: 0, total: 1, label: 'PSD 레이어 준비 중...' });
+      setExportProgress({ done: 0, total: 1, label: '포토샵 복원 패키지 준비 중...' });
 
-      // editMode=true 렌더를 포함한 PSD 전용 숨김 영역 마운트 대기
       await new Promise((r) => requestAnimationFrame(() => r()));
       await new Promise((r) => setTimeout(r, 250));
 
@@ -2364,7 +2377,7 @@ export default function App() {
         return;
       }
 
-      await downloadAllAsSeparatePsds(list, productSlug, setExportProgress);
+      await downloadAllAsSeparatePhotoshopRebuilds(list, productSlug, setExportProgress);
       setTimeout(() => setExportProgress(null), 1500);
     } catch (err) {
       setError(err.message);
@@ -2625,7 +2638,7 @@ export default function App() {
                     className="w-full text-left px-3 py-2 rounded text-[12px] font-bold hover:bg-slate-100 disabled:opacity-50 flex items-center gap-2"
                     style={{ color: '#2F2A26' }}
                   >
-                    🧾 <div><div>페이지별 PSD (텍스트 레이어)</div><div className="text-[10px] font-normal text-slate-500">P1.psd ~ P10.psd (수정용)</div></div>
+                    🧰 <div><div>포토샵 복원 패키지</div><div className="text-[10px] font-normal text-slate-500">페이지별 PNG + JSX 스크립트</div></div>
                   </button>
                   <button
                     onClick={() => { handleExportAllHtml(); }}
@@ -2737,9 +2750,9 @@ export default function App() {
                   onClick={() => handleDownloadPsd(currentPage)}
                   className="px-3 py-2 rounded-lg text-xs font-bold border"
                   style={{ borderColor: '#2F2A26', color: '#2F2A26', backgroundColor: '#fff' }}
-                  title={`${currentPage} 페이지를 PSD(텍스트 레이어)로 다운로드`}
+                  title={`${currentPage} 페이지를 포토샵 복원 패키지(PNG+JSX)로 다운로드`}
                 >
-                  🧾 PSD
+                  🧰 PS 복원
                 </button>
               </>
             )}
