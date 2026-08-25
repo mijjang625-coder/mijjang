@@ -396,24 +396,57 @@ function parseCssColorToRgb(css = '') {
   return { r: 47, g: 42, b: 38 };
 }
 
-function toPsdFontName(fontFamily = '', fontWeight = 400) {
-  const rawFirst = String(fontFamily || '').split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') || '';
-  const normalized = rawFirst.toLowerCase();
+function getRawFontFamilyList(fontFamily = '') {
+  return String(fontFamily || '')
+    .split(',')
+    .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+}
 
-  // PSD 호환성 우선: NanumSquare는 사용자 환경(Photoshop)에 없는 경우가 많아
-  // 열자마자 경고/깨진 글리프가 발생할 수 있음.
-  // 한글 호환 폰트명으로 안전 매핑.
-  if (normalized.includes('nanumsquare') || normalized.includes('나눔스퀘어')) {
-    return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
+function buildPhotoshopFontCandidates(fontFamily = '', fontWeight = 400) {
+  const rawFamilies = getRawFontFamilyList(fontFamily);
+  const primary = rawFamilies[0] || '';
+  const normalized = primary.toLowerCase();
+  const isBold = Number(fontWeight) >= 700;
+  const candidates = [];
+  const push = (...names) => {
+    names.filter(Boolean).forEach((name) => {
+      const clean = String(name).trim();
+      if (clean && !candidates.includes(clean)) candidates.push(clean);
+    });
+  };
+
+  // 현재 UI 폰트 프리셋 순서 기준 2번째 폰트(나눔고딕)를 우선 정확히 맞추도록
+  // 포토샵/OS에서 자주 보이는 PostScript 이름 후보를 먼저 넣는다.
+  if (normalized.includes('pretendard')) {
+    push(isBold ? 'Pretendard-Bold' : 'Pretendard-Regular', 'Pretendard', 'Pretendard Variable');
+  } else if (normalized.includes('nanum gothic') || normalized.includes('나눔고딕')) {
+    push(isBold ? 'NanumGothicBold' : 'NanumGothic', 'NanumGothic', 'Nanum Gothic', '나눔고딕');
+  } else if (normalized.includes('noto sans kr')) {
+    push(isBold ? 'NotoSansKR-Bold' : 'NotoSansKR-Regular', 'Noto Sans KR', 'NotoSansKR');
+  } else if (normalized.includes('jua')) {
+    push('Jua-Regular', 'Jua');
+  } else if (normalized.includes('gaegu')) {
+    push(isBold ? 'Gaegu-Bold' : 'Gaegu-Regular', 'Gaegu');
+  } else if (normalized.includes('gowun dodum')) {
+    push('GowunDodum-Regular', 'Gowun Dodum');
+  } else if (normalized.includes('nanumsquare') || normalized.includes('나눔스퀘어')) {
+    push(isBold ? 'NanumSquareOTFBold' : 'NanumSquareOTF', 'NanumSquare', '나눔스퀘어');
   }
 
-  if (normalized.includes('malgun')) return Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic';
-  if (normalized.includes('apple sd gothic')) return 'AppleSDGothicNeo-Regular';
-  if (normalized.includes('arial')) return 'ArialMT';
-  if (normalized.includes('helvetica')) return 'Helvetica';
+  push(...rawFamilies);
 
-  // 알 수 없는 폰트는 한글 지원이 비교적 안정적인 MalgunGothic으로 폴백
-  return 'MalgunGothic';
+  if (normalized.includes('malgun')) push(isBold ? 'MalgunGothicBold' : 'MalgunGothic');
+  if (normalized.includes('apple sd gothic')) push('AppleSDGothicNeo-Regular');
+  if (normalized.includes('arial')) push('ArialMT');
+  if (normalized.includes('helvetica')) push('Helvetica');
+
+  push(isBold ? 'MalgunGothicBold' : 'MalgunGothic', 'ArialMT');
+  return candidates;
+}
+
+function toPsdFontName(fontFamily = '', fontWeight = 400) {
+  return buildPhotoshopFontCandidates(fontFamily, fontWeight)[0] || 'MalgunGothic';
 }
 
 function toPsdJustification(textAlign = '') {
@@ -605,12 +638,7 @@ function extractEditableTextDescriptors(pageNode) {
       const fontWeight = parseFloat(cs.fontWeight) || 400;
       const lineHeight = parseLineHeight(cs.lineHeight, fontSize);
       const zIndex = Number.isFinite(Number(cs.zIndex)) ? Number(cs.zIndex) : 0;
-      const primaryFont = toPsdFontName(cs.fontFamily, fontWeight);
-      const fontCandidates = Array.from(new Set([
-        primaryFont,
-        Number(fontWeight) >= 700 ? 'MalgunGothicBold' : 'MalgunGothic',
-        'ArialMT',
-      ].filter(Boolean)));
+      const fontCandidates = buildPhotoshopFontCandidates(cs.fontFamily, fontWeight);
 
       return {
         order: idx,
